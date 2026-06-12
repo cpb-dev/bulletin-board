@@ -1,0 +1,17 @@
+{
+  "$comment": "Template for the iOS/Android wrappers — see docs/MOBILE.md. Copy this file to the repo root as capacitor.config.json after running the Capacitor setup, and replace the server.url with your deployed Vercel URL.",
+  "appId": "com.ourlittleboard.app",
+  "appName": "Our Little Board",
+  "webDir": "mobile/www",
+  "server": {
+    "url": "https://YOUR-APP.vercel.app",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#2e2017"
+  },
+  "android": {
+    "backgroundColor": "#2e2017"
+  }
+}
