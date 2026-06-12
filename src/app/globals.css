@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+:root {
+  --ui-bg: #2e2017;
+  --ui-panel: #473526;
+  --ui-accent: #e8a04c;
+  --ui-text: #ffeed8;
+}
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--font-ui), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+}
+
+.hand {
+  font-family: var(--font-hand), cursive;
+}
+
+/* Soft cartoon-ish buttons used across the overlay UI */
+.cute-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background: var(--ui-accent);
+  color: var(--ui-bg);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cute-button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+.cute-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+.cute-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+.cute-button.ghost {
+  background: color-mix(in srgb, var(--ui-panel) 82%, white 18%);
+  color: var(--ui-text);
+}
+.cute-button.danger {
+  background: #e2574c;
+  color: #fff5f0;
+}
+
+.cute-panel {
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.cute-input {
+  width: 100%;
+  border: 2px solid color-mix(in srgb, var(--ui-text) 25%, transparent);
+  border-radius: 0.9rem;
+  padding: 0.65rem 0.9rem;
+  background: color-mix(in srgb, var(--ui-bg) 55%, transparent);
+  color: var(--ui-text);
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+}
+.cute-input:focus {
+  border-color: var(--ui-accent);
+}
+.cute-input::placeholder {
+  color: color-mix(in srgb, var(--ui-text) 45%, transparent);
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.pop-in {
+  animation: pop-in 220ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.float-y {
+  animation: float-y 3.2s ease-in-out infinite;
+}
