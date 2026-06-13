@@ -49,6 +49,18 @@ test("the notifications service worker is served", async ({ request }) => {
   expect(await res.text()).toContain("showNotification");
 });
 
+test("the notify API route rejects unauthenticated calls", async ({
+  request,
+}) => {
+  // With no secret header it must never send anything (401 if configured,
+  // 503 if not) — but importantly, never 200.
+  const res = await request.post("/api/notify", {
+    data: { type: "INSERT", table: "items", record: {} },
+  });
+  expect(res.status()).not.toBe(200);
+  expect([401, 503]).toContain(res.status());
+});
+
 test("PWA manifest is served with icons", async ({ request }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBeTruthy();
