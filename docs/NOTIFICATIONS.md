@@ -99,10 +99,24 @@ one phone — the other should buzz.
   `0003_created_by_defaults.sql`. Until it's applied, new rows have no
   author, so the route can't tell which devices to skip. After it,
   authors are excluded automatically (and notes get their stamp).
-- **iPhone gets nothing while Android works** — on iOS, web push only
-  works from the **installed** PWA: Share → Add to Home Screen, open it
-  from the new icon, then tap 🔔 (the bell shows a "set up" hint in
-  Safari to remind you). A subscription created in Safari itself won't
-  receive anything.
+- **iPhone gets nothing while Android works** — work through these in
+  order; it's almost always one of them:
+  1. **You're testing with your own account.** The author's own devices
+     are skipped on purpose, so posting from the same account your
+     iPhone is logged into will *never* notify that iPhone. Post from the
+     **other person's** account (or a second account) to test it.
+  2. **The iPhone never actually subscribed.** Open Supabase → Table
+     Editor → `push_subscriptions`. There should be a row whose
+     `endpoint` contains `apple` (`web.push.apple.com`). If it's missing,
+     open the app **from the home-screen icon** (not Safari) and tap 🔔
+     again — iOS only registers push for the installed PWA.
+  3. **Apple is rejecting the push.** Open the webhook's delivery log
+     (Supabase → Database → Webhooks → your hook) or Vercel → Functions
+     logs. The `/api/notify` response now lists each device with its
+     `host` and, on failure, the `statusCode`/`body` Apple returned. A
+     `403`/`400` from `web.push.apple.com` almost always means the
+     `VAPID_SUBJECT` env var is wrong — it must be `mailto:you@example.com`
+     (a bare email is rejected by Apple; the route now auto-prefixes
+     `mailto:` but re-deploy after fixing the var).
 - The feature is fully optional — without these keys the 🔔 button simply
   stays hidden and everything else works.
