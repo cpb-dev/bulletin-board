@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { BoardTheme } from "@/lib/themes";
 import { BOARD } from "@/lib/board-geometry";
@@ -27,8 +27,7 @@ export function BeachScene({ theme }: { theme: BoardTheme }) {
 
   return (
     <group>
-      <color attach="background" args={["#86d2f0"]} />
-      <fog attach="fog" args={["#bfe9f7", 22, 60]} />
+      <SkyBackground />
 
       <ambientLight intensity={1.15} color="#fff6e6" />
       <directionalLight
@@ -44,7 +43,6 @@ export function BeachScene({ theme }: { theme: BoardTheme }) {
       />
       <hemisphereLight args={["#aee3ff", "#e8d6a8", 0.6]} />
 
-      <SkyDome />
       <Clouds />
       {/* Sun */}
       <mesh position={[3.6, 5.0, SEA_Z + 1]}>
@@ -65,6 +63,26 @@ export function BeachScene({ theme }: { theme: BoardTheme }) {
       <Gulls />
     </group>
   );
+}
+
+/**
+ * Sets the scene's clear colour to daytime blue directly (a nested
+ * `<color attach="background">` would attach to the group, not the
+ * scene, leaving it black) and restores it on unmount.
+ */
+function SkyBackground() {
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const prevBg = scene.background;
+    const prevFog = scene.fog;
+    scene.background = new THREE.Color("#86d2f0");
+    scene.fog = new THREE.Fog("#cdeeff", 30, 90);
+    return () => {
+      scene.background = prevBg;
+      scene.fog = prevFog;
+    };
+  }, [scene]);
+  return <SkyDome />;
 }
 
 /** A big inverted sphere with a vertical blue gradient — the daytime sky. */
@@ -238,26 +256,86 @@ function FoamLine({ phase, speed }: { phase: number; speed: number }) {
   );
 }
 
-/** Wooden easel the board rests on. */
+/** A wooden strut (cylinder) oriented to run between two world points. */
+function Strut({
+  a,
+  b,
+  radius = 0.06,
+  color,
+  gradient,
+}: {
+  a: [number, number, number];
+  b: [number, number, number];
+  radius?: number;
+  color: string;
+  gradient: THREE.Texture;
+}) {
+  const { position, quaternion, length } = useMemo(() => {
+    const va = new THREE.Vector3(...a);
+    const vb = new THREE.Vector3(...b);
+    const dir = new THREE.Vector3().subVectors(vb, va);
+    const len = dir.length();
+    const mid = new THREE.Vector3().addVectors(va, vb).multiplyScalar(0.5);
+    const q = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.clone().normalize()
+    );
+    return { position: mid, quaternion: q, length: len };
+  }, [a, b]);
+
+  return (
+    <mesh position={position} quaternion={quaternion} castShadow>
+      <cylinderGeometry args={[radius, radius, length, 8]} />
+      <meshToonMaterial color={color} gradientMap={gradient} />
+    </mesh>
+  );
+}
+
+/**
+ * Wooden easel that holds the board from BEHIND, so its legs never
+ * cross the board's face. Only a thin tray lip sits at the very bottom
+ * edge to "hold" the board.
+ */
 function Easel({ gradient }: { gradient: THREE.Texture }) {
   const wood = "#b07a4a";
-  const bottom = BOARD.centerY - BOARD.height / 2;
+  const z = BOARD.wallZ; // board cork sits just in front of this
+  const top = BOARD.centerY - BOARD.height / 2 + 0.15; // near board's lower edge
   return (
-    <group position={[0, 0, BOARD.wallZ + 0.05]}>
-      <mesh position={[-1.5, bottom / 2, 0.35]} rotation={[0.32, 0, 0.12]} castShadow>
-        <cylinderGeometry args={[0.06, 0.07, 1.6, 8]} />
-        <meshToonMaterial color={wood} gradientMap={gradient} />
-      </mesh>
-      <mesh position={[1.5, bottom / 2, 0.35]} rotation={[0.32, 0, -0.12]} castShadow>
-        <cylinderGeometry args={[0.06, 0.07, 1.6, 8]} />
-        <meshToonMaterial color={wood} gradientMap={gradient} />
-      </mesh>
-      <mesh position={[0, bottom / 2, -0.5]} rotation={[-0.4, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.07, 1.6, 8]} />
-        <meshToonMaterial color="#9c6a3e" gradientMap={gradient} />
-      </mesh>
-      <mesh position={[0, bottom + 0.02, 0.12]} castShadow>
-        <boxGeometry args={[3.2, 0.1, 0.24]} />
+    <group>
+      {/* two front legs, splayed down and back behind the board */}
+      <Strut
+        a={[-1.45, top, z - 0.1]}
+        b={[-1.9, 0, z - 0.95]}
+        color={wood}
+        gradient={gradient}
+      />
+      <Strut
+        a={[1.45, top, z - 0.1]}
+        b={[1.9, 0, z - 0.95]}
+        color={wood}
+        gradient={gradient}
+      />
+      {/* rear prop leg */}
+      <Strut
+        a={[0, top + 0.5, z - 0.2]}
+        b={[0, 0, z - 1.25]}
+        color="#9c6a3e"
+        gradient={gradient}
+      />
+      {/* cross brace between the front legs */}
+      <Strut
+        a={[-1.2, 0.6, z - 0.45]}
+        b={[1.2, 0.6, z - 0.45]}
+        radius={0.045}
+        color="#9c6a3e"
+        gradient={gradient}
+      />
+      {/* thin tray lip at the board's bottom edge, just proud of the cork */}
+      <mesh
+        position={[0, BOARD.centerY - BOARD.height / 2 - 0.02, z + 0.12]}
+        castShadow
+      >
+        <boxGeometry args={[2.8, 0.09, 0.18]} />
         <meshToonMaterial color={wood} gradientMap={gradient} />
       </mesh>
     </group>
@@ -521,34 +599,80 @@ function Gull({
   span: number;
 }) {
   const ref = useRef<THREE.Group>(null);
-  const left = useRef<THREE.Mesh>(null);
-  const right = useRef<THREE.Mesh>(null);
+  const leftWing = useRef<THREE.Group>(null);
+  const rightWing = useRef<THREE.Group>(null);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime * speed + phase;
     if (ref.current) {
       ref.current.position.x = ((((t * 1.4) % span) + span) % span) - span / 2;
       ref.current.position.y = y + Math.sin(t * 2) * 0.25;
+      // gentle banking as it bobs
+      ref.current.rotation.z = Math.sin(t * 2) * 0.12;
     }
-    const flap = Math.sin(state.clock.elapsedTime * 6 + phase) * 0.5;
-    if (left.current) left.current.rotation.z = flap;
-    if (right.current) right.current.rotation.z = -flap;
+    // a raised base pose + flap, so wings sweep through the gull "M" shape
+    const flap = 0.25 + Math.sin(state.clock.elapsedTime * 7 + phase) * 0.6;
+    if (leftWing.current) leftWing.current.rotation.x = flap;
+    if (rightWing.current) rightWing.current.rotation.x = -flap;
   });
 
+  const white = "#fbfbfb";
+  const grey = "#b9c2cb";
+
   return (
-    <group ref={ref} position={[0, y, z]} scale={0.5}>
-      <mesh ref={left} position={[-0.02, 0, 0]}>
-        <boxGeometry args={[0.5, 0.04, 0.16]} />
-        <meshBasicMaterial color="#ffffff" />
+    <group ref={ref} position={[0, y, z]} scale={0.55}>
+      {/* body */}
+      <mesh scale={[1.5, 0.7, 0.7]}>
+        <sphereGeometry args={[0.17, 14, 12]} />
+        <meshToonMaterial color={white} />
       </mesh>
-      <mesh ref={right} position={[0.02, 0, 0]}>
-        <boxGeometry args={[0.5, 0.04, 0.16]} />
-        <meshBasicMaterial color="#f0f0f0" />
+      {/* tail */}
+      <mesh position={[-0.27, 0.02, 0]} rotation={[0, 0, 0.2]}>
+        <coneGeometry args={[0.07, 0.2, 4]} />
+        <meshToonMaterial color={grey} />
       </mesh>
-      <mesh>
-        <sphereGeometry args={[0.07, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" />
+      {/* head */}
+      <mesh position={[0.24, 0.07, 0]}>
+        <sphereGeometry args={[0.09, 12, 12]} />
+        <meshToonMaterial color={white} />
       </mesh>
+      {/* beak */}
+      <mesh position={[0.35, 0.05, 0]} rotation={[0, 0, -Math.PI / 2]}>
+        <coneGeometry args={[0.025, 0.12, 8]} />
+        <meshToonMaterial color="#f5a623" />
+      </mesh>
+      {/* eyes */}
+      {[0.05, -0.05].map((ez, i) => (
+        <mesh key={i} position={[0.28, 0.1, ez]}>
+          <sphereGeometry args={[0.014, 8, 8]} />
+          <meshBasicMaterial color="#222" />
+        </mesh>
+      ))}
+      {/* wings: inner segment up-out, outer wingtip drooped (the gull M) */}
+      <group ref={leftWing} position={[0, 0.04, 0.08]}>
+        <mesh position={[0, 0, 0.18]} scale={[1, 1, 1]}>
+          <boxGeometry args={[0.2, 0.02, 0.34]} />
+          <meshToonMaterial color={white} />
+        </mesh>
+        <group position={[0, 0, 0.35]} rotation={[-0.6, 0, 0]}>
+          <mesh position={[0, 0, 0.12]}>
+            <boxGeometry args={[0.14, 0.02, 0.26]} />
+            <meshToonMaterial color={grey} />
+          </mesh>
+        </group>
+      </group>
+      <group ref={rightWing} position={[0, 0.04, -0.08]}>
+        <mesh position={[0, 0, -0.18]}>
+          <boxGeometry args={[0.2, 0.02, 0.34]} />
+          <meshToonMaterial color={white} />
+        </mesh>
+        <group position={[0, 0, -0.35]} rotation={[0.6, 0, 0]}>
+          <mesh position={[0, 0, -0.12]}>
+            <boxGeometry args={[0.14, 0.02, 0.26]} />
+            <meshToonMaterial color={grey} />
+          </mesh>
+        </group>
+      </group>
     </group>
   );
 }
