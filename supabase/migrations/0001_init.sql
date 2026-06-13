@@ -64,8 +64,12 @@ create trigger items_touch_updated_at
   for each row execute function public.touch_updated_at();
 
 -- ---------- Signup allowlist + auto profile ----------
+-- Two separate triggers are required:
+--   1. BEFORE INSERT — block non-guests (BEFORE so we can cancel the insert)
+--   2. AFTER INSERT  — create profile (AFTER so the auth.users row exists
+--                      for the FK constraint on profiles.id)
 
-create or replace function public.handle_new_user()
+create or replace function public.check_allowed_member()
 returns trigger
 language plpgsql
 security definer set search_path = public
@@ -77,18 +81,33 @@ begin
   ) then
     raise exception 'This board is private — that email is not on the guest list.';
   end if;
+  return new;
+end $$;
 
+create trigger on_auth_user_check_allowed
+  before insert on auth.users
+  for each row execute function public.check_allowed_member();
+
+create or replace function public.create_profile_for_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
   insert into public.profiles (id, display_name)
   values (
     new.id,
-    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), split_part(new.email, '@', 1))
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'display_name', ''),
+      split_part(new.email, '@', 1)
+    )
   );
   return new;
 end $$;
 
 create trigger on_auth_user_created
-  before insert on auth.users
-  for each row execute function public.handle_new_user();
+  after insert on auth.users
+  for each row execute function public.create_profile_for_user();
 
 -- ---------- Row Level Security ----------
 -- Everything is shared between the two members, so policies are
