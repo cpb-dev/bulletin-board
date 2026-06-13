@@ -17,8 +17,16 @@ two of you can ever get in.
   and photos pinned up like polaroids with handwritten captions.
 - **Live for both of you** — when one of you pins something, it pops
   onto the other's board in real time.
+- **Move & resize in edit mode** — a dedicated ✏️ edit mode lets you
+  drag notes around and pull a corner handle to resize them; outside it,
+  panning and zooming never grab a note by accident.
 - **Memories** — "back up" a full board to the memory box forever, start
   a fresh one, revisit old boards in 3D, download keepsake JSON exports.
+- **Lists** — a separate 📝 Lists page for shared checklists (shopping,
+  date ideas, films…); make as many as you like, tick things off
+  together, archive old ones. Kept apart from the board's memories.
+- **Phone notifications** — opt-in 🔔 web-push so the other person gets
+  pinged when you pin a note or add to a list ([docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md)).
 - **Themes** — Cozy Cabin 🪵, Peach Parfait 🍑, Midnight Picnic 🌙 and
   Sage Meadow 🌼. Changing the theme redecorates the whole room for both
   of you instantly.

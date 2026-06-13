@@ -40,6 +40,7 @@ export function BoardExperience({
   const board = useBoardStore((s) => s.board);
   const items = useBoardStore((s) => s.items);
   const view = useBoardStore((s) => s.view);
+  const mode = useBoardStore((s) => s.mode);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -87,10 +88,13 @@ export function BoardExperience({
 
   // Wheel + pinch zoom for the close-up view.
   const pinch = useRef<number | null>(null);
+  // Drag-to-look-around while standing back in the room.
+  const look = useRef<{ x: number; y: number } | null>(null);
+
   function onWheel(e: React.WheelEvent) {
     const s = useBoardStore.getState();
     if (s.view !== "board") return;
-    s.setZoom(s.zoom * (e.deltaY > 0 ? 0.92 : 1.08));
+    s.setZoom(s.zoom * (e.deltaY > 0 ? 0.9 : 1.11));
   }
   function onTouchMove(e: React.TouchEvent) {
     if (e.touches.length !== 2) return;
@@ -103,6 +107,31 @@ export function BoardExperience({
       s.setZoom(s.zoom * (d / pinch.current));
     }
     pinch.current = d;
+  }
+  function onPointerDown(e: React.PointerEvent) {
+    if (useBoardStore.getState().view !== "room") return;
+    look.current = { x: e.clientX, y: e.clientY };
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!look.current) return;
+    const s = useBoardStore.getState();
+    if (s.view !== "room") {
+      look.current = null;
+      return;
+    }
+    const dx = (e.clientX - look.current.x) / window.innerWidth;
+    const dy = (e.clientY - look.current.y) / window.innerHeight;
+    if (Math.abs(dx) > 0.004 || Math.abs(dy) > 0.004)
+      s.setSuppressNextWalkUp(true);
+    s.setRoomLook({
+      yaw: s.roomLook.yaw - dx * 1.4,
+      pitch: s.roomLook.pitch + dy * 1.1,
+    });
+    look.current = { x: e.clientX, y: e.clientY };
+  }
+  function onPointerUp() {
+    look.current = null;
+    pinch.current = null;
   }
 
   const uiVars = {
@@ -118,7 +147,10 @@ export function BoardExperience({
       style={uiVars}
       onWheel={onWheel}
       onTouchMove={onTouchMove}
-      onTouchEnd={() => (pinch.current = null)}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
     >
       <Canvas
         shadows
@@ -146,17 +178,25 @@ export function BoardExperience({
 
       {view === "room" && !loading && !error && (
         <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
-          tap the board to walk up to it ✨
+          drag to look around · tap the board to walk up ✨
         </p>
       )}
       {view === "board" &&
+        mode === "view" &&
         !readOnly &&
         items.length === 0 &&
         !loading && (
           <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
-            the board is feeling a little empty… pin the first note 💌
+            the board is feeling a little empty… tap ➕ to pin the first note 💌
           </p>
         )}
+      {view === "board" && mode === "edit" && (
+        <div className="pointer-events-none absolute top-20 inset-x-0 flex justify-center">
+          <div className="cute-panel px-4 py-2 text-sm pop-in">
+            ✏️ edit mode — drag to move, pull the corner to resize
+          </div>
+        </div>
+      )}
 
       <NoteComposer />
       <PhotoComposer />

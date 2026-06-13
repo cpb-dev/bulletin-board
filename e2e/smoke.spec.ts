@@ -38,6 +38,17 @@ test("memories page is behind the auth wall too", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("lists page is behind the auth wall", async ({ page }) => {
+  await page.goto("/lists");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("the notifications service worker is served", async ({ request }) => {
+  const res = await request.get("/sw.js");
+  expect(res.ok()).toBeTruthy();
+  expect(await res.text()).toContain("showNotification");
+});
+
 test("PWA manifest is served with icons", async ({ request }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBeTruthy();

@@ -33,6 +33,15 @@ Adding things intentionally happens in 2D bottom sheets (typing in 3D
 is misery on a phone); the moment you pin, the camera swings to where
 the new item landed on the board.
 
+**Add vs Edit (v2).** The bottom bar now separates *making* from
+*arranging*. **➕ Add** opens a little Note/Photo chooser; **✏️ Edit**
+flips into edit mode, where notes show a selection outline and a corner
+handle — drag the body to move, pull the handle to resize — with a clear
+**✓ Done** to leave. Outside edit mode, dragging only ever pans the
+board and a tap opens a note to read, so zooming never "grabs" a note by
+accident. Standing back in the room, you can now **drag to look around**
+before walking up.
+
 New items pick their own spot with `suggestPlacement` — it samples
 candidate positions and keeps the one furthest from existing pins, so
 the board fills up organically like a real corkboard instead of

@@ -27,6 +27,8 @@ export interface BoardItem {
   x: number;
   y: number;
   rotation: number;
+  /** Size multiplier set in edit mode (1 = default). */
+  scale: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -38,4 +40,35 @@ export interface BoardExport {
   app: string;
   board: Board;
   items: BoardItem[];
+}
+
+// ---------- Lists (separate to boards) ----------
+
+export interface List {
+  id: string;
+  title: string;
+  status: BoardStatus;
+  created_by: string | null;
+  created_at: string;
+  archived_at: string | null;
+}
+
+export interface ListItem {
+  id: string;
+  list_id: string;
+  content: string;
+  done: boolean;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------- Push notifications ----------
+
+export interface PushSubscriptionRow {
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
 }

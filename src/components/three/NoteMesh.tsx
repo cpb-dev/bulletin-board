@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { getPaper, pinColorFor, type BoardTheme } from "@/lib/themes";
-import { ITEM_Z, normToWorld } from "@/lib/board-geometry";
+import { ITEM_Z, NOTE_BASE, normToWorld } from "@/lib/board-geometry";
 import type { BoardItem } from "@/lib/types";
 import { drawNoteTexture } from "./textures";
 import { Pin } from "./Pin";
-import { useItemDrag } from "./useItemDrag";
+import { SelectionFrame } from "./SelectionFrame";
+import { useItemDrag } from "./useItemInteraction";
 
-export const NOTE_SIZE = 0.52;
+export const NOTE_SIZE = NOTE_BASE;
 
 /** Redraw canvas text once the handwriting webfont arrives. */
 export function useFontsReady(): boolean {
@@ -39,7 +40,7 @@ export function NoteMesh({
 }) {
   const fontsReady = useFontsReady();
   const paper = getPaper(theme, item.paper);
-  const { isDragging, onPointerDown, onPointerMove, onPointerUp } =
+  const { isActive, isSelected, onPointerDown, onPointerMove, onPointerUp } =
     useItemDrag(item);
   const [hovered, setHovered] = useState(false);
 
@@ -52,39 +53,46 @@ export function NoteMesh({
   useEffect(() => () => texture.dispose(), [texture]);
 
   const { x, y } = normToWorld(item.x, item.y);
-  const lift = isDragging ? 0.07 : 0;
-  const scale = isDragging ? 1.07 : hovered ? 1.03 : 1;
+  const size = NOTE_BASE * item.scale;
+  const lift = isActive ? 0.07 : 0;
+  const pop = isActive ? 1.05 : hovered ? 1.02 : 1;
 
   return (
-    <group
-      position={[x, y, ITEM_Z + lift]}
-      rotation={[0, 0, item.rotation]}
-      scale={scale}
-    >
-      {/* soft fake shadow */}
-      <mesh position={[0.02, -0.025, -0.012]}>
-        <planeGeometry args={[NOTE_SIZE, NOTE_SIZE]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.16} />
-      </mesh>
-      <mesh
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-      >
-        <planeGeometry args={[NOTE_SIZE, NOTE_SIZE]} />
-        <meshStandardMaterial
-          map={texture}
-          transparent
-          roughness={0.9}
-          side={THREE.FrontSide}
+    <group position={[x, y, ITEM_Z + lift]} rotation={[0, 0, item.rotation]}>
+      <group scale={pop}>
+        {/* soft fake shadow */}
+        <mesh position={[0.02, -0.025, -0.012]}>
+          <planeGeometry args={[size, size]} />
+          <meshBasicMaterial color="#000000" transparent opacity={0.16} />
+        </mesh>
+        <mesh
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+        >
+          <planeGeometry args={[size, size]} />
+          <meshStandardMaterial
+            map={texture}
+            transparent
+            roughness={0.9}
+            side={THREE.FrontSide}
+          />
+        </mesh>
+        <Pin
+          color={pinColorFor(theme, item.id)}
+          position={[0, size / 2 - 0.05, 0.012]}
         />
-      </mesh>
-      <Pin
-        color={pinColorFor(theme, item.id)}
-        position={[0, NOTE_SIZE / 2 - 0.05, 0.012]}
-      />
+        {isSelected && (
+          <SelectionFrame
+            item={item}
+            halfW={size / 2}
+            halfH={size / 2}
+            color={theme.ui.accent}
+          />
+        )}
+      </group>
     </group>
   );
 }

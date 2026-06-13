@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   BOARD,
   clamp,
+  clampScale,
+  MAX_ITEM_SCALE,
+  MIN_ITEM_SCALE,
   normToWorld,
   photoPlaneSize,
   randomTilt,
   round3,
+  scaleFromHandleDrag,
   suggestPlacement,
   usableHalfExtents,
   worldToNorm,
@@ -130,6 +134,44 @@ describe("wrapLines", () => {
   it("never drops words, even ones wider than the limit", () => {
     const lines = wrapLines("supercalifragilistic", 50, measure);
     expect(lines.join(" ")).toContain("supercalifragilistic");
+  });
+});
+
+describe("clampScale", () => {
+  it("keeps scale within the allowed range", () => {
+    expect(clampScale(0.1)).toBe(MIN_ITEM_SCALE);
+    expect(clampScale(99)).toBe(MAX_ITEM_SCALE);
+    expect(clampScale(1.5)).toBe(1.5);
+  });
+
+  it("falls back to 1 for non-finite input", () => {
+    expect(clampScale(NaN)).toBe(1);
+    expect(clampScale(Infinity)).toBe(1);
+  });
+});
+
+describe("scaleFromHandleDrag", () => {
+  it("grows as the pointer moves away from the centre", () => {
+    // grabbed at dist 1 with scale 1, now at dist 1.5 -> 1.5x
+    expect(scaleFromHandleDrag(1, 1.5, 1)).toBe(1.5);
+  });
+
+  it("shrinks as the pointer moves toward the centre", () => {
+    expect(scaleFromHandleDrag(2, 1, 1)).toBe(0.6); // clamped at min
+  });
+
+  it("respects the scale it was grabbed at", () => {
+    // grabbed at 2x, pointer distance unchanged -> stays 2x
+    expect(scaleFromHandleDrag(1, 1, 2)).toBe(2);
+  });
+
+  it("never exceeds the clamp range", () => {
+    expect(scaleFromHandleDrag(1, 100, 1)).toBe(MAX_ITEM_SCALE);
+    expect(scaleFromHandleDrag(1, 0.001, 1)).toBe(MIN_ITEM_SCALE);
+  });
+
+  it("handles a degenerate grab distance without dividing by zero", () => {
+    expect(scaleFromHandleDrag(0, 5, 1.3)).toBe(clampScale(1.3));
   });
 });
 

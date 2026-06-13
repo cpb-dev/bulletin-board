@@ -13,6 +13,7 @@ function makeItem(overrides: Partial<BoardItem> = {}): BoardItem {
     x: 0,
     y: 0,
     rotation: 0,
+    scale: 1,
     created_by: "user-1",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
@@ -29,9 +30,15 @@ beforeEach(() => {
     view: "room",
     focus: { x: 0, y: 0 },
     zoom: 1,
+    roomLook: { yaw: 0, pitch: 0 },
+    suppressNextWalkUp: false,
+    mode: "view",
+    selectedId: null,
     draggingId: null,
+    resizingId: null,
     editingId: null,
     composer: null,
+    addMenuOpen: false,
     themePickerOpen: false,
   });
 });
@@ -57,14 +64,87 @@ describe("camera state", () => {
 
   it("clamps zoom to sensible bounds", () => {
     useBoardStore.getState().setZoom(100);
-    expect(useBoardStore.getState().zoom).toBeLessThanOrEqual(2.4);
+    expect(useBoardStore.getState().zoom).toBeLessThanOrEqual(3.2);
     useBoardStore.getState().setZoom(0.01);
-    expect(useBoardStore.getState().zoom).toBeGreaterThanOrEqual(0.7);
+    expect(useBoardStore.getState().zoom).toBeGreaterThanOrEqual(0.8);
   });
 
   it("clamps focus so the camera cannot wander off the board", () => {
     useBoardStore.getState().setFocus({ x: 9, y: -9 });
     expect(useBoardStore.getState().focus).toEqual({ x: 1, y: -1 });
+  });
+
+  it("clamps the new wider zoom range", () => {
+    useBoardStore.getState().setZoom(100);
+    expect(useBoardStore.getState().zoom).toBe(3.2);
+    useBoardStore.getState().setZoom(0.01);
+    expect(useBoardStore.getState().zoom).toBe(0.8);
+  });
+
+  it("clamps room look-around angles", () => {
+    useBoardStore.getState().setRoomLook({ yaw: 5, pitch: -5 });
+    const { yaw, pitch } = useBoardStore.getState().roomLook;
+    expect(yaw).toBe(0.7);
+    expect(pitch).toBe(-0.32);
+  });
+
+  it("resets mode, look and selection when stepping back", () => {
+    const s = useBoardStore.getState();
+    s.setMode("edit");
+    s.setSelected("item-1");
+    s.setRoomLook({ yaw: 0.5, pitch: 0.2 });
+    useBoardStore.getState().stepBack();
+    const after = useBoardStore.getState();
+    expect(after.mode).toBe("view");
+    expect(after.selectedId).toBeNull();
+    expect(after.roomLook).toEqual({ yaw: 0, pitch: 0 });
+  });
+});
+
+describe("edit mode", () => {
+  it("entering edit keeps any selection, leaving edit clears it", () => {
+    const s = useBoardStore.getState();
+    s.setMode("edit");
+    s.setSelected("item-1");
+    expect(useBoardStore.getState().selectedId).toBe("item-1");
+    s.setMode("view");
+    expect(useBoardStore.getState().selectedId).toBeNull();
+  });
+
+  it("scaleItemLocal clamps and only touches the target", () => {
+    const s = useBoardStore.getState();
+    s.setItems([makeItem(), makeItem({ id: "item-2" })]);
+    s.scaleItemLocal("item-2", 99);
+    const [a, b] = useBoardStore.getState().items;
+    expect(a.scale).toBe(1);
+    expect(b.scale).toBe(2.4); // clamped to MAX_ITEM_SCALE
+  });
+
+  it("removing the selected item clears the selection", () => {
+    const s = useBoardStore.getState();
+    s.setItems([makeItem()]);
+    s.setMode("edit");
+    s.setSelected("item-1");
+    s.removeItem("item-1");
+    expect(useBoardStore.getState().selectedId).toBeNull();
+  });
+});
+
+describe("add menu exclusivity", () => {
+  it("opening the add menu closes other panels", () => {
+    const s = useBoardStore.getState();
+    s.setThemePickerOpen(true);
+    s.setAddMenuOpen(true);
+    expect(useBoardStore.getState().themePickerOpen).toBe(false);
+    expect(useBoardStore.getState().addMenuOpen).toBe(true);
+  });
+
+  it("choosing a composer closes the add menu", () => {
+    const s = useBoardStore.getState();
+    s.setAddMenuOpen(true);
+    s.setComposer("note");
+    expect(useBoardStore.getState().addMenuOpen).toBe(false);
+    expect(useBoardStore.getState().composer).toBe("note");
   });
 });
 
