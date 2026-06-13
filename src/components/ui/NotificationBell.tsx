@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { needsHomeScreenInstall } from "@/lib/push";
 import { usePush } from "@/lib/use-push";
 
 /**
@@ -9,8 +11,28 @@ import { usePush } from "@/lib/use-push";
  */
 export function NotificationBell() {
   const { status, busy, enable, disable } = usePush();
+  // Detected client-side only (depends on navigator / display-mode).
+  const [installHint, setInstallHint] = useState(false);
+  useEffect(() => setInstallHint(needsHomeScreenInstall()), []);
 
   if (status === "unsupported" || status === "unconfigured") return null;
+
+  // iOS won't deliver push until the app is installed to the home screen.
+  if (installHint && status !== "subscribed") {
+    return (
+      <button
+        className="cute-button ghost !px-3 !py-2 text-sm"
+        onClick={() =>
+          alert(
+            "To get notifications on iPhone, first add this app to your Home Screen (Share → Add to Home Screen), then open it from there and tap 🔔."
+          )
+        }
+        aria-label="How to enable notifications on iPhone"
+      >
+        🔔 set up
+      </button>
+    );
+  }
 
   if (status === "subscribed") {
     return (

@@ -51,6 +51,7 @@ export function Board({
     if (state.view === "room") return; // handled as click on pointer up
     if (!e.ray.intersectPlane(plane, hit.current)) return;
     (e.target as Element).setPointerCapture(e.pointerId);
+    state.setSuppressNextTap(false);
     pan.current = {
       startFocus: { ...state.focus },
       startHit: hit.current.clone(),
@@ -69,7 +70,11 @@ export function Board({
     const { hx, hy } = usableHalfExtents();
     const dx = (hit.current.x - pan.current.startHit.x) / hx;
     const dy = (hit.current.y - pan.current.startHit.y) / hy;
-    if (Math.hypot(dx, dy) > 0.02) pan.current.moved = true;
+    if (Math.hypot(dx, dy) > 0.02) {
+      pan.current.moved = true;
+      // a pan shouldn't be read as a tap that opens a note on release
+      state.setSuppressNextTap(true);
+    }
     state.setFocus({
       x: pan.current.startFocus.x - dx,
       y: pan.current.startFocus.y - dy,

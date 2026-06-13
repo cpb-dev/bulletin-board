@@ -216,7 +216,7 @@ function Decorations({
     );
   }
 
-  if (theme.decorations === "cottage") {
+  if (theme.decorations === "cottage" || theme.decorations === "summer") {
     return <Bunting color={theme.room.accent} alt="#ffffff" />;
   }
 

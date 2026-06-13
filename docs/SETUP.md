@@ -61,8 +61,11 @@ use the exact same site later (see [MOBILE.md](MOBILE.md)).
 If your Supabase project predates lists / resizing / notifications, open
 the SQL Editor and run
 [`supabase/migrations/0002_lists_resize_push.sql`](../supabase/migrations/0002_lists_resize_push.sql)
-once. It only adds new tables and a column, so it's safe on existing
-data. (Fresh setups should run `0001` then `0002` in order.)
+**and** [`supabase/migrations/0003_created_by_defaults.sql`](../supabase/migrations/0003_created_by_defaults.sql)
+once each. They only add tables, a column, and column defaults, so
+they're safe on existing data. (Fresh setups run `0001`, `0002`, `0003`
+in order.) `0003` is what stamps each note with its author and stops you
+being notified of your own posts.
 
 ## Optional: turn on phone notifications
 

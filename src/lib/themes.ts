@@ -43,7 +43,9 @@ export interface BoardTheme {
   papers: PaperColor[];
   /** Colour of the fairy-light string draped over the board. */
   garland: string;
-  decorations: "cabin" | "cottage" | "night" | "meadow";
+  decorations: "cabin" | "cottage" | "night" | "meadow" | "summer";
+  /** Which environment the board lives in. Defaults to the indoor room. */
+  scene?: "room" | "beach";
   ui: {
     bg: string;
     panel: string;
@@ -211,6 +213,87 @@ export const THEMES: BoardTheme[] = [
       panel: "#ffffff",
       accent: "#7da963",
       text: "#42513a",
+    },
+  },
+  {
+    id: "summer-house",
+    name: "Summer House",
+    tagline: "Sunlit blue & white with sunflowers",
+    emoji: "🌻",
+    room: {
+      wall: "#eaf4fb",
+      wallTrim: "#7fb6da",
+      floor: "#e8d8b8",
+      rug: "#9ad0e6",
+      accent: "#f7c948",
+    },
+    board: {
+      surface: "#fdf6e3",
+      surfaceSpeckle: "#e7d9b6",
+      frame: "#5b96bd",
+    },
+    light: {
+      sky: "#dff1ff",
+      ambientIntensity: 1.05,
+      key: "#fff6dd",
+      keyIntensity: 1.55,
+      lamp: "#ffd874",
+    },
+    pins: ["#f7c948", "#4fa3d1", "#ef8a5a", "#7bc47f"],
+    papers: [
+      { id: "shell", name: "Shell", bg: "#fffaf0", ink: "#7a6033" },
+      { id: "sky", name: "Sky", bg: "#d7eefb", ink: "#2f5d7a" },
+      { id: "coral", name: "Coral", bg: "#ffe0d4", ink: "#a8512f" },
+      { id: "sunflower", name: "Sunflower", bg: "#fff0c0", ink: "#7d5e16" },
+    ],
+    garland: "#f7c948",
+    decorations: "summer",
+    ui: {
+      bg: "#d9edf8",
+      panel: "#ffffff",
+      accent: "#4fa3d1",
+      text: "#33536b",
+    },
+  },
+  {
+    id: "beach-hut",
+    name: "Beach Hut",
+    tagline: "On the sand by the sea, birds & crabs",
+    emoji: "🏖️",
+    room: {
+      wall: "#7ec8e3",
+      wallTrim: "#f2e2b8",
+      floor: "#ecd9a6",
+      rug: "#36a0c4",
+      accent: "#ff7f6b",
+    },
+    board: {
+      surface: "#fbf3df",
+      surfaceSpeckle: "#e6d6ad",
+      frame: "#e07a5f",
+    },
+    light: {
+      sky: "#bfe9f7",
+      ambientIntensity: 1.1,
+      key: "#fff4d6",
+      keyIntensity: 1.7,
+      lamp: "#ffd27a",
+    },
+    pins: ["#ff7f6b", "#ffd166", "#36a0c4", "#06a77d"],
+    papers: [
+      { id: "shell", name: "Shell", bg: "#fffaf0", ink: "#8a6240" },
+      { id: "wave", name: "Wave", bg: "#cfeef7", ink: "#1f6079" },
+      { id: "coral", name: "Coral", bg: "#ffdcd2", ink: "#a8492f" },
+      { id: "sunny", name: "Sunny", bg: "#fff0bf", ink: "#7d5c12" },
+    ],
+    garland: "#ff7f6b",
+    decorations: "summer",
+    scene: "beach",
+    ui: {
+      bg: "#1f6079",
+      panel: "#2a7a91",
+      accent: "#ffd166",
+      text: "#eaf6fb",
     },
   },
 ];

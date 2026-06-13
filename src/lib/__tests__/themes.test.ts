@@ -8,9 +8,21 @@ import {
 } from "../themes";
 
 describe("theme catalogue", () => {
-  it("has at least four themes with unique ids", () => {
-    expect(THEMES.length).toBeGreaterThanOrEqual(4);
+  it("has at least six themes with unique ids", () => {
+    expect(THEMES.length).toBeGreaterThanOrEqual(6);
     expect(new Set(THEMES.map((t) => t.id)).size).toBe(THEMES.length);
+  });
+
+  it("includes the summer house and beach hut themes", () => {
+    expect(THEMES.some((t) => t.id === "summer-house")).toBe(true);
+    expect(THEMES.some((t) => t.id === "beach-hut")).toBe(true);
+  });
+
+  it("only the beach hut uses the beach scene; the rest are indoor", () => {
+    for (const t of THEMES) {
+      if (t.id === "beach-hut") expect(t.scene).toBe("beach");
+      else expect(t.scene ?? "room").toBe("room");
+    }
   });
 
   it("includes the default theme", () => {

@@ -22,6 +22,8 @@ interface BoardState {
   roomLook: { yaw: number; pitch: number };
   /** Set true by a room look-around drag to cancel the trailing walk-up tap. */
   suppressNextWalkUp: boolean;
+  /** Set true by a board pan so the trailing tap doesn't open a note. */
+  suppressNextTap: boolean;
 
   /** In edit mode, dragging moves/resizes notes; in view mode it pans. */
   mode: InteractionMode;
@@ -45,6 +47,8 @@ interface BoardState {
   setZoom: (zoom: number) => void;
   setRoomLook: (look: { yaw: number; pitch: number }) => void;
   setSuppressNextWalkUp: (suppress: boolean) => void;
+  setSuppressNextTap: (suppress: boolean) => void;
+  nudgeZoom: (factor: number) => void;
 
   setMode: (mode: InteractionMode) => void;
   setSelected: (id: string | null) => void;
@@ -62,7 +66,7 @@ interface BoardState {
   scaleItemLocal: (id: string, scale: number) => void;
 }
 
-const clampZoom = (z: number) => Math.min(3.2, Math.max(0.8, z));
+const clampZoom = (z: number) => Math.min(3.6, Math.max(0.8, z));
 const clampFocus = (v: number) => Math.min(1, Math.max(-1, v));
 const clampYaw = (v: number) => Math.min(0.7, Math.max(-0.7, v));
 const clampPitch = (v: number) => Math.min(0.32, Math.max(-0.32, v));
@@ -78,6 +82,7 @@ export const useBoardStore = create<BoardState>((set) => ({
   zoom: 1,
   roomLook: { yaw: 0, pitch: 0 },
   suppressNextWalkUp: false,
+  suppressNextTap: false,
 
   mode: "view",
   selectedId: null,
@@ -120,6 +125,8 @@ export const useBoardStore = create<BoardState>((set) => ({
       roomLook: { yaw: clampYaw(look.yaw), pitch: clampPitch(look.pitch) },
     }),
   setSuppressNextWalkUp: (suppressNextWalkUp) => set({ suppressNextWalkUp }),
+  setSuppressNextTap: (suppressNextTap) => set({ suppressNextTap }),
+  nudgeZoom: (factor) => set((s) => ({ zoom: clampZoom(s.zoom * factor) })),
 
   setMode: (mode) =>
     set((s) => ({

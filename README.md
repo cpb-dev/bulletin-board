@@ -14,7 +14,8 @@ two of you can ever get in.
   toon-shaded room (Animal Crossing / Stardew energy), tap the board to
   walk up, pan and pinch-zoom around it, drag notes to re-pin them.
 - **Notes & photos** — handwritten sticky notes in theme paper colours,
-  and photos pinned up like polaroids with handwritten captions.
+  and photos pinned up like polaroids with handwritten captions. Each
+  note carries a little "posted by · date" stamp.
 - **Live for both of you** — when one of you pins something, it pops
   onto the other's board in real time.
 - **Move & resize in edit mode** — a dedicated ✏️ edit mode lets you
@@ -27,9 +28,11 @@ two of you can ever get in.
   together, archive old ones. Kept apart from the board's memories.
 - **Phone notifications** — opt-in 🔔 web-push so the other person gets
   pinged when you pin a note or add to a list ([docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md)).
-- **Themes** — Cozy Cabin 🪵, Peach Parfait 🍑, Midnight Picnic 🌙 and
-  Sage Meadow 🌼. Changing the theme redecorates the whole room for both
-  of you instantly.
+- **Themes** — Cozy Cabin 🪵, Peach Parfait 🍑, Midnight Picnic 🌙,
+  Sage Meadow 🌼, Summer House 🌻 and Beach Hut 🏖️ (a whole different
+  outdoor scene: the board on an easel in the sand, a striped hut, the
+  sea, a sandcastle, and animated gulls and crabs). Changing the theme
+  redecorates everything for both of you instantly.
 - **Private by design** — only emails on the guest list can ever create
   an account; photos live in a private bucket behind signed URLs.
 
