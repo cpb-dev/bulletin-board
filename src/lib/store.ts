@@ -66,7 +66,7 @@ interface BoardState {
   scaleItemLocal: (id: string, scale: number) => void;
 }
 
-const clampZoom = (z: number) => Math.min(3.6, Math.max(0.8, z));
+const clampZoom = (z: number) => Math.min(5, Math.max(0.45, z));
 const clampFocus = (v: number) => Math.min(1, Math.max(-1, v));
 const clampYaw = (v: number) => Math.min(0.7, Math.max(-0.7, v));
 const clampPitch = (v: number) => Math.min(0.32, Math.max(-0.32, v));

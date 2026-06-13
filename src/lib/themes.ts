@@ -46,6 +46,16 @@ export interface BoardTheme {
   decorations: "cabin" | "cottage" | "night" | "meadow" | "summer";
   /** Which environment the board lives in. Defaults to the indoor room. */
   scene?: "room" | "beach";
+  /** What's strung across the top of the board. Defaults to fairy lights. */
+  boardDecor?: "lights" | "shells";
+  /** Indoor wall treatment. Defaults to flat painted walls. */
+  wallStyle?: "flat" | "logs";
+  /** The feature on the back wall. Defaults to a window. */
+  roomFeature?: "window" | "fireplace";
+  /** What the window looks out onto. Defaults to the sky colour. */
+  windowView?: "sky" | "garden";
+  /** The plant by the window. Defaults to a leafy pot plant. */
+  plantStyle?: "leaves" | "flowerbush";
   ui: {
     bg: string;
     panel: string;
@@ -88,6 +98,8 @@ export const THEMES: BoardTheme[] = [
     ],
     garland: "#e2574c",
     decorations: "cabin",
+    wallStyle: "logs",
+    roomFeature: "fireplace",
     ui: {
       bg: "#2e2017",
       panel: "#473526",
@@ -248,6 +260,8 @@ export const THEMES: BoardTheme[] = [
     ],
     garland: "#f7c948",
     decorations: "summer",
+    windowView: "garden",
+    plantStyle: "flowerbush",
     ui: {
       bg: "#d9edf8",
       panel: "#ffffff",
@@ -289,6 +303,7 @@ export const THEMES: BoardTheme[] = [
     garland: "#ff7f6b",
     decorations: "summer",
     scene: "beach",
+    boardDecor: "shells",
     ui: {
       bg: "#1f6079",
       panel: "#2a7a91",
