@@ -14,12 +14,35 @@ Next.js 15 on Vercel  ──  src/middleware.ts = auth wall (Supabase session)
    └─ /login            sign in / first-time sign up
    │
    ▼
+   ├─ /lists            shared checklists, separate to the board
+   │
+   ▼
 Supabase
    ├─ Auth       email+password, signup restricted by DB trigger
-   ├─ Postgres   boards / items / profiles / allowed_members (+ RLS)
+   ├─ Postgres   boards / items / profiles / lists / list_items /
+   │             allowed_members / push_subscriptions (+ RLS)
    ├─ Storage    private `photos` bucket, signed URLs
-   └─ Realtime   postgres_changes → both phones stay in sync
+   ├─ Realtime   postgres_changes → both phones stay in sync
+   └─ Edge fn    `notify` → web-push on new items/list items (optional)
 ```
+
+## v2 additions
+
+- **Edit mode** (`store.mode`) cleanly separates "looking" from
+  "arranging": in view mode a drag pans/zooms and a tap opens a note to
+  read; only in edit mode does a drag move a note or a corner handle
+  resize it. This killed the "zoom accidentally grabbed a note" problem.
+  Item size is a normalized `scale` column, so resizes survive restyles
+  and archiving like positions do.
+- **Lists** are a parallel, deliberately board-independent feature
+  (`lists` + `list_items`), with their own page, their own archive, and
+  their own realtime channel. They never enter the board "memories".
+- **Notifications** are Web Push: a `push_subscriptions` table, a
+  service worker (`public/sw.js`), and a Supabase edge function
+  (`supabase/functions/notify`) triggered by Database Webhooks on insert.
+  The web app only holds the public VAPID key; the private key lives in
+  the function's secrets. Entirely optional — the 🔔 control hides itself
+  until a public key is configured. See docs/NOTIFICATIONS.md.
 
 ## Key decisions (and why)
 
@@ -71,12 +94,15 @@ future swap to server actions wouldn't change call sites much.
 ## Data model
 
 ```sql
-profiles         id (= auth.users.id), display_name
-boards           id, title, theme, status active|archived, created_at, archived_at
-items            id, board_id, kind note|photo, content, photo_path,
-                 paper, x, y, rotation, created_by, timestamps
-allowed_members  email   -- the guest list; no API access at all
-storage: photos/ {board_id}/{uuid}.jpg  -- private bucket
+profiles          id (= auth.users.id), display_name
+boards            id, title, theme, status active|archived, created_at, archived_at
+items             id, board_id, kind note|photo, content, photo_path,
+                  paper, x, y, rotation, scale, created_by, timestamps
+lists             id, title, status active|archived, created_at, archived_at
+list_items        id, list_id, content, done, position, created_by, timestamps
+allowed_members   email   -- the guest list; no API access at all
+push_subscriptions user_id, endpoint, p256dh, auth  -- per-device, owner-only RLS
+storage: photos/  {board_id}/{uuid}.jpg  -- private bucket
 ```
 
 ## Folder map

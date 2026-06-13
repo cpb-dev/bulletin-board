@@ -98,6 +98,33 @@ export function round3(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
+// ---------- Item sizing & resize ----------
+
+/** Edge length of a note at scale 1, in world units. */
+export const NOTE_BASE = 0.52;
+export const MIN_ITEM_SCALE = 0.6;
+export const MAX_ITEM_SCALE = 2.4;
+
+export function clampScale(scale: number): number {
+  if (!Number.isFinite(scale)) return 1;
+  return clamp(scale, MIN_ITEM_SCALE, MAX_ITEM_SCALE);
+}
+
+/**
+ * New scale while dragging a corner resize handle. The handle was
+ * grabbed when the pointer sat `grabDist` from the item's centre at
+ * `scaleAtGrab`; resizing keeps that ratio so the corner tracks the
+ * finger. Pure so it can be unit-tested without a 3D scene.
+ */
+export function scaleFromHandleDrag(
+  grabDist: number,
+  currentDist: number,
+  scaleAtGrab: number
+): number {
+  if (grabDist <= 1e-4) return clampScale(scaleAtGrab);
+  return round3(clampScale((scaleAtGrab * currentDist) / grabDist));
+}
+
 /**
  * Word-wrap for canvas-rendered notes. Takes a measure function so it
  * stays pure and unit-testable without a DOM canvas.

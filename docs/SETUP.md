@@ -56,6 +56,21 @@ then install it on both phones.
 That's the "app" for now — the proper App Store / Play Store wrappers
 use the exact same site later (see [MOBILE.md](MOBILE.md)).
 
+## Already set up v1? Run the v2 migration
+
+If your Supabase project predates lists / resizing / notifications, open
+the SQL Editor and run
+[`supabase/migrations/0002_lists_resize_push.sql`](../supabase/migrations/0002_lists_resize_push.sql)
+once. It only adds new tables and a column, so it's safe on existing
+data. (Fresh setups should run `0001` then `0002` in order.)
+
+## Optional: turn on phone notifications
+
+Want a buzz when the other person pins a note or adds to a list? Follow
+[docs/NOTIFICATIONS.md](NOTIFICATIONS.md) — it needs a couple of extra
+keys and an edge function. The app works fine without it; the 🔔 button
+just stays hidden until it's configured.
+
 ## Troubleshooting
 
 - **"That email isn't on the guest list"** — the email you typed

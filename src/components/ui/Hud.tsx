@@ -6,8 +6,9 @@ import { useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { APP_NAME } from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
+import { NotificationBell } from "./NotificationBell";
 
-/** Top bar: board title, memories link, sign out. */
+/** Top bar: board title, lists, memories, notifications, sign out. */
 export function Hud({ readOnly }: { readOnly: boolean }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -20,7 +21,7 @@ export function Hud({ readOnly }: { readOnly: boolean }) {
   }
 
   return (
-    <header className="absolute top-0 inset-x-0 flex items-center justify-between gap-2 p-4 pointer-events-none">
+    <header className="absolute top-0 inset-x-0 flex items-start justify-between gap-2 p-4 pointer-events-none">
       <div className="pointer-events-auto">
         <h1 className="hand text-2xl leading-none drop-shadow-sm">
           {readOnly ? (board?.title ?? "A memory") : APP_NAME}
@@ -31,18 +32,31 @@ export function Hud({ readOnly }: { readOnly: boolean }) {
           </p>
         )}
       </div>
-      <nav className="pointer-events-auto flex items-center gap-2">
-        <Link href="/memories" className="cute-button ghost !px-3 !py-2 text-sm">
-          {readOnly ? "← memories" : "📦 memories"}
-        </Link>
-        {!readOnly && (
-          <button
-            className="cute-button ghost !px-3 !py-2 text-sm"
-            onClick={signOut}
-            aria-label="Sign out"
-          >
-            👋
-          </button>
+      <nav className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
+        {readOnly ? (
+          <Link href="/memories" className="cute-button ghost !px-3 !py-2 text-sm">
+            ← memories
+          </Link>
+        ) : (
+          <>
+            <Link href="/lists" className="cute-button ghost !px-3 !py-2 text-sm">
+              📝 lists
+            </Link>
+            <Link
+              href="/memories"
+              className="cute-button ghost !px-3 !py-2 text-sm"
+            >
+              📦 memories
+            </Link>
+            <NotificationBell />
+            <button
+              className="cute-button ghost !px-3 !py-2 text-sm"
+              onClick={signOut}
+              aria-label="Sign out"
+            >
+              👋
+            </button>
+          </>
         )}
       </nav>
     </header>

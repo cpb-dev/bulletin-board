@@ -164,7 +164,7 @@ export async function updateItem(
   supabase: SupabaseClient,
   id: string,
   patch: Partial<
-    Pick<BoardItem, "content" | "paper" | "x" | "y" | "rotation">
+    Pick<BoardItem, "content" | "paper" | "x" | "y" | "rotation" | "scale">
   >
 ): Promise<void> {
   const { error } = await supabase.from("items").update(patch).eq("id", id);

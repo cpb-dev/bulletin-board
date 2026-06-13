@@ -66,7 +66,7 @@ export function Room({ theme }: { theme: BoardTheme }) {
         <meshToonMaterial color={theme.room.wall} gradientMap={gradient} />
       </mesh>
       {/* Wainscot trim */}
-      <mesh position={[0, 0.45, wallZ + 0.01]}>
+      <mesh position={[0, 0.45, wallZ + 0.03]}>
         <planeGeometry args={[14, 0.9]} />
         <meshToonMaterial color={theme.room.wallTrim} gradientMap={gradient} />
       </mesh>

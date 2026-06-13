@@ -85,6 +85,12 @@ export function Board({
   function onClick(e: ThreeEvent<MouseEvent>) {
     const state = useBoardStore.getState();
     if (state.view !== "room") return;
+    // A look-around drag that ended over the board shouldn't also walk
+    // us up to it.
+    if (state.suppressNextWalkUp) {
+      state.setSuppressNextWalkUp(false);
+      return;
+    }
     e.stopPropagation();
     const { nx, ny } = worldToNorm(e.point.x, e.point.y);
     state.walkUp({ x: nx * 0.7, y: ny * 0.5 });
@@ -95,9 +101,10 @@ export function Board({
 
   return (
     <group>
-      {/* frame */}
-      <mesh position={[0, BOARD.centerY, BOARD_SURFACE_Z - 0.05]} castShadow>
-        <boxGeometry args={[frameW, frameH, 0.1]} />
+      {/* frame — pushed clearly behind the cork so its front face never
+          z-fights with the cork plane (that was the board "flicker") */}
+      <mesh position={[0, BOARD.centerY, BOARD_SURFACE_Z - 0.13]} castShadow>
+        <boxGeometry args={[frameW, frameH, 0.12]} />
         <meshToonMaterial color={theme.board.frame} gradientMap={gradient} />
       </mesh>
       {/* cork surface */}
@@ -109,7 +116,12 @@ export function Board({
         onClick={onClick}
       >
         <planeGeometry args={[BOARD.width, BOARD.height]} />
-        <meshStandardMaterial map={cork} roughness={1} />
+        <meshStandardMaterial
+          map={cork}
+          roughness={1}
+          polygonOffset
+          polygonOffsetFactor={-1}
+        />
       </mesh>
 
       <FairyLights color={theme.garland} />
