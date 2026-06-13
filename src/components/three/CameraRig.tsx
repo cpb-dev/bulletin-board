@@ -45,8 +45,10 @@ export function CameraRig() {
       goalPos.current.y += roomLook.pitch * 0.4;
     } else {
       const { x, y } = normToWorld(focus.x, focus.y);
-      // Closer base distance + wider zoom range = a satisfying lean-in.
-      const dist = 1.35 / zoom;
+      // Closer base distance + wide zoom range. At min zoom you can pull
+      // back far enough to take in the whole board; at max you're nose
+      // to the cork.
+      const dist = 1.6 / zoom;
       goalTarget.current.set(x, y, BOARD_SURFACE_Z);
       goalPos.current.set(x * 0.96, y * 0.98 + 0.04, BOARD_SURFACE_Z + dist);
     }

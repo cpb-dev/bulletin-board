@@ -28,11 +28,13 @@ two of you can ever get in.
   together, archive old ones. Kept apart from the board's memories.
 - **Phone notifications** — opt-in 🔔 web-push so the other person gets
   pinged when you pin a note or add to a list ([docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md)).
-- **Themes** — Cozy Cabin 🪵, Peach Parfait 🍑, Midnight Picnic 🌙,
-  Sage Meadow 🌼, Summer House 🌻 and Beach Hut 🏖️ (a whole different
-  outdoor scene: the board on an easel in the sand, a striped hut, the
-  sea, a sandcastle, and animated gulls and crabs). Changing the theme
-  redecorates everything for both of you instantly.
+- **Themes** — Cozy Cabin 🪵 (log walls + a crackling, smoking
+  fireplace), Peach Parfait 🍑, Midnight Picnic 🌙, Sage Meadow 🌼,
+  Summer House 🌻 (a garden through the window + a flower bush), and
+  Beach Hut 🏖️ — a whole outdoor scene: the board on an easel in the
+  sand under a daytime sky, the sea rolling in, a sandcastle, gulls, and
+  crabs you can **tap to play with**. Changing the theme redecorates
+  everything for both of you instantly.
 - **Private by design** — only emails on the guest list can ever create
   an account; photos live in a private bucket behind signed URLs.
 

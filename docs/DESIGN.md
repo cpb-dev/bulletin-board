@@ -61,16 +61,25 @@ and the 2D UI palette. They live as one typed object each in
 | 🍑 Peach Parfait | pastel pink cottage, white frame, bunting |
 | 🌙 Midnight Picnic | navy night, stars, a moon, gold fairy lights |
 | 🌼 Sage Meadow | soft green, daisies on the floor, honey tones |
-| 🌻 Summer House | sunlit blue & white, sunflower bunting |
+| 🌻 Summer House | sunlit blue & white; a garden through the window and a pink/white flower bush |
 | 🏖️ Beach Hut | a whole outdoor scene — see below |
 
-Adding an indoor theme is purely additive — one object, no code changes.
-A theme can also set `scene: "beach"` to swap the indoor room for the
-**Beach Hut** environment (`BeachScene.tsx`): the board on a wooden
-easel in the sand, a striped hut alongside, a vertex-animated sea, a
-sandcastle, and `useFrame`-driven gulls (flapping, looping across the
-sky) and crabs (scuttling along the sand). New scenes plug in the same
-way — branch on `theme.scene` in `BoardExperience`.
+Themes carry small optional flags so a single `Room` can restyle itself:
+`wallStyle: "logs"` + `roomFeature: "fireplace"` give **Cozy Cabin** its
+log walls and an animated, smoking fireplace with a chimney to the
+ceiling (in place of the window); `windowView: "garden"` paints a sunny
+garden in the window and `plantStyle: "flowerbush"` swaps the pot plant
+for a blossoming bush (**Summer House**); `boardDecor: "shells"` strings
+assorted seashells across the board top instead of fairy lights.
+
+A theme can also set `scene: "beach"` to swap the indoor room entirely
+for the **Beach Hut** environment (`BeachScene.tsx`): a bright daytime
+gradient sky with drifting clouds, the board on a wooden easel in the
+sand, a vertex-animated sea rolling in with foam crests, a sandcastle,
+`useFrame`-driven gulls, and **tappable crabs** — poke one for a random
+reaction from a pool of eight (hop, spin, scuttle, wave, dig, bubble,
+hearts, shake), never repeating the last, so it feels alive. New scenes
+plug in by branching on `theme.scene` in `BoardExperience`.
 
 ## Tone of voice
 
