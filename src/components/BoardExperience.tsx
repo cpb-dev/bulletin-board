@@ -156,7 +156,7 @@ export function BoardExperience({
     >
       <Canvas
         shadows
-        camera={{ fov: 46, position: [0.55, 1.4, 3.3], near: 0.1, far: 40 }}
+        camera={{ fov: 46, position: [0.55, 1.4, 3.3], near: 0.1, far: 120 }}
         dpr={[1, 2]}
         // without this, mobile browsers steal drag gestures for scrolling
         style={{ touchAction: "none" }}
