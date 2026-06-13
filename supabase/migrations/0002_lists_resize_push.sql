@@ -92,9 +92,10 @@ alter publication supabase_realtime add table public.lists;
 alter publication supabase_realtime add table public.list_items;
 
 -- ============================================================
--- Notifications still need two things set up outside this file:
---   1. Deploy the edge function in supabase/functions/notify
---   2. Create Database Webhooks (Database -> Webhooks) that POST to it
---      on INSERT into public.items and public.list_items
--- See docs/NOTIFICATIONS.md for the exact steps.
+-- Notifications also need one thing set up outside this file:
+--   * Create Database Webhooks (Database -> Webhooks) that POST to
+--     https://YOUR-APP.vercel.app/api/notify on INSERT into
+--     public.items and public.list_items, with header
+--     x-notify-secret: <your NOTIFY_WEBHOOK_SECRET>.
+-- All doable from a phone. See docs/NOTIFICATIONS.md.
 -- ============================================================

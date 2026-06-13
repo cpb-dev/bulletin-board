@@ -40,7 +40,11 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublic =
-    pathname === "/login" || pathname.startsWith("/auth");
+    pathname === "/login" ||
+    pathname.startsWith("/auth") ||
+    // API routes authenticate themselves (e.g. /api/notify checks a
+    // shared secret); never bounce them to /login.
+    pathname.startsWith("/api");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

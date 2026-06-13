@@ -22,8 +22,9 @@ Supabase
    ├─ Postgres   boards / items / profiles / lists / list_items /
    │             allowed_members / push_subscriptions (+ RLS)
    ├─ Storage    private `photos` bucket, signed URLs
-   ├─ Realtime   postgres_changes → both phones stay in sync
-   └─ Edge fn    `notify` → web-push on new items/list items (optional)
+   └─ Realtime   postgres_changes → both phones stay in sync
+         │
+         └─ Database Webhook on insert ──► /api/notify (Vercel) → web-push
 ```
 
 ## v2 additions
@@ -38,11 +39,15 @@ Supabase
   (`lists` + `list_items`), with their own page, their own archive, and
   their own realtime channel. They never enter the board "memories".
 - **Notifications** are Web Push: a `push_subscriptions` table, a
-  service worker (`public/sw.js`), and a Supabase edge function
-  (`supabase/functions/notify`) triggered by Database Webhooks on insert.
-  The web app only holds the public VAPID key; the private key lives in
-  the function's secrets. Entirely optional — the 🔔 control hides itself
-  until a public key is configured. See docs/NOTIFICATIONS.md.
+  service worker (`public/sw.js`), and a Next.js API route
+  (`/api/notify`, Node runtime) triggered by Supabase Database Webhooks
+  on insert. The route ships with the site, so the whole feature is
+  configurable from a phone via the Vercel/Supabase dashboards — no CLI.
+  The browser only holds the public VAPID key; the private key and
+  service-role key stay in Vercel's server env. A shared
+  `NOTIFY_WEBHOOK_SECRET` header authenticates the webhook. Entirely
+  optional — the 🔔 control hides itself until configured. See
+  docs/NOTIFICATIONS.md.
 
 ## Key decisions (and why)
 
