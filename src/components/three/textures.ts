@@ -68,6 +68,8 @@ export interface NoteTextureOptions {
   ink: string;
   /** Transparent background strip (used for photo captions). */
   transparent?: boolean;
+  /** Little "posted by · date" stamp drawn at the foot of the note. */
+  footer?: string;
   width?: number;
   height?: number;
 }
@@ -98,8 +100,12 @@ export function drawNoteTexture(
   }
 
   const pad = options.transparent ? 8 : 44;
+  // Reserve a strip at the foot for the "posted by" stamp.
+  const footerH = options.footer && !options.transparent ? 58 : 0;
   const maxWidth = w - pad * 2;
-  const maxHeight = h - pad * 2;
+  const areaTop = pad;
+  const areaBottom = h - pad - footerH;
+  const maxHeight = areaBottom - areaTop;
   ctx.fillStyle = options.ink;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -117,15 +123,37 @@ export function drawNoteTexture(
   }
 
   const lineHeight = fontSize * 1.18;
-  const startY = h / 2 - ((lines.length - 1) * lineHeight) / 2;
+  const centerY = (areaTop + areaBottom) / 2;
+  const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
   lines.forEach((line, i) => {
     ctx.fillText(line, w / 2, startY + i * lineHeight, maxWidth);
   });
+
+  if (footerH > 0) {
+    // hand-drawn divider + small stamp
+    ctx.strokeStyle = withAlpha(options.ink, 0.25);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pad, areaBottom + 10);
+    ctx.lineTo(w - pad, areaBottom + 10);
+    ctx.stroke();
+    ctx.fillStyle = withAlpha(options.ink, 0.7);
+    ctx.font = handwritingFont(30);
+    ctx.fillText(options.footer!, w / 2, h - pad - footerH / 2 + 14, maxWidth);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
   return texture;
+}
+
+/** "#rrggbb" + alpha -> "rgba(r,g,b,a)" for translucent stamp ink. */
+function withAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
 function roundRect(

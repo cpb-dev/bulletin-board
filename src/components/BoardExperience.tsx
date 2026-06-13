@@ -13,12 +13,14 @@ import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getTheme } from "@/lib/themes";
 import { Room } from "./three/Room";
+import { BeachScene } from "./three/BeachScene";
 import { Board } from "./three/Board";
 import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
 import { CameraRig } from "./three/CameraRig";
 import { Hud } from "./ui/Hud";
 import { Toolbar } from "./ui/Toolbar";
+import { ZoomControls } from "./ui/ZoomControls";
 import { NoteComposer } from "./ui/NoteComposer";
 import { PhotoComposer } from "./ui/PhotoComposer";
 import { ItemEditor } from "./ui/ItemEditor";
@@ -159,7 +161,11 @@ export function BoardExperience({
         // without this, mobile browsers steal drag gestures for scrolling
         style={{ touchAction: "none" }}
       >
-        <Room theme={theme} />
+        {theme.scene === "beach" ? (
+          <BeachScene theme={theme} />
+        ) : (
+          <Room theme={theme} />
+        )}
         <Board theme={theme}>
           {items.map((item) =>
             item.kind === "photo" ? (
@@ -175,6 +181,7 @@ export function BoardExperience({
       {/* ---- overlay UI ---- */}
       <Hud readOnly={readOnly} />
       <Toolbar />
+      <ZoomControls />
 
       {view === "room" && !loading && !error && (
         <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">

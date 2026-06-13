@@ -95,7 +95,14 @@ one phone — the other should buzz.
   Supabase → Database → Webhooks → your hook → it logs each delivery and
   the response. A `401` means the `x-notify-secret` header doesn't match
   your env var; a `503` means a Vercel env var is missing.
-- **You don't get pinged for your own notes** — by design; the author's
-  own devices are skipped.
+- **You get pinged for your *own* notes** — run migration
+  `0003_created_by_defaults.sql`. Until it's applied, new rows have no
+  author, so the route can't tell which devices to skip. After it,
+  authors are excluded automatically (and notes get their stamp).
+- **iPhone gets nothing while Android works** — on iOS, web push only
+  works from the **installed** PWA: Share → Add to Home Screen, open it
+  from the new icon, then tap 🔔 (the bell shows a "set up" hint in
+  Safari to remind you). A subscription created in Safari itself won't
+  receive anything.
 - The feature is fully optional — without these keys the 🔔 button simply
   stays hidden and everything else works.

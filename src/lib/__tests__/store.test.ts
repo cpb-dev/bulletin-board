@@ -32,6 +32,7 @@ beforeEach(() => {
     zoom: 1,
     roomLook: { yaw: 0, pitch: 0 },
     suppressNextWalkUp: false,
+    suppressNextTap: false,
     mode: "view",
     selectedId: null,
     draggingId: null,
@@ -64,9 +65,18 @@ describe("camera state", () => {
 
   it("clamps zoom to sensible bounds", () => {
     useBoardStore.getState().setZoom(100);
-    expect(useBoardStore.getState().zoom).toBeLessThanOrEqual(3.2);
+    expect(useBoardStore.getState().zoom).toBeLessThanOrEqual(3.6);
     useBoardStore.getState().setZoom(0.01);
     expect(useBoardStore.getState().zoom).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it("nudgeZoom multiplies and stays clamped", () => {
+    useBoardStore.setState({ zoom: 1 });
+    useBoardStore.getState().nudgeZoom(1.25);
+    expect(useBoardStore.getState().zoom).toBeCloseTo(1.25, 5);
+    // repeated zoom-in never exceeds the clamp
+    for (let i = 0; i < 20; i++) useBoardStore.getState().nudgeZoom(1.25);
+    expect(useBoardStore.getState().zoom).toBe(3.6);
   });
 
   it("clamps focus so the camera cannot wander off the board", () => {
@@ -76,7 +86,7 @@ describe("camera state", () => {
 
   it("clamps the new wider zoom range", () => {
     useBoardStore.getState().setZoom(100);
-    expect(useBoardStore.getState().zoom).toBe(3.2);
+    expect(useBoardStore.getState().zoom).toBe(3.6);
     useBoardStore.getState().setZoom(0.01);
     expect(useBoardStore.getState().zoom).toBe(0.8);
   });

@@ -82,11 +82,17 @@ export function useItemDrag(item: BoardItem) {
   }
 
   function onPointerUp(e: ThreeEvent<PointerEvent>) {
-    const { view, readOnly, mode } = useBoardStore.getState();
+    const state = useBoardStore.getState();
+    const { view, readOnly, mode } = state;
     if (view !== "room" && (mode !== "edit" || readOnly) && !drag.current) {
+      // A drag that panned the board shouldn't open this note.
+      if (state.suppressNextTap) {
+        state.setSuppressNextTap(false);
+        return;
+      }
       // Clean tap in view mode → open the reader/editor.
       e.stopPropagation();
-      useBoardStore.getState().setEditing(item.id);
+      state.setEditing(item.id);
       return;
     }
     if (!drag.current) return;
@@ -94,7 +100,6 @@ export function useItemDrag(item: BoardItem) {
     (e.target as Element).releasePointerCapture(e.pointerId);
     const wasMoved = drag.current.moved;
     drag.current = null;
-    const state = useBoardStore.getState();
     state.setDragging(null);
     if (wasMoved) {
       const moved = state.items.find((i) => i.id === item.id);

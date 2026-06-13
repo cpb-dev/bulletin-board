@@ -49,3 +49,33 @@ export function pushSupported(): boolean {
     "Notification" in window
   );
 }
+
+/** iOS / iPadOS, where web push only works for an installed PWA. */
+export function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return (
+    /iphone|ipad|ipod/i.test(ua) ||
+    // iPadOS reports as Mac but has touch
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+/** True when running as an installed PWA (home-screen / standalone). */
+export function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone ===
+      true
+  );
+}
+
+/**
+ * On iOS, notifications simply won't arrive unless the app was added to
+ * the home screen and opened from there. Detect that so the UI can guide
+ * the user instead of silently failing.
+ */
+export function needsHomeScreenInstall(): boolean {
+  return isIOS() && !isStandalone();
+}

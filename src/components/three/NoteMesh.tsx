@@ -5,6 +5,8 @@ import * as THREE from "three";
 import { getPaper, pinColorFor, type BoardTheme } from "@/lib/themes";
 import { ITEM_Z, NOTE_BASE, normToWorld } from "@/lib/board-geometry";
 import type { BoardItem } from "@/lib/types";
+import { useBoardStore } from "@/lib/store";
+import { noteStamp } from "@/lib/format";
 import { drawNoteTexture } from "./textures";
 import { Pin } from "./Pin";
 import { SelectionFrame } from "./SelectionFrame";
@@ -44,11 +46,21 @@ export function NoteMesh({
     useItemDrag(item);
   const [hovered, setHovered] = useState(false);
 
+  const authorName = useBoardStore((s) =>
+    item.created_by ? s.profiles[item.created_by]?.display_name : undefined
+  );
+  const footer = noteStamp(authorName, item.created_at);
+
   const texture = useMemo(
     () =>
-      drawNoteTexture({ text: item.content, bg: paper.bg, ink: paper.ink }),
+      drawNoteTexture({
+        text: item.content,
+        bg: paper.bg,
+        ink: paper.ink,
+        footer,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [item.content, paper.bg, paper.ink, fontsReady]
+    [item.content, paper.bg, paper.ink, footer, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 

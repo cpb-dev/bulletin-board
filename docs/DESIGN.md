@@ -61,8 +61,16 @@ and the 2D UI palette. They live as one typed object each in
 | 🍑 Peach Parfait | pastel pink cottage, white frame, bunting |
 | 🌙 Midnight Picnic | navy night, stars, a moon, gold fairy lights |
 | 🌼 Sage Meadow | soft green, daisies on the floor, honey tones |
+| 🌻 Summer House | sunlit blue & white, sunflower bunting |
+| 🏖️ Beach Hut | a whole outdoor scene — see below |
 
-Adding a fifth theme is purely additive — one object, no code changes.
+Adding an indoor theme is purely additive — one object, no code changes.
+A theme can also set `scene: "beach"` to swap the indoor room for the
+**Beach Hut** environment (`BeachScene.tsx`): the board on a wooden
+easel in the sand, a striped hut alongside, a vertex-animated sea, a
+sandcastle, and `useFrame`-driven gulls (flapping, looping across the
+sky) and crabs (scuttling along the sand). New scenes plug in the same
+way — branch on `theme.scene` in `BoardExperience`.
 
 ## Tone of voice
 
