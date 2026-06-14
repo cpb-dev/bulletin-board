@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { APP_NAME } from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
+import { isWorldCupActive } from "@/lib/worldcup";
 import { NotificationBell } from "./NotificationBell";
 import { BoardMenu } from "./BoardMenu";
 
@@ -44,6 +45,16 @@ export function Hud({ readOnly }: { readOnly: boolean }) {
           </Link>
         ) : (
           <>
+            {isWorldCupActive() && board?.kind !== "worldcup" && (
+              <Link
+                href="/worldcup"
+                className="cute-button ghost !px-3 !py-2 text-sm"
+                aria-label="World Cup board"
+                title="World Cup board"
+              >
+                ⚽
+              </Link>
+            )}
             <Link href="/lists" className="cute-button ghost !px-3 !py-2 text-sm">
               📝 lists
             </Link>

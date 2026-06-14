@@ -315,8 +315,56 @@ export const THEMES: BoardTheme[] = [
 
 export const DEFAULT_THEME_ID = "cozy-cabin";
 
+/**
+ * The exclusive World Cup theme. Deliberately NOT part of THEMES, so it
+ * never appears in the theme picker — only the World Cup board uses it.
+ */
+export const WORLD_CUP_THEME: BoardTheme = {
+  id: "world-cup",
+  name: "World Cup",
+  tagline: "Pitch green & gold",
+  emoji: "⚽",
+  room: {
+    wall: "#1b8a3a",
+    wallTrim: "#ffffff",
+    floor: "#0e6b2b",
+    rug: "#f4f4f4",
+    accent: "#ffd23f",
+  },
+  board: {
+    surface: "#2fa44e",
+    surfaceSpeckle: "#268b41",
+    frame: "#ffffff",
+  },
+  light: {
+    sky: "#e0f6e6",
+    ambientIntensity: 0.95,
+    key: "#fffbe6",
+    keyIntensity: 1.45,
+    lamp: "#ffd23f",
+  },
+  pins: ["#ffd23f", "#e2574c", "#3f7fc1", "#ffffff"],
+  papers: [
+    { id: "pitch", name: "Pitch", bg: "#eafff0", ink: "#1b6b34" },
+    { id: "gold", name: "Gold", bg: "#fff2c2", ink: "#7a5b12" },
+    { id: "kit", name: "Kit", bg: "#ffffff", ink: "#2a2a2a" },
+    { id: "sky", name: "Sky", bg: "#d7eefb", ink: "#2f5d7a" },
+  ],
+  garland: "#ffd23f",
+  decorations: "cottage",
+  ui: {
+    bg: "#0e6b2b",
+    panel: "#13803a",
+    accent: "#ffd23f",
+    text: "#eafff0",
+  },
+};
+
+/** All themes including the special ones, for resolution only. */
+const ALL_THEMES: BoardTheme[] = [...THEMES, WORLD_CUP_THEME];
+
 export function getTheme(id: string | null | undefined): BoardTheme {
-  return THEMES.find((t) => t.id === id) ?? THEMES[0];
+  return ALL_THEMES.find((t) => t.id === id) ?? THEMES[0];
 }
 
 /** Resolve a paper colour within a theme, falling back gracefully. */

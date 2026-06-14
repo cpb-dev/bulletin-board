@@ -9,6 +9,7 @@ import {
   deleteItem,
   exportBoard,
   getPrimaryBoard,
+  getWorldCupBoard,
   listActiveBoards,
   photoStoragePath,
   promoteBoardToMain,
@@ -57,6 +58,7 @@ const board: Board = {
   theme: "cozy-cabin",
   status: "active",
   is_primary: true,
+  kind: "standard",
   created_by: "u1",
   created_at: "2026-01-01T00:00:00Z",
   archived_at: null,
@@ -106,6 +108,19 @@ describe("listActiveBoards", () => {
       chain({ data: [board, extra], error: null }),
     ]);
     await expect(listActiveBoards(client)).resolves.toHaveLength(2);
+  });
+});
+
+describe("getWorldCupBoard", () => {
+  it("returns the active World Cup board", async () => {
+    const wc = { ...board, id: "wc", kind: "worldcup", is_primary: false };
+    const { client } = mockSupabase([chain({ data: [wc], error: null })]);
+    await expect(getWorldCupBoard(client)).resolves.toEqual(wc);
+  });
+
+  it("returns null when there isn't one", async () => {
+    const { client } = mockSupabase([chain({ data: [], error: null })]);
+    await expect(getWorldCupBoard(client)).resolves.toBeNull();
   });
 });
 

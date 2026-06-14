@@ -48,6 +48,21 @@ test("an additional board page is behind the auth wall", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("the world cup board is behind the auth wall", async ({ page }) => {
+  await page.goto("/worldcup");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("the world cup fixtures API returns fixtures (fallback ok)", async ({
+  request,
+}) => {
+  const res = await request.get("/api/worldcup/fixtures");
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+  expect(Array.isArray(json.fixtures)).toBeTruthy();
+  expect(json.fixtures.length).toBeGreaterThan(0);
+});
+
 test("the notifications service worker is served", async ({ request }) => {
   const res = await request.get("/sw.js");
   expect(res.ok()).toBeTruthy();
