@@ -10,7 +10,6 @@ import {
   createAdditionalBoard,
   deleteBoard,
   listActiveBoards,
-  listArchivedBoards,
   promoteBoardToMain,
   renameBoard,
 } from "@/lib/api";
@@ -24,9 +23,11 @@ function boardHref(b: Board): string {
 }
 
 /**
- * Top-bar dropdown for boards: switch between active boards, make a new
- * named board, rename the current one, save an extra board as a memory,
- * and reach the memories archive.
+ * Top-bar dropdown for boards. The "main" board is always the first
+ * active board; additional boards you've made are listed below it, each
+ * with a "⋯" menu to make it the main board or delete it. The main board
+ * deliberately has neither so it can't be removed by accident. Memories
+ * (archived boards) are reached via the link and stay view-only.
  */
 export function BoardMenu() {
   const supabase = useMemo(() => createClient(), []);
@@ -36,7 +37,6 @@ export function BoardMenu() {
 
   const [open, setOpen] = useState(false);
   const [boards, setBoards] = useState<Board[]>([]);
-  const [saved, setSaved] = useState<Board[]>([]);
   const [rowOpen, setRowOpen] = useState<string | null>(null);
   const [name, setName] = useState(board?.title ?? "");
   const [newName, setNewName] = useState("");
@@ -46,11 +46,8 @@ export function BoardMenu() {
   useEffect(() => setName(board?.title ?? ""), [board?.title]);
 
   const refresh = useCallback(() => {
-    Promise.all([listActiveBoards(supabase), listArchivedBoards(supabase)])
-      .then(([active, archived]) => {
-        setBoards(active);
-        setSaved(archived);
-      })
+    listActiveBoards(supabase)
+      .then(setBoards)
       .catch(() => setError("Could not load your boards."));
   }, [supabase]);
 
@@ -81,20 +78,7 @@ export function BoardMenu() {
     }
   }
 
-  async function saveAsMemory() {
-    if (!board || board.is_primary) return;
-    setBusy(true);
-    try {
-      await archiveBoard(supabase, board.id, name);
-      setOpen(false);
-      router.push("/board");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save that.");
-      setBusy(false);
-    }
-  }
-
-  async function promoteSaved(b: Board) {
+  async function makeMain(b: Board) {
     if (
       !confirm(
         `Make “${b.title}” your main board? Your current main board stays as a switchable board.`
@@ -113,7 +97,7 @@ export function BoardMenu() {
     }
   }
 
-  async function deleteSaved(b: Board) {
+  async function removeBoard(b: Board) {
     if (
       !confirm(
         `Delete “${b.title}” forever? Everything pinned to it will be gone for good.`
@@ -123,11 +107,30 @@ export function BoardMenu() {
     setBusy(true);
     try {
       await deleteBoard(supabase, b.id);
-      setSaved((prev) => prev.filter((m) => m.id !== b.id));
       setRowOpen(null);
+      if (b.id === board?.id) {
+        setOpen(false);
+        router.push("/board");
+        router.refresh();
+      } else {
+        setBoards((prev) => prev.filter((x) => x.id !== b.id));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete that.");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAsMemory() {
+    if (!board || board.is_primary) return;
+    setBusy(true);
+    try {
+      await archiveBoard(supabase, board.id, name);
+      setOpen(false);
+      router.push("/board");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save that.");
       setBusy(false);
     }
   }
@@ -156,6 +159,8 @@ export function BoardMenu() {
       setBusy(false);
     }
   }
+
+  const others = boards.filter((b) => b.id !== board?.id);
 
   return (
     <div className="relative">
@@ -187,18 +192,43 @@ export function BoardMenu() {
               onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               aria-label="Board name"
             />
+            {/* the current board's own actions (only when it's not main) */}
+            {board && !board.is_primary && (
+              <div className="flex gap-2 mt-2">
+                <button
+                  className="cute-button !px-2 !py-1 text-xs flex-1"
+                  onClick={() => makeMain(board)}
+                  disabled={busy}
+                >
+                  ⭐ make main
+                </button>
+                <button
+                  className="cute-button ghost !px-2 !py-1 text-xs flex-1"
+                  onClick={saveAsMemory}
+                  disabled={busy}
+                >
+                  💝 to memory
+                </button>
+                <button
+                  className="cute-button danger !px-2 !py-1 text-xs flex-1"
+                  onClick={() => removeBoard(board)}
+                  disabled={busy}
+                >
+                  🗑️
+                </button>
+              </div>
+            )}
 
-            {boards.filter((b) => b.id !== board?.id).length > 0 && (
+            {others.length > 0 && (
               <>
                 <p className="text-xs opacity-70 mt-3 mb-1">switch to</p>
                 <ul className="flex flex-col gap-1">
-                  {boards
-                    .filter((b) => b.id !== board?.id)
-                    .map((b) => (
-                      <li key={b.id}>
+                  {others.map((b) => (
+                    <li key={b.id} className="rounded-lg bg-black/5">
+                      <div className="flex items-center justify-between px-2 py-1.5 gap-2">
                         <Link
                           href={boardHref(b)}
-                          className="block rounded-lg px-2 py-2 hover:bg-black/10 text-sm"
+                          className="text-sm truncate min-w-0 hover:underline"
                           onClick={() => setOpen(false)}
                         >
                           {getTheme(b.theme).emoji} {b.title}
@@ -206,49 +236,32 @@ export function BoardMenu() {
                             <span className="opacity-60"> · main</span>
                           )}
                         </Link>
-                      </li>
-                    ))}
-                </ul>
-              </>
-            )}
-
-            {saved.length > 0 && (
-              <>
-                <p className="text-xs opacity-70 mt-3 mb-1">saved boards</p>
-                <ul className="flex flex-col gap-1">
-                  {saved.map((b) => (
-                    <li key={b.id} className="rounded-lg bg-black/5">
-                      <div className="flex items-center justify-between px-2 py-1.5">
-                        <Link
-                          href={`/memories/${b.id}`}
-                          className="text-sm truncate min-w-0 hover:underline"
-                          onClick={() => setOpen(false)}
-                        >
-                          {getTheme(b.theme).emoji} {b.title}
-                        </Link>
-                        <button
-                          className="cute-button ghost !px-2 !py-1 text-xs shrink-0"
-                          onClick={() =>
-                            setRowOpen((id) => (id === b.id ? null : b.id))
-                          }
-                          aria-label={`Options for ${b.title}`}
-                          aria-expanded={rowOpen === b.id}
-                        >
-                          ⋯
-                        </button>
+                        {/* main board is the exception — no ⋯ actions */}
+                        {!b.is_primary && (
+                          <button
+                            className="cute-button ghost !px-2 !py-1 text-xs shrink-0"
+                            onClick={() =>
+                              setRowOpen((id) => (id === b.id ? null : b.id))
+                            }
+                            aria-label={`Options for ${b.title}`}
+                            aria-expanded={rowOpen === b.id}
+                          >
+                            ⋯
+                          </button>
+                        )}
                       </div>
-                      {rowOpen === b.id && (
+                      {rowOpen === b.id && !b.is_primary && (
                         <div className="flex gap-2 px-2 pb-2">
                           <button
                             className="cute-button !px-2 !py-1 text-xs flex-1"
-                            onClick={() => promoteSaved(b)}
+                            onClick={() => makeMain(b)}
                             disabled={busy}
                           >
                             ⭐ make main
                           </button>
                           <button
                             className="cute-button danger !px-2 !py-1 text-xs flex-1"
-                            onClick={() => deleteSaved(b)}
+                            onClick={() => removeBoard(b)}
                             disabled={busy}
                           >
                             🗑️ delete
@@ -280,15 +293,6 @@ export function BoardMenu() {
               </button>
             </div>
 
-            {board && !board.is_primary && (
-              <button
-                className="cute-button ghost w-full mt-3 text-sm"
-                onClick={saveAsMemory}
-                disabled={busy}
-              >
-                💝 save this board as a memory
-              </button>
-            )}
             {board && board.is_primary && (
               <button
                 className="cute-button ghost w-full mt-3 text-sm"
