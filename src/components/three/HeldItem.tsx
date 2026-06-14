@@ -9,84 +9,88 @@ import { photoPlaneSize } from "@/lib/board-geometry";
 import { getPaper, type BoardTheme } from "@/lib/themes";
 import { noteStamp } from "@/lib/format";
 import { useBoardStore } from "@/lib/store";
+import type { BoardItem } from "@/lib/types";
 import { drawNoteTexture } from "./textures";
 import { useFontsReady } from "./NoteMesh";
 
-const HELD_DISTANCE = 0.62; // metres in front of the camera
+// Far enough back that the whole note/photo is comfortably in frame.
+const HELD_DISTANCE = 1.05;
 
 /**
- * When a note/photo is tapped in view mode it floats up to the camera
- * for a close-up "held in your hand" look. Follows the camera, reacts to
- * the pointer like you're tilting it to read, and a tap puts it back.
+ * Tapping a note/photo in view mode lifts it up close, like holding it
+ * in your hand: it floats in front of the camera, and you can drag to
+ * tilt and inspect it. Dismissed only via the "put it back" button, so
+ * a stray touch never closes it.
  */
 export function HeldItem({ theme }: { theme: BoardTheme }) {
-  const heldId = useBoardStore((s) => s.heldId);
   const item = useBoardStore((s) => s.items.find((i) => i.id === s.heldId));
-  if (!heldId || !item) return null;
-  // key remounts the inner view (and its entrance animation) per item
+  if (!item) return null;
   return <HeldView key={item.id} item={item} theme={theme} />;
 }
 
-function HeldView({
-  item,
-  theme,
-}: {
-  item: NonNullable<ReturnType<typeof useBoardStore.getState>["items"][number]>;
-  theme: BoardTheme;
-}) {
+function HeldView({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
   const camera = useThree((s) => s.camera);
   const pointer = useThree((s) => s.pointer);
   const group = useRef<THREE.Group>(null);
   const appear = useRef(0);
-
-  const isPhoto = item.kind === "photo";
+  const tilt = useRef({ x: 0, y: 0 });
+  const dragging = useRef(false);
 
   useFrame((state, delta) => {
     const g = group.current;
     if (!g) return;
-    appear.current = THREE.MathUtils.damp(appear.current, 1, 8, delta);
+    appear.current = THREE.MathUtils.damp(appear.current, 1, 9, delta);
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
       camera.quaternion
     );
-    const dist = HELD_DISTANCE + (1 - appear.current) * 0.35;
-    g.position
-      .copy(camera.position)
-      .addScaledVector(forward, dist);
+    const dist = HELD_DISTANCE + (1 - appear.current) * 0.4;
+    g.position.copy(camera.position).addScaledVector(forward, dist);
     g.quaternion.copy(camera.quaternion);
-    // tilt to "inspect", plus a gentle idle sway
+
+    // drag to tilt; let go and it eases back to facing you
+    const targetX = dragging.current ? pointer.y * 0.55 : 0;
+    const targetY = dragging.current ? pointer.x * 0.7 : 0;
+    tilt.current.x = THREE.MathUtils.damp(tilt.current.x, targetX, 6, delta);
+    tilt.current.y = THREE.MathUtils.damp(tilt.current.y, targetY, 6, delta);
     const t = state.clock.elapsedTime;
-    g.rotateY(pointer.x * 0.4 + Math.sin(t * 0.8) * 0.04);
-    g.rotateX(-pointer.y * 0.3 + Math.sin(t * 1.1) * 0.03);
-    const s = appear.current;
-    g.scale.setScalar(s);
+    g.rotateY(tilt.current.y + Math.sin(t * 0.8) * 0.03);
+    g.rotateX(-tilt.current.x + Math.sin(t * 1.1) * 0.02);
+    g.scale.setScalar(appear.current);
   });
 
-  function dismiss(e: ThreeEvent<PointerEvent>) {
+  function onDown(e: ThreeEvent<PointerEvent>) {
     e.stopPropagation();
-    useBoardStore.getState().setHeld(null);
+    dragging.current = true;
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+  function onUp(e: ThreeEvent<PointerEvent>) {
+    dragging.current = false;
+    try {
+      (e.target as Element).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
     <group ref={group} scale={0}>
-      {isPhoto ? (
-        <HeldPhoto item={item} onDismiss={dismiss} />
-      ) : (
-        <HeldNote item={item} theme={theme} onDismiss={dismiss} />
-      )}
+      <group onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={onUp}>
+        {item.kind === "photo" ? (
+          <HeldPhoto item={item} />
+        ) : (
+          <HeldNote item={item} theme={theme} />
+        )}
+      </group>
     </group>
   );
 }
 
-function HeldNote({
-  item,
-  theme,
-  onDismiss,
-}: {
-  item: { content: string; paper: string; created_by: string | null; created_at: string };
-  theme: BoardTheme;
-  onDismiss: (e: ThreeEvent<PointerEvent>) => void;
-}) {
+function HeldNote({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
   const fontsReady = useFontsReady();
   const paper = getPaper(theme, item.paper);
   const authorName = useBoardStore((s) =>
@@ -109,28 +113,23 @@ function HeldNote({
   );
   useEffect(() => () => texture.dispose(), [texture]);
 
-  const size = 0.46;
+  const size = 0.5;
   return (
-    <group onPointerDown={onDismiss}>
-      <mesh position={[0.015, -0.02, -0.012]}>
+    <group>
+      <mesh position={[0.02, -0.025, -0.012]}>
         <planeGeometry args={[size, size]} />
         <meshBasicMaterial color="#000" transparent opacity={0.22} />
       </mesh>
       <mesh>
         <planeGeometry args={[size, size]} />
-        <meshBasicMaterial map={texture} transparent toneMapped={false} />
+        <meshBasicMaterial map={texture} transparent />
       </mesh>
     </group>
   );
 }
 
-function HeldPhoto({
-  item,
-  onDismiss,
-}: {
-  item: { photo_path: string | null; content: string };
-  onDismiss: (e: ThreeEvent<PointerEvent>) => void;
-}) {
+/** Mirrors the board's polaroid rendering so a held photo looks identical. */
+function HeldPhoto({ item }: { item: BoardItem }) {
   const supabase = useMemo(() => createClient(), []);
   const fontsReady = useFontsReady();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -160,11 +159,13 @@ function HeldPhoto({
   }, [supabase, item.photo_path]);
 
   const image = texture?.image as { width?: number; height?: number } | undefined;
+  // Enlarge a polaroid to a nice held size.
+  const scale = 1.9;
   const base = photoPlaneSize(image?.width ?? 4, image?.height ?? 3);
-  const w = base.width * 0.85;
-  const h = base.height * 0.85;
-  const pad = 0.05;
-  const capH = 0.14;
+  const w = base.width * scale;
+  const h = base.height * scale;
+  const pad = 0.05 * scale;
+  const capH = 0.13 * scale;
   const frameW = w + pad * 2;
   const frameH = h + pad * 2 + capH;
 
@@ -184,7 +185,7 @@ function HeldPhoto({
   useEffect(() => () => captionTexture?.dispose(), [captionTexture]);
 
   return (
-    <group onPointerDown={onDismiss}>
+    <group>
       <mesh position={[0.02, -0.025, -0.012]}>
         <planeGeometry args={[frameW, frameH]} />
         <meshBasicMaterial color="#000" transparent opacity={0.24} />
@@ -196,13 +197,13 @@ function HeldPhoto({
       <mesh position={[0, capH / 2, 0.004]}>
         <planeGeometry args={[w, h]} />
         {texture ? (
-          <meshBasicMaterial map={texture} toneMapped={false} />
+          <meshBasicMaterial map={texture} />
         ) : (
           <meshBasicMaterial color="#d8d2c8" />
         )}
       </mesh>
       {captionTexture && (
-        <mesh position={[0, -frameH / 2 + capH / 2 + 0.02, 0.004]}>
+        <mesh position={[0, -frameH / 2 + capH / 2 + 0.02 * scale, 0.004]}>
           <planeGeometry args={[frameW - 0.08, capH * 0.75]} />
           <meshBasicMaterial map={captionTexture} transparent />
         </mesh>

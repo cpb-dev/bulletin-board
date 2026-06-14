@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   archiveBoard,
+  archiveBoardAndStartFresh,
   createAdditionalBoard,
   listActiveBoards,
   renameBoard,
@@ -76,6 +77,31 @@ export function BoardMenu() {
       await archiveBoard(supabase, board.id, name);
       setOpen(false);
       router.push("/board");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save that.");
+      setBusy(false);
+    }
+  }
+
+  // For the main board: tuck it into memories and start a fresh one.
+  async function saveMainAndReset() {
+    if (!board || !board.is_primary) return;
+    if (
+      !confirm(
+        "Save this board to memories and start a fresh main board? You'll find it any time under Memories."
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await archiveBoardAndStartFresh(supabase, board.id, {
+        keepsakeTitle: name,
+        nextTitle: "Our board",
+        nextTheme: board.theme,
+      });
+      setOpen(false);
+      router.push("/board");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save that.");
       setBusy(false);
@@ -163,6 +189,15 @@ export function BoardMenu() {
                 disabled={busy}
               >
                 💝 save this board as a memory
+              </button>
+            )}
+            {board && board.is_primary && (
+              <button
+                className="cute-button ghost w-full mt-3 text-sm"
+                onClick={saveMainAndReset}
+                disabled={busy}
+              >
+                💝 save to memories &amp; start fresh
               </button>
             )}
 

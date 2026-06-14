@@ -5,11 +5,13 @@ import {
   archiveBoardAndStartFresh,
   createAdditionalBoard,
   createNote,
+  deleteBoard,
   deleteItem,
   exportBoard,
   getPrimaryBoard,
   listActiveBoards,
   photoStoragePath,
+  promoteBoardToMain,
   renameBoard,
   updateBoardTheme,
 } from "../api";
@@ -134,6 +136,42 @@ describe("archiveBoard", () => {
       archiveBoard(client, "b2", "Weekend away")
     ).resolves.toBeUndefined();
     expect(from).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("promoteBoardToMain", () => {
+  it("demotes the current primary, then promotes the target", async () => {
+    const { client, from } = mockSupabase([
+      chain({ data: null, error: null }), // demote current primary
+      chain({ data: null, error: null }), // promote target
+    ]);
+    await expect(promoteBoardToMain(client, "b2")).resolves.toBeUndefined();
+    expect(from).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops if demoting the current primary fails", async () => {
+    const { client, from } = mockSupabase([
+      chain({ data: null, error: { message: "nope" } }),
+    ]);
+    await expect(promoteBoardToMain(client, "b2")).rejects.toThrow("nope");
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deleteBoard", () => {
+  it("deletes the board", async () => {
+    const { client, from } = mockSupabase([chain({ data: null, error: null })]);
+    await expect(deleteBoard(client, "b2")).resolves.toBeUndefined();
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a friendly error", async () => {
+    const { client } = mockSupabase([
+      chain({ data: null, error: { message: "" } }),
+    ]);
+    await expect(deleteBoard(client, "b2")).rejects.toThrow(
+      "Could not delete that board."
+    );
   });
 });
 

@@ -21,7 +21,7 @@ export function HeldOverlay() {
         ✕ put it back
       </button>
       <p className="text-sm opacity-80 drop-shadow pointer-events-none">
-        move your finger to tilt it · tap to put it back
+        drag to tilt &amp; look at it ✨
       </p>
     </div>
   );
