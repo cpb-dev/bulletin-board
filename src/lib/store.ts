@@ -32,6 +32,8 @@ interface BoardState {
   draggingId: string | null;
   resizingId: string | null;
   editingId: string | null;
+  /** Item lifted up for a close-up "held in your hand" look (read-only). */
+  heldId: string | null;
   composer: ComposerMode;
   addMenuOpen: boolean;
   themePickerOpen: boolean;
@@ -56,6 +58,7 @@ interface BoardState {
   setDragging: (id: string | null) => void;
   setResizing: (id: string | null) => void;
   setEditing: (id: string | null) => void;
+  setHeld: (id: string | null) => void;
   setComposer: (mode: ComposerMode) => void;
   setAddMenuOpen: (open: boolean) => void;
   setThemePickerOpen: (open: boolean) => void;
@@ -90,6 +93,7 @@ export const useBoardStore = create<BoardState>((set) => ({
   draggingId: null,
   resizingId: null,
   editingId: null,
+  heldId: null,
   composer: null,
   addMenuOpen: false,
   themePickerOpen: false,
@@ -113,6 +117,7 @@ export const useBoardStore = create<BoardState>((set) => ({
       mode: "view",
       selectedId: null,
       editingId: null,
+      heldId: null,
       composer: null,
       addMenuOpen: false,
       themePickerOpen: false,
@@ -142,6 +147,15 @@ export const useBoardStore = create<BoardState>((set) => ({
   setEditing: (editingId) =>
     set({
       editingId,
+      heldId: null,
+      composer: null,
+      addMenuOpen: false,
+      themePickerOpen: false,
+    }),
+  setHeld: (heldId) =>
+    set({
+      heldId,
+      editingId: null,
       composer: null,
       addMenuOpen: false,
       themePickerOpen: false,
@@ -150,6 +164,7 @@ export const useBoardStore = create<BoardState>((set) => ({
     set({
       composer,
       editingId: null,
+      heldId: null,
       addMenuOpen: false,
       themePickerOpen: false,
     }),
@@ -180,6 +195,7 @@ export const useBoardStore = create<BoardState>((set) => ({
     set((s) => ({
       items: s.items.filter((i) => i.id !== id),
       editingId: s.editingId === id ? null : s.editingId,
+      heldId: s.heldId === id ? null : s.heldId,
       draggingId: s.draggingId === id ? null : s.draggingId,
       selectedId: s.selectedId === id ? null : s.selectedId,
     })),

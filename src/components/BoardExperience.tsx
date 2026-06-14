@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getBoard,
-  getOrCreateActiveBoard,
-  getProfiles,
-  listItems,
-} from "@/lib/api";
+import { getBoard, getPrimaryBoard, getProfiles, listItems } from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getTheme } from "@/lib/themes";
@@ -17,10 +12,12 @@ import { BeachScene } from "./three/BeachScene";
 import { Board } from "./three/Board";
 import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
+import { HeldItem } from "./three/HeldItem";
 import { CameraRig } from "./three/CameraRig";
 import { Hud } from "./ui/Hud";
 import { Toolbar } from "./ui/Toolbar";
 import { ZoomControls } from "./ui/ZoomControls";
+import { HeldOverlay } from "./ui/HeldOverlay";
 import { NoteComposer } from "./ui/NoteComposer";
 import { PhotoComposer } from "./ui/PhotoComposer";
 import { ItemEditor } from "./ui/ItemEditor";
@@ -43,6 +40,8 @@ export function BoardExperience({
   const items = useBoardStore((s) => s.items);
   const view = useBoardStore((s) => s.view);
   const mode = useBoardStore((s) => s.mode);
+  // Archived boards (opened directly) are always read-only.
+  const effectiveReadOnly = useBoardStore((s) => s.readOnly);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +57,7 @@ export function BoardExperience({
       try {
         const loadedBoard = boardId
           ? await getBoard(supabase, boardId)
-          : await getOrCreateActiveBoard(supabase);
+          : await getPrimaryBoard(supabase);
         if (!loadedBoard) throw new Error("That board doesn't exist.");
         const [loadedItems, profiles] = await Promise.all([
           listItems(supabase, loadedBoard.id),
@@ -66,6 +65,7 @@ export function BoardExperience({
         ]);
         if (!alive) return;
         const s = useBoardStore.getState();
+        s.setReadOnly(readOnly || loadedBoard.status === "archived");
         s.setBoard(loadedBoard);
         s.setItems(loadedItems);
         s.setProfiles(profiles);
@@ -84,7 +84,7 @@ export function BoardExperience({
     };
   }, [supabase, boardId, readOnly]);
 
-  useRealtimeBoard(supabase, readOnly ? undefined : board?.id);
+  useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
   const theme = getTheme(board?.theme);
 
@@ -175,13 +175,15 @@ export function BoardExperience({
             )
           )}
         </Board>
+        <HeldItem theme={theme} />
         <CameraRig />
       </Canvas>
 
       {/* ---- overlay UI ---- */}
-      <Hud readOnly={readOnly} />
+      <Hud readOnly={effectiveReadOnly} />
       <Toolbar />
       <ZoomControls />
+      <HeldOverlay />
 
       {view === "room" && !loading && !error && (
         <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
@@ -190,7 +192,7 @@ export function BoardExperience({
       )}
       {view === "board" &&
         mode === "view" &&
-        !readOnly &&
+        !effectiveReadOnly &&
         items.length === 0 &&
         !loading && (
           <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
@@ -199,8 +201,8 @@ export function BoardExperience({
         )}
       {view === "board" && mode === "edit" && (
         <div className="pointer-events-none absolute top-20 inset-x-0 flex justify-center">
-          <div className="cute-panel px-4 py-2 text-sm pop-in">
-            ✏️ edit mode — drag to move, pull the corner to resize
+          <div className="cute-panel px-4 py-2 text-sm pop-in text-center">
+            ✏️ edit mode — tap to edit · drag to move · pull the corner to resize
           </div>
         </div>
       )}

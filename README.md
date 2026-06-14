@@ -21,6 +21,12 @@ two of you can ever get in.
 - **Move & resize in edit mode** — a dedicated ✏️ edit mode lets you
   drag notes around and pull a corner handle to resize them; outside it,
   panning and zooming never grab a note by accident.
+- **Multiple boards** — one main board that's always there, plus any
+  number of extra named boards you can switch between, edit, and later
+  save as memories — all from the 🗂️ Boards dropdown.
+- **Hold a note** — tap any pinned note or photo in view mode and it
+  floats up close, like holding it in your hand (tilt it with your
+  finger); editing happens in Edit mode.
 - **Memories** — "back up" a full board to the memory box forever, start
   a fresh one, revisit old boards in 3D, download keepsake JSON exports.
 - **Lists** — a separate 📝 Lists page for shared checklists (shopping,

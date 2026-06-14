@@ -85,14 +85,15 @@ export function useItemDrag(item: BoardItem) {
     const state = useBoardStore.getState();
     const { view, readOnly, mode } = state;
     if (view !== "room" && (mode !== "edit" || readOnly) && !drag.current) {
-      // A drag that panned the board shouldn't open this note.
+      // A drag that panned the board shouldn't react to the trailing tap.
       if (state.suppressNextTap) {
         state.setSuppressNextTap(false);
         return;
       }
-      // Clean tap in view mode → open the reader/editor.
+      // View mode (or a read-only memory): a tap lifts the note up close,
+      // like holding it in your hand. Editing happens in edit mode.
       e.stopPropagation();
-      state.setEditing(item.id);
+      state.setHeld(item.id);
       return;
     }
     if (!drag.current) return;
@@ -111,6 +112,9 @@ export function useItemDrag(item: BoardItem) {
           /* offline: local position stays, next move persists it */
         });
       }
+    } else {
+      // Edit mode, a clean tap (no drag) → open the content editor.
+      state.setEditing(item.id);
     }
   }
 

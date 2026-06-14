@@ -1,5 +1,7 @@
 "use client";
 
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
+
 /** Reusable bottom sheet for composers, editors and pickers. */
 export function Sheet({
   title,
@@ -10,9 +12,12 @@ export function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Lift the sheet above the on-screen keyboard (iOS doesn't do this for us).
+  const inset = useKeyboardInset();
   return (
     <div
       className="absolute inset-0 z-20 flex items-end sm:items-center justify-center bg-black/35"
+      style={{ paddingBottom: inset ? inset : undefined }}
       onClick={onClose}
     >
       <div

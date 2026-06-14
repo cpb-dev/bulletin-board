@@ -18,34 +18,70 @@ function fail(message: string | undefined, fallback: string): never {
 // ---------- Boards ----------
 
 /**
- * Fetch the current active board, creating one on first ever visit.
+ * Fetch the primary board (the one that always shows at /board),
+ * creating it on first ever visit. If boards exist but none is flagged
+ * primary (e.g. just after the migration), the oldest active board is
+ * promoted.
  */
-export async function getOrCreateActiveBoard(
+export async function getPrimaryBoard(
   supabase: SupabaseClient
 ): Promise<Board> {
   const { data, error } = await supabase
     .from("boards")
     .select("*")
     .eq("status", "active")
-    .order("created_at", { ascending: false })
+    .eq("is_primary", true)
     .limit(1);
   if (error) fail(error.message, "Could not load the board.");
   if (data && data.length > 0) return data[0] as Board;
-  return createBoard(supabase, "Our board", DEFAULT_THEME_ID);
+
+  // No primary yet — promote the oldest active board, or create one.
+  const { data: actives } = await supabase
+    .from("boards")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (actives && actives.length > 0) {
+    const board = actives[0] as Board;
+    await supabase
+      .from("boards")
+      .update({ is_primary: true })
+      .eq("id", board.id);
+    return { ...board, is_primary: true };
+  }
+  return createBoard(supabase, "Our board", DEFAULT_THEME_ID, true);
+}
+
+/** @deprecated use getPrimaryBoard — kept for back-compat. */
+export async function getOrCreateActiveBoard(
+  supabase: SupabaseClient
+): Promise<Board> {
+  return getPrimaryBoard(supabase);
 }
 
 export async function createBoard(
   supabase: SupabaseClient,
   title: string,
-  theme: string
+  theme: string,
+  isPrimary = false
 ): Promise<Board> {
   const { data, error } = await supabase
     .from("boards")
-    .insert({ title, theme })
+    .insert({ title, theme, is_primary: isPrimary })
     .select()
     .single();
   if (error || !data) fail(error?.message, "Could not create a board.");
   return data as Board;
+}
+
+/** Create an extra (non-primary) board the couple can switch to. */
+export async function createAdditionalBoard(
+  supabase: SupabaseClient,
+  title: string,
+  theme: string = DEFAULT_THEME_ID
+): Promise<Board> {
+  return createBoard(supabase, title.trim() || "New board", theme, false);
 }
 
 export async function getBoard(
@@ -60,6 +96,20 @@ export async function getBoard(
   return (data as Board) ?? null;
 }
 
+/** All active boards, primary first, then newest. */
+export async function listActiveBoards(
+  supabase: SupabaseClient
+): Promise<Board[]> {
+  const { data, error } = await supabase
+    .from("boards")
+    .select("*")
+    .eq("status", "active")
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true });
+  if (error) fail(error.message, "Could not load your boards.");
+  return (data ?? []) as Board[];
+}
+
 export async function listArchivedBoards(
   supabase: SupabaseClient
 ): Promise<Board[]> {
@@ -72,25 +122,61 @@ export async function listArchivedBoards(
   return (data ?? []) as Board[];
 }
 
+/** Give a board a new display name. */
+export async function renameBoard(
+  supabase: SupabaseClient,
+  boardId: string,
+  title: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("boards")
+    .update({ title: title.trim() || "Our board" })
+    .eq("id", boardId);
+  if (error) fail(error.message, "Could not rename the board.");
+}
+
 /**
- * "Back up" the current board: freeze it as a memory and start a
- * fresh board in its place. Returns the new active board.
+ * Save an additional board as a memory (archive it). Never used on the
+ * primary board — that uses archiveBoardAndStartFresh.
+ */
+export async function archiveBoard(
+  supabase: SupabaseClient,
+  boardId: string,
+  keepsakeTitle: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("boards")
+    .update({
+      status: "archived",
+      archived_at: new Date().toISOString(),
+      is_primary: false,
+      title: keepsakeTitle.trim() || "A memory",
+    })
+    .eq("id", boardId);
+  if (error) fail(error.message, "Could not save the board as a memory.");
+}
+
+/**
+ * "Back up" the primary board: freeze it as a memory and start a fresh
+ * primary board in its place. Returns the new primary board.
  */
 export async function archiveBoardAndStartFresh(
   supabase: SupabaseClient,
   boardId: string,
   options: { keepsakeTitle: string; nextTitle: string; nextTheme: string }
 ): Promise<Board> {
+  // Clear primary on the outgoing board first so the new one can take it.
   const { error } = await supabase
     .from("boards")
     .update({
       status: "archived",
       archived_at: new Date().toISOString(),
+      is_primary: false,
       title: options.keepsakeTitle,
     })
     .eq("id", boardId);
   if (error) fail(error.message, "Could not save the board as a memory.");
-  return createBoard(supabase, options.nextTitle, options.nextTheme);
+  return createBoard(supabase, options.nextTitle, options.nextTheme, true);
 }
 
 export async function updateBoardTheme(

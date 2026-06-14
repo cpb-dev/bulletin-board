@@ -100,7 +100,8 @@ future swap to server actions wouldn't change call sites much.
 
 ```sql
 profiles          id (= auth.users.id), display_name
-boards            id, title, theme, status active|archived, created_at, archived_at
+boards            id, title, theme, status active|archived, is_primary,
+                  created_at, archived_at   -- one primary + extra boards
 items             id, board_id, kind note|photo, content, photo_path,
                   paper, x, y, rotation, scale, created_by, timestamps
 lists             id, title, status active|archived, created_at, archived_at

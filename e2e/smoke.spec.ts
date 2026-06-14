@@ -43,6 +43,11 @@ test("lists page is behind the auth wall", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("an additional board page is behind the auth wall", async ({ page }) => {
+  await page.goto("/board/some-board-id");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test("the notifications service worker is served", async ({ request }) => {
   const res = await request.get("/sw.js");
   expect(res.ok()).toBeTruthy();

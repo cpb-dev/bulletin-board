@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  archiveBoard,
   archiveBoardAndStartFresh,
+  createAdditionalBoard,
   createNote,
   deleteItem,
   exportBoard,
-  getOrCreateActiveBoard,
+  getPrimaryBoard,
+  listActiveBoards,
   photoStoragePath,
+  renameBoard,
   updateBoardTheme,
 } from "../api";
 import type { Board } from "../types";
@@ -50,32 +54,86 @@ const board: Board = {
   title: "Our board",
   theme: "cozy-cabin",
   status: "active",
+  is_primary: true,
   created_by: "u1",
   created_at: "2026-01-01T00:00:00Z",
   archived_at: null,
 };
 
-describe("getOrCreateActiveBoard", () => {
-  it("returns the existing active board", async () => {
+describe("getPrimaryBoard", () => {
+  it("returns the existing primary board", async () => {
     const { client } = mockSupabase([chain({ data: [board], error: null })]);
-    await expect(getOrCreateActiveBoard(client)).resolves.toEqual(board);
+    await expect(getPrimaryBoard(client)).resolves.toEqual(board);
   });
 
-  it("creates a board on the couple's first visit", async () => {
+  it("promotes the oldest active board when none is primary", async () => {
+    const orphan = { ...board, is_primary: false };
     const { client, from } = mockSupabase([
-      chain({ data: [], error: null }), // no active board
+      chain({ data: [], error: null }), // no primary
+      chain({ data: [orphan], error: null }), // oldest active
+      chain({ data: null, error: null }), // update -> primary
+    ]);
+    const result = await getPrimaryBoard(client);
+    expect(result.is_primary).toBe(true);
+    expect(from).toHaveBeenCalledTimes(3);
+  });
+
+  it("creates a primary board on the couple's first visit", async () => {
+    const { client, from } = mockSupabase([
+      chain({ data: [], error: null }), // no primary
+      chain({ data: [], error: null }), // no active at all
       chain({ data: board, error: null }), // insert returns new board
     ]);
-    const result = await getOrCreateActiveBoard(client);
+    const result = await getPrimaryBoard(client);
     expect(result).toEqual(board);
-    expect(from).toHaveBeenCalledTimes(2);
+    expect(from).toHaveBeenCalledTimes(3);
   });
 
   it("surfaces load errors with a friendly message", async () => {
     const { client } = mockSupabase([
       chain({ data: null, error: { message: "boom" } }),
     ]);
-    await expect(getOrCreateActiveBoard(client)).rejects.toThrow("boom");
+    await expect(getPrimaryBoard(client)).rejects.toThrow("boom");
+  });
+});
+
+describe("listActiveBoards", () => {
+  it("returns the active boards", async () => {
+    const extra = { ...board, id: "b2", is_primary: false };
+    const { client } = mockSupabase([
+      chain({ data: [board, extra], error: null }),
+    ]);
+    await expect(listActiveBoards(client)).resolves.toHaveLength(2);
+  });
+});
+
+describe("createAdditionalBoard", () => {
+  it("defaults a blank name", async () => {
+    const made = { ...board, id: "b3", title: "New board", is_primary: false };
+    const { client } = mockSupabase([chain({ data: made, error: null })]);
+    const result = await createAdditionalBoard(client, "   ");
+    expect(result.title).toBe("New board");
+  });
+});
+
+describe("renameBoard", () => {
+  it("throws a friendly error on failure", async () => {
+    const { client } = mockSupabase([
+      chain({ data: null, error: { message: "" } }),
+    ]);
+    await expect(renameBoard(client, "b1", "Trip")).rejects.toThrow(
+      "Could not rename the board."
+    );
+  });
+});
+
+describe("archiveBoard", () => {
+  it("archives an additional board without creating a replacement", async () => {
+    const { client, from } = mockSupabase([chain({ data: null, error: null })]);
+    await expect(
+      archiveBoard(client, "b2", "Weekend away")
+    ).resolves.toBeUndefined();
+    expect(from).toHaveBeenCalledTimes(1);
   });
 });
 

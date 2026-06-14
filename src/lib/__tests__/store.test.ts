@@ -38,6 +38,7 @@ beforeEach(() => {
     draggingId: null,
     resizingId: null,
     editingId: null,
+    heldId: null,
     composer: null,
     addMenuOpen: false,
     themePickerOpen: false,
@@ -202,5 +203,31 @@ describe("panel exclusivity", () => {
     store.setThemePickerOpen(true);
     expect(useBoardStore.getState().composer).toBeNull();
     expect(useBoardStore.getState().themePickerOpen).toBe(true);
+  });
+});
+
+describe("held item", () => {
+  it("holding an item closes the editor, and vice-versa", () => {
+    const store = useBoardStore.getState();
+    store.setEditing("item-1");
+    store.setHeld("item-2");
+    expect(useBoardStore.getState().editingId).toBeNull();
+    expect(useBoardStore.getState().heldId).toBe("item-2");
+
+    store.setEditing("item-1");
+    expect(useBoardStore.getState().heldId).toBeNull();
+    expect(useBoardStore.getState().editingId).toBe("item-1");
+  });
+
+  it("stepping back and removing an item clear the held item", () => {
+    const store = useBoardStore.getState();
+    store.setItems([makeItem()]);
+    store.setHeld("item-1");
+    store.removeItem("item-1");
+    expect(useBoardStore.getState().heldId).toBeNull();
+
+    store.setHeld("item-2");
+    store.stepBack();
+    expect(useBoardStore.getState().heldId).toBeNull();
   });
 });
