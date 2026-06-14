@@ -12,6 +12,8 @@ export interface Board {
   title: string;
   theme: string;
   status: BoardStatus;
+  /** The main board that always shows at /board (only one at a time). */
+  is_primary: boolean;
   created_by: string | null;
   created_at: string;
   archived_at: string | null;

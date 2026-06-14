@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   archiveBoardAndStartFresh,
   exportBoard,
-  getOrCreateActiveBoard,
+  getPrimaryBoard,
   listArchivedBoards,
 } from "@/lib/api";
 import type { Board } from "@/lib/types";
@@ -32,7 +32,7 @@ export default function MemoriesPage() {
     (async () => {
       try {
         const [board, archived] = await Promise.all([
-          getOrCreateActiveBoard(supabase),
+          getPrimaryBoard(supabase),
           listArchivedBoards(supabase),
         ]);
         setActive(board);

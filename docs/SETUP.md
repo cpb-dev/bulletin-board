@@ -56,16 +56,17 @@ then install it on both phones.
 That's the "app" for now — the proper App Store / Play Store wrappers
 use the exact same site later (see [MOBILE.md](MOBILE.md)).
 
-## Already set up v1? Run the v2 migration
+## Already set up? Run the newer migrations
 
-If your Supabase project predates lists / resizing / notifications, open
-the SQL Editor and run
-[`supabase/migrations/0002_lists_resize_push.sql`](../supabase/migrations/0002_lists_resize_push.sql)
-**and** [`supabase/migrations/0003_created_by_defaults.sql`](../supabase/migrations/0003_created_by_defaults.sql)
-once each. They only add tables, a column, and column defaults, so
-they're safe on existing data. (Fresh setups run `0001`, `0002`, `0003`
-in order.) `0003` is what stamps each note with its author and stops you
-being notified of your own posts.
+If your Supabase project predates a feature, open the SQL Editor and run
+the migrations it's missing, in order — they only add tables/columns and
+are safe on existing data:
+
+- [`0002_lists_resize_push.sql`](../supabase/migrations/0002_lists_resize_push.sql) — lists, note resizing, notifications
+- [`0003_created_by_defaults.sql`](../supabase/migrations/0003_created_by_defaults.sql) — stamps notes with their author, stops self-notifications
+- [`0004_multiple_boards.sql`](../supabase/migrations/0004_multiple_boards.sql) — multiple named boards (the 🗂️ Boards dropdown)
+
+(Fresh setups run `0001` through `0004` in order.)
 
 ## Optional: turn on phone notifications
 
