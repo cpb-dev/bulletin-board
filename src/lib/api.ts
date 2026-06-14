@@ -179,6 +179,39 @@ export async function archiveBoardAndStartFresh(
   return createBoard(supabase, options.nextTitle, options.nextTheme, true);
 }
 
+/**
+ * Restore a saved (archived) board and make it the main board. The
+ * current primary is demoted to a regular active board so nothing is
+ * lost. Only the single-primary index is respected by clearing it first.
+ */
+export async function promoteBoardToMain(
+  supabase: SupabaseClient,
+  boardId: string
+): Promise<void> {
+  // Demote whoever is currently primary (keep it active & switchable).
+  const { error: demoteError } = await supabase
+    .from("boards")
+    .update({ is_primary: false })
+    .eq("is_primary", true);
+  if (demoteError)
+    fail(demoteError.message, "Could not switch the main board.");
+
+  const { error } = await supabase
+    .from("boards")
+    .update({ status: "active", is_primary: true, archived_at: null })
+    .eq("id", boardId);
+  if (error) fail(error.message, "Could not make that the main board.");
+}
+
+/** Permanently delete a board and everything pinned to it. */
+export async function deleteBoard(
+  supabase: SupabaseClient,
+  boardId: string
+): Promise<void> {
+  const { error } = await supabase.from("boards").delete().eq("id", boardId);
+  if (error) fail(error.message, "Could not delete that board.");
+}
+
 export async function updateBoardTheme(
   supabase: SupabaseClient,
   boardId: string,
