@@ -5,13 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   archiveBoardAndStartFresh,
-  deleteBoard,
   exportBoard,
   getPrimaryBoard,
   listArchivedBoards,
-  promoteBoardToMain,
 } from "@/lib/api";
-import { useRouter } from "next/navigation";
 import type { Board } from "@/lib/types";
 import { getTheme, THEMES } from "@/lib/themes";
 
@@ -21,7 +18,6 @@ import { getTheme, THEMES } from "@/lib/themes";
  */
 export default function MemoriesPage() {
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
   const [active, setActive] = useState<Board | null>(null);
   const [memories, setMemories] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,43 +75,6 @@ export default function MemoriesPage() {
       setError(
         err instanceof Error ? err.message : "Could not save the board."
       );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function promote(board: Board) {
-    if (
-      !confirm(
-        `Make “${board.title}” your main board? Your current main board stays as a switchable board.`
-      )
-    )
-      return;
-    setBusy(true);
-    setError(null);
-    try {
-      await promoteBoardToMain(supabase, board.id);
-      router.push("/board");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not switch boards.");
-      setBusy(false);
-    }
-  }
-
-  async function remove(board: Board) {
-    if (
-      !confirm(
-        `Delete “${board.title}” forever? Everything pinned to it will be gone for good.`
-      )
-    )
-      return;
-    setBusy(true);
-    setError(null);
-    try {
-      await deleteBoard(supabase, board.id);
-      setMemories((prev) => prev.filter((m) => m.id !== board.id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete that.");
     } finally {
       setBusy(false);
     }
@@ -253,32 +212,16 @@ export default function MemoriesPage() {
                       : "—"}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2 shrink-0 justify-end">
+                <div className="flex gap-2 shrink-0">
                   <Link href={`/memories/${m.id}`} className="cute-button text-sm">
                     visit
                   </Link>
-                  <button
-                    className="cute-button ghost text-sm"
-                    onClick={() => promote(m)}
-                    disabled={busy}
-                    aria-label={`Make ${m.title} the main board`}
-                  >
-                    ⭐ make main
-                  </button>
                   <button
                     className="cute-button ghost text-sm"
                     onClick={() => download(m)}
                     aria-label={`Download ${m.title}`}
                   >
                     ⬇️
-                  </button>
-                  <button
-                    className="cute-button danger text-sm"
-                    onClick={() => remove(m)}
-                    disabled={busy}
-                    aria-label={`Delete ${m.title}`}
-                  >
-                    🗑️
                   </button>
                 </div>
               </li>

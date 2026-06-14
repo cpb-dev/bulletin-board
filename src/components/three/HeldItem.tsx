@@ -166,20 +166,26 @@ function HeldPhoto({
     let disposed = false;
     let loaded: THREE.Texture | null = null;
     if (!item.photo_path) return;
-    getPhotoUrl(supabase, item.photo_path)
-      .then(
-        (url) =>
-          new Promise<THREE.Texture>((resolve, reject) => {
-            new THREE.TextureLoader().load(url, resolve, undefined, reject);
-          })
-      )
-      .then((tex) => {
-        if (disposed) return tex.dispose();
+    // Load via fetch → ImageBitmap rather than TextureLoader: a blob is
+    // same-origin so the GL texture can never be "tainted" (which renders
+    // black). Robust across browsers including iOS.
+    (async () => {
+      try {
+        const url = await getPhotoUrl(supabase, item.photo_path!);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("photo fetch failed");
+        const blob = await res.blob();
+        const bitmap = await createImageBitmap(blob);
+        if (disposed) return bitmap.close();
+        const tex = new THREE.Texture(bitmap);
         tex.colorSpace = THREE.SRGBColorSpace;
+        tex.needsUpdate = true;
         loaded = tex;
         setTexture(tex);
-      })
-      .catch(() => {});
+      } catch {
+        /* leave the grey placeholder */
+      }
+    })();
     return () => {
       disposed = true;
       loaded?.dispose();
