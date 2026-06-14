@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   archiveBoard,
   archiveBoardAndStartFresh,
   createAdditionalBoard,
+  deleteBoard,
   listActiveBoards,
+  listArchivedBoards,
+  promoteBoardToMain,
   renameBoard,
 } from "@/lib/api";
 import { getTheme } from "@/lib/themes";
@@ -33,6 +36,8 @@ export function BoardMenu() {
 
   const [open, setOpen] = useState(false);
   const [boards, setBoards] = useState<Board[]>([]);
+  const [saved, setSaved] = useState<Board[]>([]);
+  const [rowOpen, setRowOpen] = useState<string | null>(null);
   const [name, setName] = useState(board?.title ?? "");
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,12 +45,18 @@ export function BoardMenu() {
 
   useEffect(() => setName(board?.title ?? ""), [board?.title]);
 
-  useEffect(() => {
-    if (!open) return;
-    listActiveBoards(supabase)
-      .then(setBoards)
+  const refresh = useCallback(() => {
+    Promise.all([listActiveBoards(supabase), listArchivedBoards(supabase)])
+      .then(([active, archived]) => {
+        setBoards(active);
+        setSaved(archived);
+      })
       .catch(() => setError("Could not load your boards."));
-  }, [open, supabase]);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (open) refresh();
+  }, [open, refresh]);
 
   async function saveName() {
     if (!board || name.trim() === board.title) return;
@@ -79,6 +90,44 @@ export function BoardMenu() {
       router.push("/board");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save that.");
+      setBusy(false);
+    }
+  }
+
+  async function promoteSaved(b: Board) {
+    if (
+      !confirm(
+        `Make “${b.title}” your main board? Your current main board stays as a switchable board.`
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await promoteBoardToMain(supabase, b.id);
+      setOpen(false);
+      router.push("/board");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not switch boards.");
+      setBusy(false);
+    }
+  }
+
+  async function deleteSaved(b: Board) {
+    if (
+      !confirm(
+        `Delete “${b.title}” forever? Everything pinned to it will be gone for good.`
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await deleteBoard(supabase, b.id);
+      setSaved((prev) => prev.filter((m) => m.id !== b.id));
+      setRowOpen(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete that.");
+    } finally {
       setBusy(false);
     }
   }
@@ -159,6 +208,55 @@ export function BoardMenu() {
                         </Link>
                       </li>
                     ))}
+                </ul>
+              </>
+            )}
+
+            {saved.length > 0 && (
+              <>
+                <p className="text-xs opacity-70 mt-3 mb-1">saved boards</p>
+                <ul className="flex flex-col gap-1">
+                  {saved.map((b) => (
+                    <li key={b.id} className="rounded-lg bg-black/5">
+                      <div className="flex items-center justify-between px-2 py-1.5">
+                        <Link
+                          href={`/memories/${b.id}`}
+                          className="text-sm truncate min-w-0 hover:underline"
+                          onClick={() => setOpen(false)}
+                        >
+                          {getTheme(b.theme).emoji} {b.title}
+                        </Link>
+                        <button
+                          className="cute-button ghost !px-2 !py-1 text-xs shrink-0"
+                          onClick={() =>
+                            setRowOpen((id) => (id === b.id ? null : b.id))
+                          }
+                          aria-label={`Options for ${b.title}`}
+                          aria-expanded={rowOpen === b.id}
+                        >
+                          ⋯
+                        </button>
+                      </div>
+                      {rowOpen === b.id && (
+                        <div className="flex gap-2 px-2 pb-2">
+                          <button
+                            className="cute-button !px-2 !py-1 text-xs flex-1"
+                            onClick={() => promoteSaved(b)}
+                            disabled={busy}
+                          >
+                            ⭐ make main
+                          </button>
+                          <button
+                            className="cute-button danger !px-2 !py-1 text-xs flex-1"
+                            onClick={() => deleteSaved(b)}
+                            disabled={busy}
+                          >
+                            🗑️ delete
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
                 </ul>
               </>
             )}
