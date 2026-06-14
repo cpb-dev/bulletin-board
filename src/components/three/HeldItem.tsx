@@ -13,14 +13,18 @@ import type { BoardItem } from "@/lib/types";
 import { drawNoteTexture } from "./textures";
 import { useFontsReady } from "./NoteMesh";
 
-// Far enough back that the whole note/photo is comfortably in frame.
 const HELD_DISTANCE = 1.05;
+
+interface Size {
+  w: number;
+  h: number;
+}
 
 /**
  * Tapping a note/photo in view mode lifts it up close, like holding it
- * in your hand: it floats in front of the camera, and you can drag to
- * tilt and inspect it. Dismissed only via the "put it back" button, so
- * a stray touch never closes it.
+ * in your hand: it floats in front of the camera, scaled to fit the
+ * screen, and you can drag to tilt and inspect it. Dismissed only via
+ * the "put it back" button so a stray touch never closes it.
  */
 export function HeldItem({ theme }: { theme: BoardTheme }) {
   const item = useBoardStore((s) => s.items.find((i) => i.id === s.heldId));
@@ -29,12 +33,14 @@ export function HeldItem({ theme }: { theme: BoardTheme }) {
 }
 
 function HeldView({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
-  const camera = useThree((s) => s.camera);
+  const camera = useThree((s) => s.camera as THREE.PerspectiveCamera);
   const pointer = useThree((s) => s.pointer);
   const group = useRef<THREE.Group>(null);
   const appear = useRef(0);
   const tilt = useRef({ x: 0, y: 0 });
   const dragging = useRef(false);
+  // The item's natural size at scale 1 (children report it as they load).
+  const [natural, setNatural] = useState<Size>({ w: 0.5, h: 0.5 });
 
   useFrame((state, delta) => {
     const g = group.current;
@@ -56,7 +62,13 @@ function HeldView({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
     const t = state.clock.elapsedTime;
     g.rotateY(tilt.current.y + Math.sin(t * 0.8) * 0.03);
     g.rotateX(-tilt.current.x + Math.sin(t * 1.1) * 0.02);
-    g.scale.setScalar(appear.current);
+
+    // Scale so the whole item fits comfortably in the viewport, whatever
+    // the screen aspect (so big photos aren't cropped to "blank").
+    const vH = 2 * dist * Math.tan(((camera.fov ?? 46) * Math.PI) / 360);
+    const vW = vH * (camera.aspect || 1);
+    const fit = Math.min((vW * 0.82) / natural.w, (vH * 0.82) / natural.h);
+    g.scale.setScalar(appear.current * fit);
   });
 
   function onDown(e: ThreeEvent<PointerEvent>) {
@@ -81,22 +93,33 @@ function HeldView({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
     <group ref={group} scale={0}>
       <group onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={onUp}>
         {item.kind === "photo" ? (
-          <HeldPhoto item={item} />
+          <HeldPhoto item={item} onNatural={setNatural} />
         ) : (
-          <HeldNote item={item} theme={theme} />
+          <HeldNote item={item} theme={theme} onNatural={setNatural} />
         )}
       </group>
     </group>
   );
 }
 
-function HeldNote({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
+function HeldNote({
+  item,
+  theme,
+  onNatural,
+}: {
+  item: BoardItem;
+  theme: BoardTheme;
+  onNatural: (s: Size) => void;
+}) {
   const fontsReady = useFontsReady();
   const paper = getPaper(theme, item.paper);
   const authorName = useBoardStore((s) =>
     item.created_by ? s.profiles[item.created_by]?.display_name : undefined
   );
   const footer = noteStamp(authorName, item.created_at);
+  const size = 0.5;
+
+  useEffect(() => onNatural({ w: size, h: size }), [onNatural]);
 
   const texture = useMemo(
     () =>
@@ -113,7 +136,6 @@ function HeldNote({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
   );
   useEffect(() => () => texture.dispose(), [texture]);
 
-  const size = 0.5;
   return (
     <group>
       <mesh position={[0.02, -0.025, -0.012]}>
@@ -128,8 +150,14 @@ function HeldNote({ item, theme }: { item: BoardItem; theme: BoardTheme }) {
   );
 }
 
-/** Mirrors the board's polaroid rendering so a held photo looks identical. */
-function HeldPhoto({ item }: { item: BoardItem }) {
+/** Mirrors the board's polaroid rendering, sized to fit by the parent. */
+function HeldPhoto({
+  item,
+  onNatural,
+}: {
+  item: BoardItem;
+  onNatural: (s: Size) => void;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const fontsReady = useFontsReady();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -159,15 +187,18 @@ function HeldPhoto({ item }: { item: BoardItem }) {
   }, [supabase, item.photo_path]);
 
   const image = texture?.image as { width?: number; height?: number } | undefined;
-  // Enlarge a polaroid to a nice held size.
-  const scale = 1.9;
   const base = photoPlaneSize(image?.width ?? 4, image?.height ?? 3);
-  const w = base.width * scale;
-  const h = base.height * scale;
-  const pad = 0.05 * scale;
-  const capH = 0.13 * scale;
+  const w = base.width;
+  const h = base.height;
+  const pad = 0.05;
+  const capH = 0.13;
   const frameW = w + pad * 2;
   const frameH = h + pad * 2 + capH;
+
+  useEffect(
+    () => onNatural({ w: frameW, h: frameH }),
+    [frameW, frameH, onNatural]
+  );
 
   const caption = item.content.trim();
   const captionTexture = useMemo(() => {
@@ -203,7 +234,7 @@ function HeldPhoto({ item }: { item: BoardItem }) {
         )}
       </mesh>
       {captionTexture && (
-        <mesh position={[0, -frameH / 2 + capH / 2 + 0.02 * scale, 0.004]}>
+        <mesh position={[0, -frameH / 2 + capH / 2 + 0.02, 0.004]}>
           <planeGeometry args={[frameW - 0.08, capH * 0.75]} />
           <meshBasicMaterial map={captionTexture} transparent />
         </mesh>
