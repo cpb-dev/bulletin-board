@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { createClient } from "@/lib/supabase/client";
-import { getPhotoUrl } from "@/lib/api";
 import { photoPlaneSize } from "@/lib/board-geometry";
 import { getPaper, type BoardTheme } from "@/lib/themes";
 import { noteStamp } from "@/lib/format";
@@ -12,6 +11,7 @@ import { useBoardStore } from "@/lib/store";
 import type { BoardItem } from "@/lib/types";
 import { drawNoteTexture } from "./textures";
 import { useFontsReady } from "./NoteMesh";
+import { usePhotoTexture } from "./photo-texture";
 
 const HELD_DISTANCE = 1.05;
 
@@ -160,37 +160,9 @@ function HeldPhoto({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const fontsReady = useFontsReady();
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-
-  useEffect(() => {
-    let disposed = false;
-    let loaded: THREE.Texture | null = null;
-    if (!item.photo_path) return;
-    // Load via fetch → ImageBitmap rather than TextureLoader: a blob is
-    // same-origin so the GL texture can never be "tainted" (which renders
-    // black). Robust across browsers including iOS.
-    (async () => {
-      try {
-        const url = await getPhotoUrl(supabase, item.photo_path!);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("photo fetch failed");
-        const blob = await res.blob();
-        const bitmap = await createImageBitmap(blob);
-        if (disposed) return bitmap.close();
-        const tex = new THREE.Texture(bitmap);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.needsUpdate = true;
-        loaded = tex;
-        setTexture(tex);
-      } catch {
-        /* leave the grey placeholder */
-      }
-    })();
-    return () => {
-      disposed = true;
-      loaded?.dispose();
-    };
-  }, [supabase, item.photo_path]);
+  // Same cached texture the board already shows — so a held photo can't
+  // render differently to how it looks pinned up.
+  const texture = usePhotoTexture(supabase, item.photo_path);
 
   const image = texture?.image as { width?: number; height?: number } | undefined;
   const base = photoPlaneSize(image?.width ?? 4, image?.height ?? 3);
@@ -236,7 +208,7 @@ function HeldPhoto({
         {texture ? (
           <meshBasicMaterial map={texture} />
         ) : (
-          <meshBasicMaterial color="#d8d2c8" />
+          <meshStandardMaterial color="#d8d2c8" roughness={1} />
         )}
       </mesh>
       {captionTexture && (

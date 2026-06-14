@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import * as THREE from "three";
 import { createClient } from "@/lib/supabase/client";
-import { getPhotoUrl } from "@/lib/api";
 import { ITEM_Z, normToWorld, photoPlaneSize } from "@/lib/board-geometry";
 import { pinColorFor, type BoardTheme } from "@/lib/themes";
 import type { BoardItem } from "@/lib/types";
@@ -11,6 +9,7 @@ import { drawNoteTexture } from "./textures";
 import { Pin } from "./Pin";
 import { SelectionFrame } from "./SelectionFrame";
 import { useFontsReady } from "./NoteMesh";
+import { usePhotoTexture } from "./photo-texture";
 import { useItemDrag } from "./useItemInteraction";
 
 const FRAME_PAD = 0.045;
@@ -29,36 +28,7 @@ export function PhotoMesh({
   const { isActive, isSelected, onPointerDown, onPointerMove, onPointerUp } =
     useItemDrag(item);
   const [hovered, setHovered] = useState(false);
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-
-  useEffect(() => {
-    let disposed = false;
-    let loaded: THREE.Texture | null = null;
-    if (!item.photo_path) return;
-    getPhotoUrl(supabase, item.photo_path)
-      .then(
-        (url) =>
-          new Promise<THREE.Texture>((resolve, reject) => {
-            new THREE.TextureLoader().load(url, resolve, undefined, reject);
-          })
-      )
-      .then((tex) => {
-        if (disposed) {
-          tex.dispose();
-          return;
-        }
-        tex.colorSpace = THREE.SRGBColorSpace;
-        loaded = tex;
-        setTexture(tex);
-      })
-      .catch(() => {
-        // Photo unavailable (offline / expired link) — placeholder stays.
-      });
-    return () => {
-      disposed = true;
-      loaded?.dispose();
-    };
-  }, [supabase, item.photo_path]);
+  const texture = usePhotoTexture(supabase, item.photo_path);
 
   const image = texture?.image as
     | { width?: number; height?: number }
