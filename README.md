@@ -24,6 +24,9 @@ two of you can ever get in.
 - **Multiple boards** — one main board that's always there, plus any
   number of extra named boards you can switch between, edit, and later
   save as memories — all from the 🗂️ Boards dropdown.
+- **World Cup board ⚽** (temporary) — a separate football-themed board
+  with live fixtures & results you can pin and decorate; auto-retires to
+  Memories after the tournament ([docs/WORLDCUP.md](docs/WORLDCUP.md)).
 - **Hold a note** — tap any pinned note or photo in view mode and it
   floats up close, like holding it in your hand (tilt it with your
   finger); editing happens in Edit mode.

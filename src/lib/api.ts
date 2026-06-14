@@ -5,6 +5,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Board, BoardExport, BoardItem, Profile } from "./types";
 import { DEFAULT_THEME_ID } from "./themes";
+import {
+  WORLD_CUP,
+  WORLD_CUP_THEME_ID,
+  worldCupArchiveDue,
+} from "./worldcup";
 
 export const APP_NAME =
   process.env.NEXT_PUBLIC_APP_NAME || "Our Little Board";
@@ -36,10 +41,12 @@ export async function getPrimaryBoard(
   if (data && data.length > 0) return data[0] as Board;
 
   // No primary yet — promote the oldest active board, or create one.
+  // The World Cup board is never eligible to be the primary.
   const { data: actives } = await supabase
     .from("boards")
     .select("*")
     .eq("status", "active")
+    .neq("kind", "worldcup")
     .order("created_at", { ascending: true })
     .limit(1);
   if (actives && actives.length > 0) {
@@ -64,11 +71,12 @@ export async function createBoard(
   supabase: SupabaseClient,
   title: string,
   theme: string,
-  isPrimary = false
+  isPrimary = false,
+  kind: string = "standard"
 ): Promise<Board> {
   const { data, error } = await supabase
     .from("boards")
-    .insert({ title, theme, is_primary: isPrimary })
+    .insert({ title, theme, is_primary: isPrimary, kind })
     .select()
     .single();
   if (error || !data) fail(error?.message, "Could not create a board.");
@@ -96,7 +104,7 @@ export async function getBoard(
   return (data as Board) ?? null;
 }
 
-/** All active boards, primary first, then newest. */
+/** All active *standard* boards, primary first, then newest. */
 export async function listActiveBoards(
   supabase: SupabaseClient
 ): Promise<Board[]> {
@@ -104,10 +112,55 @@ export async function listActiveBoards(
     .from("boards")
     .select("*")
     .eq("status", "active")
+    .neq("kind", "worldcup")
     .order("is_primary", { ascending: false })
     .order("created_at", { ascending: true });
   if (error) fail(error.message, "Could not load your boards.");
   return (data ?? []) as Board[];
+}
+
+// ---------- World Cup board (temporary, self-contained) ----------
+
+/** The active World Cup board, if one exists. */
+export async function getWorldCupBoard(
+  supabase: SupabaseClient
+): Promise<Board | null> {
+  const { data } = await supabase
+    .from("boards")
+    .select("*")
+    .eq("kind", "worldcup")
+    .eq("status", "active")
+    .limit(1);
+  return (data?.[0] as Board) ?? null;
+}
+
+/**
+ * Archive the World Cup board once the tournament's grace period has
+ * passed (so it slips into Memories on its own). No-op otherwise.
+ */
+export async function sweepWorldCup(supabase: SupabaseClient): Promise<void> {
+  if (!worldCupArchiveDue()) return;
+  await supabase
+    .from("boards")
+    .update({ status: "archived", archived_at: new Date().toISOString() })
+    .eq("kind", "worldcup")
+    .eq("status", "active");
+}
+
+/**
+ * Load the World Cup board (creating it on first open), or null if the
+ * tournament is over — in which case it's archived into Memories.
+ */
+export async function getOrCreateWorldCupBoard(
+  supabase: SupabaseClient
+): Promise<Board | null> {
+  if (worldCupArchiveDue()) {
+    await sweepWorldCup(supabase);
+    return null;
+  }
+  const existing = await getWorldCupBoard(supabase);
+  if (existing) return existing;
+  return createBoard(supabase, WORLD_CUP.name, WORLD_CUP_THEME_ID, false, "worldcup");
 }
 
 export async function listArchivedBoards(

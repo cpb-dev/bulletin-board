@@ -21,6 +21,7 @@ const board: Board = {
   theme: "cozy-cabin",
   status: "active",
   is_primary: true,
+  kind: "standard",
   created_by: "u1",
   created_at: "2026-01-01T00:00:00Z",
   archived_at: null,

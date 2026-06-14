@@ -14,6 +14,8 @@ export interface Board {
   status: BoardStatus;
   /** The main board that always shows at /board (only one at a time). */
   is_primary: boolean;
+  /** "standard" or "worldcup" (the special temporary board). */
+  kind: string;
   created_by: string | null;
   created_at: string;
   archived_at: string | null;

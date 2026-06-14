@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { createClient } from "@/lib/supabase/client";
-import { getBoard, getPrimaryBoard, getProfiles, listItems } from "@/lib/api";
+import {
+  getBoard,
+  getOrCreateWorldCupBoard,
+  getPrimaryBoard,
+  getProfiles,
+  listItems,
+} from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getTheme } from "@/lib/themes";
@@ -22,6 +29,7 @@ import { NoteComposer } from "./ui/NoteComposer";
 import { PhotoComposer } from "./ui/PhotoComposer";
 import { ItemEditor } from "./ui/ItemEditor";
 import { ThemePicker } from "./ui/ThemePicker";
+import { FixturesPanel } from "./ui/FixturesPanel";
 
 /**
  * The whole experience for one board: 3D scene + overlay UI.
@@ -31,11 +39,16 @@ import { ThemePicker } from "./ui/ThemePicker";
 export function BoardExperience({
   boardId,
   readOnly = false,
+  worldCup = false,
 }: {
   boardId?: string;
   readOnly?: boolean;
+  /** Load the temporary World Cup board (with the fixtures panel). */
+  worldCup?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const [fixturesOpen, setFixturesOpen] = useState(false);
   const board = useBoardStore((s) => s.board);
   const items = useBoardStore((s) => s.items);
   const view = useBoardStore((s) => s.view);
@@ -55,9 +68,16 @@ export function BoardExperience({
 
     (async () => {
       try {
-        const loadedBoard = boardId
-          ? await getBoard(supabase, boardId)
-          : await getPrimaryBoard(supabase);
+        const loadedBoard = worldCup
+          ? await getOrCreateWorldCupBoard(supabase)
+          : boardId
+            ? await getBoard(supabase, boardId)
+            : await getPrimaryBoard(supabase);
+        if (worldCup && !loadedBoard) {
+          // Tournament's over — the board has retired to Memories.
+          if (alive) router.replace("/board");
+          return;
+        }
         if (!loadedBoard) throw new Error("That board doesn't exist.");
         const [loadedItems, profiles] = await Promise.all([
           listItems(supabase, loadedBoard.id),
@@ -82,7 +102,7 @@ export function BoardExperience({
     return () => {
       alive = false;
     };
-  }, [supabase, boardId, readOnly]);
+  }, [supabase, boardId, readOnly, worldCup, router]);
 
   useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
@@ -205,6 +225,23 @@ export function BoardExperience({
             ✏️ edit mode — tap to edit · drag to move · pull the corner to resize
           </div>
         </div>
+      )}
+
+      {worldCup && !loading && !error && (
+        <>
+          <button
+            className="cute-button absolute left-4 bottom-24 z-10 pointer-events-auto"
+            onClick={() => setFixturesOpen(true)}
+          >
+            ⚽ fixtures
+          </button>
+          <FixturesPanel
+            open={fixturesOpen}
+            boardId={board?.id}
+            readOnly={effectiveReadOnly}
+            onClose={() => setFixturesOpen(false)}
+          />
+        </>
       )}
 
       <NoteComposer />
