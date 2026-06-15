@@ -7,50 +7,68 @@ import type { BoardTheme } from "@/lib/themes";
 import { BOARD } from "@/lib/board-geometry";
 import { makeToonGradient, mulberry32 } from "./textures";
 
+type Team = "england" | "southafrica";
+
+const ENGLAND_SHIRTS = ["#ffffff", "#f2f2f2", "#e2231a", "#cfd8ff"];
+const SA_SHIRTS = ["#007a4d", "#0a9d63", "#ffb612", "#e03c31"];
+const SKIN = ["#f2c9a0", "#e0a878", "#c68642", "#8d5524", "#ffe0bd"];
+
+interface Person {
+  x: number;
+  y: number;
+  z: number;
+  s: number; // 0..1 around the stands (for the wave)
+  phase: number;
+  shirt: string;
+  skin: string;
+}
+
+/** Rows/cols per stand. */
+const ROWS = 6;
+
 /**
- * The World Cup board's home: a football pitch in a stadium, with an
- * animated, tappable crowd (touch them to set off a wave around the
- * stands), England & South Africa flags, and floodlights. Rendered
- * instead of <Room/> when theme.scene === "stadium".
+ * The World Cup board's home: a football pitch in a stadium with tiered,
+ * colour-coded stands full of England & South Africa fans (head + body
+ * figures). Tap the crowd to send a Mexican wave rippling outward in
+ * both directions from where you touched.
  */
 export function StadiumScene({ theme }: { theme: BoardTheme }) {
   const gradient = useMemo(() => makeToonGradient(), []);
   return (
     <group>
       <StadiumSky />
-      <ambientLight intensity={1.0} color="#eaf2ff" />
+      <ambientLight intensity={1.05} color="#eef4ff" />
       <directionalLight
-        position={[4, 9, 4]}
+        position={[5, 11, 5]}
         intensity={1.5}
         color="#fffdf5"
         castShadow
         shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-2}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-4}
       />
-      <hemisphereLight args={["#cfe6ff", "#2f7d3a", 0.5]} />
+      <hemisphereLight args={["#bfe0ff", "#2f7d3a", 0.55]} />
 
       <Pitch />
       <BoardStand gradient={gradient} accent={theme.room.accent} />
       <Stands gradient={gradient} />
       <Crowd />
-      <Flag kind="england" position={[-3.4, 0, BOARD.wallZ + 0.2]} />
-      <Flag kind="southafrica" position={[3.4, 0, BOARD.wallZ + 0.2]} />
+      <Flag kind="england" position={[-3.6, 0, BOARD.wallZ + 0.2]} />
+      <Flag kind="southafrica" position={[3.6, 0, BOARD.wallZ + 0.2]} />
       <Floodlights />
     </group>
   );
 }
 
-/** Bright daytime sky set on the scene (so it's never the black clear colour). */
 function StadiumSky() {
   const scene = useThree((s) => s.scene);
   useEffect(() => {
     const prevBg = scene.background;
     const prevFog = scene.fog;
-    scene.background = new THREE.Color("#8fc7f0");
-    scene.fog = new THREE.Fog("#bfe0f5", 28, 80);
+    scene.background = new THREE.Color("#7cc0ef");
+    scene.fog = new THREE.Fog("#bfe0f5", 34, 95);
     return () => {
       scene.background = prevBg;
       scene.fog = prevFog;
@@ -59,7 +77,6 @@ function StadiumSky() {
   return null;
 }
 
-/** Green pitch with painted white markings. */
 function Pitch() {
   const texture = useMemo(() => {
     const w = 512;
@@ -68,35 +85,36 @@ function Pitch() {
     c.width = w;
     c.height = h;
     const ctx = c.getContext("2d")!;
-    // mown stripes
-    for (let i = 0; i < 12; i++) {
-      ctx.fillStyle = i % 2 === 0 ? "#2fa44e" : "#2b9747";
-      ctx.fillRect(0, (i * h) / 12, w, h / 12);
+    for (let i = 0; i < 14; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#34ad53" : "#2c9c49";
+      ctx.fillRect(0, (i * h) / 14, w, h / 14);
     }
-    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.strokeStyle = "rgba(255,255,255,0.92)";
     ctx.lineWidth = 4;
-    ctx.strokeRect(24, 24, w - 48, h - 48);
+    ctx.strokeRect(22, 22, w - 44, h - 44);
     ctx.beginPath();
-    ctx.moveTo(24, h / 2);
-    ctx.lineTo(w - 24, h / 2);
+    ctx.moveTo(22, h / 2);
+    ctx.lineTo(w - 22, h / 2);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(w / 2, h / 2, 60, 0, Math.PI * 2);
+    ctx.arc(w / 2, h / 2, 58, 0, Math.PI * 2);
     ctx.stroke();
+    // penalty boxes
+    ctx.strokeRect(w / 2 - 90, 22, 180, 70);
+    ctx.strokeRect(w / 2 - 90, h - 92, 180, 70);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, []);
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -1]} receiveShadow>
-      <planeGeometry args={[34, 30]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -3]} receiveShadow>
+      <planeGeometry args={[44, 40]} />
       <meshStandardMaterial map={texture} roughness={1} />
     </mesh>
   );
 }
 
-/** A simple stand to hold the board upright on the pitch. */
 function BoardStand({
   gradient,
   accent,
@@ -110,7 +128,7 @@ function BoardStand({
       {[-1.6, 1.6].map((x, i) => (
         <mesh key={i} position={[x, bottom / 2, -0.2]} castShadow>
           <cylinderGeometry args={[0.07, 0.08, bottom + 0.3, 10]} />
-          <meshToonMaterial color="#d6d6d6" gradientMap={gradient} />
+          <meshToonMaterial color="#cfcfcf" gradientMap={gradient} />
         </mesh>
       ))}
       <mesh position={[0, 0.06, 0]} castShadow>
@@ -121,116 +139,212 @@ function BoardStand({
   );
 }
 
-/** Tiered stand structures (the seating banks themselves). */
+// ---------- stand geometry (shared by structure + crowd) ----------
+
+interface Seat {
+  x: number;
+  y: number;
+  z: number;
+  s: number;
+  team: Team;
+}
+
+const STAND = {
+  rowRise: 0.62,
+  rowDepth: 0.95,
+  baseY: 0.9,
+  backZ: -13, // front edge of the back stand (pushed well back)
+  sideX: 12, // front edge of the side stands
+  sideFrontZ: 2,
+  sideBackZ: -13,
+  halfWidth: 11, // back stand spans -11..11 in x
+};
+
+/** Build every seat position once (used for both structure and crowd). */
+function buildSeats(): Seat[] {
+  const seats: Seat[] = [];
+  const COLS_BACK = 26;
+  const COLS_SIDE = 18;
+
+  // left stand → England, s 0..0.34 (front to back)
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS_SIDE; c++) {
+      const x = -STAND.sideX - r * STAND.rowDepth;
+      const y = STAND.baseY + r * STAND.rowRise;
+      const z =
+        STAND.sideFrontZ -
+        (c / (COLS_SIDE - 1)) * (STAND.sideFrontZ - STAND.sideBackZ);
+      seats.push({ x, y, z, s: (c / (COLS_SIDE - 1)) * 0.34, team: "england" });
+    }
+  }
+  // back stand → mixed, s 0.34..0.66 (left to right)
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS_BACK; c++) {
+      const x = -STAND.halfWidth + (c / (COLS_BACK - 1)) * (STAND.halfWidth * 2);
+      const y = STAND.baseY + r * STAND.rowRise;
+      const z = STAND.backZ - r * STAND.rowDepth;
+      const team: Team = c < COLS_BACK / 2 ? "england" : "southafrica";
+      seats.push({ x, y, z, s: 0.34 + (c / (COLS_BACK - 1)) * 0.32, team });
+    }
+  }
+  // right stand → South Africa, s 0.66..1 (back to front)
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS_SIDE; c++) {
+      const x = STAND.sideX + r * STAND.rowDepth;
+      const y = STAND.baseY + r * STAND.rowRise;
+      const z =
+        STAND.sideBackZ +
+        (c / (COLS_SIDE - 1)) * (STAND.sideFrontZ - STAND.sideBackZ);
+      seats.push({
+        x,
+        y,
+        z,
+        s: 0.66 + (c / (COLS_SIDE - 1)) * 0.34,
+        team: "southafrica",
+      });
+    }
+  }
+  return seats;
+}
+
+/** Stepped seating decks, roofs and pitch-side ad boards. */
 function Stands({ gradient }: { gradient: THREE.Texture }) {
-  const concrete = "#9fb1c4";
+  const seatGreen = "#0d5c2a";
   return (
     <group>
-      {/* back stand */}
-      <mesh position={[0, 2.4, -9]} rotation={[-0.5, 0, 0]} receiveShadow>
-        <boxGeometry args={[20, 6, 0.6]} />
-        <meshToonMaterial color={concrete} gradientMap={gradient} />
+      {/* back deck (stepped) */}
+      {Array.from({ length: ROWS }).map((_, r) => (
+        <mesh
+          key={`b${r}`}
+          position={[0, STAND.baseY - 0.35 + r * STAND.rowRise, STAND.backZ - r * STAND.rowDepth]}
+          receiveShadow
+        >
+          <boxGeometry args={[STAND.halfWidth * 2 + 2, 0.4, STAND.rowDepth]} />
+          <meshToonMaterial
+            color={r % 2 === 0 ? "#1f4e7a" : "#27608f"}
+            gradientMap={gradient}
+          />
+        </mesh>
+      ))}
+      {/* side decks */}
+      {[-1, 1].map((side) =>
+        Array.from({ length: ROWS }).map((_, r) => (
+          <mesh
+            key={`s${side}-${r}`}
+            position={[
+              side * (STAND.sideX + r * STAND.rowDepth),
+              STAND.baseY - 0.35 + r * STAND.rowRise,
+              (STAND.sideFrontZ + STAND.sideBackZ) / 2,
+            ]}
+            receiveShadow
+          >
+            <boxGeometry
+              args={[STAND.rowDepth, 0.4, STAND.sideFrontZ - STAND.sideBackZ + 2]}
+            />
+            <meshToonMaterial
+              color={side < 0 ? "#7a1f2b" : seatGreen}
+              gradientMap={gradient}
+            />
+          </mesh>
+        ))
+      )}
+
+      {/* roofs */}
+      <mesh position={[0, STAND.baseY + ROWS * STAND.rowRise + 0.6, STAND.backZ - ROWS * STAND.rowDepth + 1]}>
+        <boxGeometry args={[STAND.halfWidth * 2 + 3, 0.3, ROWS * STAND.rowDepth + 2]} />
+        <meshStandardMaterial color="#dfe6ee" roughness={0.9} />
       </mesh>
-      {/* left stand */}
-      <mesh
-        position={[-8.5, 2.4, -3.5]}
-        rotation={[-0.5, Math.PI / 2, 0]}
-        receiveShadow
-      >
-        <boxGeometry args={[14, 6, 0.6]} />
-        <meshToonMaterial color={concrete} gradientMap={gradient} />
-      </mesh>
-      {/* right stand */}
-      <mesh
-        position={[8.5, 2.4, -3.5]}
-        rotation={[-0.5, -Math.PI / 2, 0]}
-        receiveShadow
-      >
-        <boxGeometry args={[14, 6, 0.6]} />
-        <meshToonMaterial color={concrete} gradientMap={gradient} />
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`roof${side}`}
+          position={[
+            side * (STAND.sideX + ROWS * STAND.rowDepth - 1),
+            STAND.baseY + ROWS * STAND.rowRise + 0.6,
+            (STAND.sideFrontZ + STAND.sideBackZ) / 2,
+          ]}
+        >
+          <boxGeometry
+            args={[ROWS * STAND.rowDepth + 2, 0.3, STAND.sideFrontZ - STAND.sideBackZ + 3]}
+          />
+          <meshStandardMaterial color="#dfe6ee" roughness={0.9} />
+        </mesh>
+      ))}
+
+      <AdBoards />
+    </group>
+  );
+}
+
+/** Colourful pitch-side advertising hoardings. */
+function AdBoards() {
+  const texture = useMemo(() => {
+    const w = 256;
+    const h = 24;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d")!;
+    const cols = ["#e2231a", "#007a4d", "#ffb612", "#002395", "#ffffff"];
+    for (let i = 0; i < 16; i++) {
+      ctx.fillStyle = cols[i % cols.length];
+      ctx.fillRect((i * w) / 16, 0, w / 16, h);
+    }
+    ctx.fillStyle = "#0a0a0a";
+    ctx.font = "bold 16px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("⚽ WORLD CUP 2026 ⚽", w / 2, h / 2);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = THREE.RepeatWrapping;
+    t.repeat.set(3, 1);
+    return t;
+  }, []);
+  return (
+    <group>
+      <mesh position={[0, 0.45, STAND.backZ + 1.4]}>
+        <boxGeometry args={[STAND.halfWidth * 2, 0.55, 0.15]} />
+        <meshBasicMaterial map={texture} />
       </mesh>
     </group>
   );
 }
 
-interface Person {
-  x: number;
-  y: number;
-  z: number;
-  s: number; // 0..1 position around the stands (for the wave)
-  phase: number;
-}
-
-/**
- * The instanced crowd. Everyone bobs (cheering); tap anyone to start a
- * Mexican wave that ripples around the stands from that point.
- */
+/** Instanced crowd: bodies + heads, animated, tappable (bidirectional wave). */
 function Crowd() {
-  const COLS = 22;
-  const ROWS = 5;
-  const ref = useRef<THREE.InstancedMesh>(null);
+  const seats = useMemo(() => buildSeats(), []);
+  const people = useMemo<Person[]>(() => {
+    const rand = mulberry32(2026);
+    return seats.map((seat) => {
+      const shirts = seat.team === "england" ? ENGLAND_SHIRTS : SA_SHIRTS;
+      return {
+        x: seat.x,
+        y: seat.y,
+        z: seat.z,
+        s: seat.s,
+        phase: rand() * Math.PI * 2,
+        shirt: shirts[Math.floor(rand() * shirts.length)],
+        skin: SKIN[Math.floor(rand() * SKIN.length)],
+      };
+    });
+  }, [seats]);
+
+  const bodies = useRef<THREE.InstancedMesh>(null);
+  const heads = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const waveStart = useRef(-100);
   const waveOrigin = useRef(0);
   const now = useRef(0);
 
-  const people = useMemo<Person[]>(() => {
-    const rand = mulberry32(2026);
-    const out: Person[] = [];
-    const addRow = (
-      mapPos: (col: number, row: number) => [number, number, number],
-      sRange: [number, number]
-    ) => {
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const [x, y, z] = mapPos(c, r);
-          const s =
-            sRange[0] + ((c + 0.5) / COLS) * (sRange[1] - sRange[0]);
-          out.push({ x, y, z, s, phase: rand() * Math.PI * 2 });
-        }
-      }
-    };
-    // left stand (front→back), back stand (left→right), right stand (back→front)
-    addRow(
-      (c, r) => [-7.5 - r * 0.7, 0.9 + r * 0.62, 1 - (c / (COLS - 1)) * 9.5],
-      [0, 0.34]
-    );
-    addRow(
-      (c, r) => [-8 + (c / (COLS - 1)) * 16, 0.9 + r * 0.62, -7.6 - r * 0.7],
-      [0.34, 0.66]
-    );
-    addRow(
-      (c, r) => [7.5 + r * 0.7, 0.9 + r * 0.62, -8.5 + (c / (COLS - 1)) * 9.5],
-      [0.66, 1]
-    );
-    return out;
-  }, []);
-
-  const colors = useMemo(() => {
-    const rand = mulberry32(7);
-    // England & South Africa colours, plus general fan colours
-    const palette = [
-      "#ffffff",
-      "#e2231a",
-      "#1b8a3a",
-      "#ffb612",
-      "#002395",
-      "#f4c430",
-      "#d12b2b",
-      "#2a6ad4",
-    ];
-    return people.map(() => palette[Math.floor(rand() * palette.length)]);
-  }, [people]);
-
   useEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
     const col = new THREE.Color();
-    people.forEach((_, i) => {
-      mesh.setColorAt(i, col.set(colors[i]));
+    people.forEach((p, i) => {
+      bodies.current?.setColorAt(i, col.set(p.shirt));
+      heads.current?.setColorAt(i, col.set(p.skin));
     });
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [people, colors]);
+    if (bodies.current?.instanceColor) bodies.current.instanceColor.needsUpdate = true;
+    if (heads.current?.instanceColor) heads.current.instanceColor.needsUpdate = true;
+  }, [people]);
 
   const circDist = (a: number, b: number) => {
     const d = Math.abs(a - b) % 1;
@@ -238,50 +352,61 @@ function Crowd() {
   };
 
   useFrame((state) => {
-    const mesh = ref.current;
-    if (!mesh) return;
+    if (!bodies.current || !heads.current) return;
     const t = state.clock.elapsedTime;
     now.current = t;
     const elapsed = t - waveStart.current;
-    const waveActive = elapsed >= 0 && elapsed < 4.5;
-    const waveFront = (waveOrigin.current + elapsed * 0.55) % 1;
+    const active = elapsed >= 0 && elapsed < 5;
+    // two fronts spreading out from the tap point
+    const frontA = (((waveOrigin.current + elapsed * 0.5) % 1) + 1) % 1;
+    const frontB = (((waveOrigin.current - elapsed * 0.5) % 1) + 1) % 1;
     const width = 0.07;
 
     for (let i = 0; i < people.length; i++) {
       const p = people[i];
-      let y = p.y + Math.abs(Math.sin(t * 3 + p.phase)) * 0.1;
-      if (waveActive) {
-        const d = circDist(p.s, waveFront);
-        if (d < width) y += (1 - d / width) * 0.6;
+      let jump = Math.abs(Math.sin(t * 3 + p.phase)) * 0.08;
+      if (active) {
+        const d = Math.min(circDist(p.s, frontA), circDist(p.s, frontB));
+        if (d < width) jump += (1 - d / width) * 0.6;
       }
-      dummy.position.set(p.x, y, p.z);
+      dummy.position.set(p.x, p.y + jump, p.z);
       dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
+      bodies.current.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(p.x, p.y + jump + 0.4, p.z);
+      dummy.updateMatrix();
+      heads.current.setMatrixAt(i, dummy.matrix);
     }
-    mesh.instanceMatrix.needsUpdate = true;
+    bodies.current.instanceMatrix.needsUpdate = true;
+    heads.current.instanceMatrix.needsUpdate = true;
   });
 
   function onPointerDown(e: ThreeEvent<PointerEvent>) {
     e.stopPropagation();
     if (e.instanceId == null) return;
     waveOrigin.current = people[e.instanceId].s;
-    waveStart.current = now.current; // same clock as useFrame
+    waveStart.current = now.current;
   }
 
   return (
-    <instancedMesh
-      ref={ref}
-      args={[undefined, undefined, people.length]}
-      onPointerDown={onPointerDown}
-      castShadow
-    >
-      <boxGeometry args={[0.18, 0.46, 0.18]} />
-      <meshStandardMaterial roughness={0.8} />
-    </instancedMesh>
+    <group>
+      <instancedMesh
+        ref={bodies}
+        args={[undefined, undefined, people.length]}
+        onPointerDown={onPointerDown}
+        castShadow
+      >
+        <capsuleGeometry args={[0.12, 0.3, 4, 8]} />
+        <meshStandardMaterial roughness={0.85} />
+      </instancedMesh>
+      <instancedMesh ref={heads} args={[undefined, undefined, people.length]}>
+        <sphereGeometry args={[0.12, 10, 10]} />
+        <meshStandardMaterial roughness={0.8} />
+      </instancedMesh>
+    </group>
   );
 }
 
-function makeFlagTexture(kind: "england" | "southafrica"): THREE.CanvasTexture {
+function makeFlagTexture(kind: Team): THREE.CanvasTexture {
   const w = 160;
   const h = 100;
   const c = document.createElement("canvas");
@@ -295,7 +420,6 @@ function makeFlagTexture(kind: "england" | "southafrica"): THREE.CanvasTexture {
     ctx.fillRect(w / 2 - 12, 0, 24, h);
     ctx.fillRect(0, h / 2 - 12, w, 24);
   } else {
-    // South Africa (approximation)
     ctx.fillStyle = "#e03c31";
     ctx.fillRect(0, 0, w, h / 2);
     ctx.fillStyle = "#002395";
@@ -304,7 +428,6 @@ function makeFlagTexture(kind: "england" | "southafrica"): THREE.CanvasTexture {
     ctx.fillRect(0, h * 0.33, w, h * 0.34);
     ctx.fillStyle = "#007a4d";
     ctx.fillRect(0, h * 0.4, w, h * 0.2);
-    // hoist triangle: gold border then black
     ctx.fillStyle = "#ffb612";
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -325,29 +448,24 @@ function makeFlagTexture(kind: "england" | "southafrica"): THREE.CanvasTexture {
   return t;
 }
 
-/** A flag on a pole that flutters in the wind. */
 function Flag({
   kind,
   position,
 }: {
-  kind: "england" | "southafrica";
+  kind: Team;
   position: [number, number, number];
 }) {
   const geom = useMemo(() => new THREE.PlaneGeometry(0.95, 0.6, 16, 8), []);
-  const base = useMemo(
-    () => geom.attributes.position.array.slice(),
-    [geom]
-  );
+  const base = useMemo(() => geom.attributes.position.array.slice(), [geom]);
   const texture = useMemo(() => makeFlagTexture(kind), [kind]);
   useEffect(() => () => texture.dispose(), [texture]);
-  const mesh = useRef<THREE.Mesh>(null);
 
   useFrame((state) => {
     const pos = geom.attributes.position;
     const t = state.clock.elapsedTime;
     for (let i = 0; i < pos.count; i++) {
       const x = base[i * 3];
-      const edge = (x + 0.475) / 0.95; // 0 at pole, 1 at fly end
+      const edge = (x + 0.475) / 0.95;
       pos.setZ(i, Math.sin(x * 6 + t * 6) * 0.06 * edge);
     }
     pos.needsUpdate = true;
@@ -359,36 +477,35 @@ function Flag({
         <cylinderGeometry args={[0.025, 0.025, 2.2, 8]} />
         <meshStandardMaterial color="#cccccc" metalness={0.4} roughness={0.5} />
       </mesh>
-      <mesh ref={mesh} geometry={geom} position={[0.48, 1.9, 0]}>
+      <mesh geometry={geom} position={[0.48, 1.9, 0]}>
         <meshStandardMaterial map={texture} side={THREE.DoubleSide} roughness={0.9} />
       </mesh>
     </group>
   );
 }
 
-/** Floodlight pylons at the back corners. */
 function Floodlights() {
   const corners: [number, number][] = [
-    [-9, -9],
-    [9, -9],
+    [-12, -13],
+    [12, -13],
   ];
   return (
     <group>
       {corners.map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
-          <mesh position={[0, 3, 0]}>
-            <cylinderGeometry args={[0.12, 0.16, 6, 8]} />
-            <meshStandardMaterial color="#aaaaaa" />
+          <mesh position={[0, 4, 0]}>
+            <cylinderGeometry args={[0.14, 0.18, 8, 8]} />
+            <meshStandardMaterial color="#b8b8b8" />
           </mesh>
-          <mesh position={[0, 6.2, 0]}>
-            <boxGeometry args={[1.4, 0.7, 0.2]} />
+          <mesh position={[0, 8.3, 0]}>
+            <boxGeometry args={[1.8, 0.9, 0.25]} />
             <meshStandardMaterial
               color="#fffbe6"
               emissive="#fff7cc"
-              emissiveIntensity={0.8}
+              emissiveIntensity={0.9}
             />
           </mesh>
-          <pointLight position={[0, 6, 1]} intensity={0.6} distance={20} color="#fff7e0" />
+          <pointLight position={[0, 8, 1]} intensity={0.7} distance={26} color="#fff7e0" />
         </group>
       ))}
     </group>
