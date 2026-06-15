@@ -14,8 +14,10 @@ import {
 import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getTheme } from "@/lib/themes";
+import type { Fixture } from "@/lib/worldcup";
 import { Room } from "./three/Room";
 import { BeachScene } from "./three/BeachScene";
+import { StadiumScene } from "./three/StadiumScene";
 import { Board } from "./three/Board";
 import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
@@ -106,6 +108,29 @@ export function BoardExperience({
 
   useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
+  // World Cup mode: keep fixtures (and pinned scores) live by polling.
+  useEffect(() => {
+    if (!worldCup) return;
+    let alive = true;
+    const load = () =>
+      fetch("/api/worldcup/fixtures")
+        .then((r) => r.json())
+        .then((d: { fixtures?: Fixture[] }) => {
+          if (!alive) return;
+          const map: Record<string, Fixture> = {};
+          for (const f of d.fixtures ?? []) map[f.id] = f;
+          useBoardStore.getState().setWorldCupFixtures(map);
+        })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      useBoardStore.getState().setWorldCupFixtures({});
+    };
+  }, [worldCup]);
+
   const theme = getTheme(board?.theme);
 
   // Wheel + pinch zoom for the close-up view.
@@ -183,6 +208,8 @@ export function BoardExperience({
       >
         {theme.scene === "beach" ? (
           <BeachScene theme={theme} />
+        ) : theme.scene === "stadium" ? (
+          <StadiumScene theme={theme} />
         ) : (
           <Room theme={theme} />
         )}

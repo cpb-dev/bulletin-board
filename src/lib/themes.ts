@@ -45,9 +45,9 @@ export interface BoardTheme {
   garland: string;
   decorations: "cabin" | "cottage" | "night" | "meadow" | "summer";
   /** Which environment the board lives in. Defaults to the indoor room. */
-  scene?: "room" | "beach";
+  scene?: "room" | "beach" | "stadium";
   /** What's strung across the top of the board. Defaults to fairy lights. */
-  boardDecor?: "lights" | "shells";
+  boardDecor?: "lights" | "shells" | "footballs";
   /** Indoor wall treatment. Defaults to flat painted walls. */
   wallStyle?: "flat" | "logs";
   /** The feature on the back wall. Defaults to a window. */
@@ -352,6 +352,8 @@ export const WORLD_CUP_THEME: BoardTheme = {
   ],
   garland: "#ffd23f",
   decorations: "cottage",
+  scene: "stadium",
+  boardDecor: "footballs",
   ui: {
     bg: "#0e6b2b",
     panel: "#13803a",

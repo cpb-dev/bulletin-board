@@ -33,6 +33,8 @@ export interface BoardItem {
   rotation: number;
   /** Size multiplier set in edit mode (1 = default). */
   scale: number;
+  /** Set when this note tracks a World Cup fixture (keeps its score live). */
+  fixture_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

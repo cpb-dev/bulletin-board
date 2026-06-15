@@ -1,17 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createNote } from "@/lib/api";
 import { randomTilt, suggestPlacement } from "@/lib/board-geometry";
 import { useBoardStore } from "@/lib/store";
-import {
-  fixtureLine,
-  fixtureNoteText,
-  groupFixtures,
-  type Fixture,
-  type FixtureGroup,
-} from "@/lib/worldcup";
+import { fixtureLine, fixtureNoteText, groupFixtures, type Fixture } from "@/lib/worldcup";
 import { Sheet } from "./Sheet";
 
 /**
@@ -31,25 +25,17 @@ export function FixturesPanel({
   onClose: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
-  const [groups, setGroups] = useState<FixtureGroup[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Fixtures are polled live by the board and kept in the store.
+  const fixturesMap = useBoardStore((s) => s.worldCupFixtures);
+  const groups = useMemo(
+    () => groupFixtures(Object.values(fixturesMap)),
+    [fixturesMap]
+  );
   const [error, setError] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    setError(null);
-    fetch("/api/worldcup/fixtures")
-      .then((r) => r.json())
-      .then((data: { fixtures: Fixture[] }) => {
-        setGroups(groupFixtures(data.fixtures ?? []));
-      })
-      .catch(() => setError("Could not load the fixtures right now."))
-      .finally(() => setLoading(false));
-  }, [open]);
-
   if (!open) return null;
+  const loading = groups.length === 0;
 
   async function pin(f: Fixture) {
     if (!boardId || readOnly) return;
@@ -64,6 +50,7 @@ export function FixturesPanel({
         x: spot.x,
         y: spot.y,
         rotation: randomTilt(),
+        fixture_id: f.id,
       });
       useBoardStore.getState().upsertItem(note);
     } catch {

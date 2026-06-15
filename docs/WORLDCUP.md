@@ -11,11 +11,18 @@ afterwards.
 - The board uses an exclusive **World Cup theme** (pitch green & gold)
   that is *not* offered in the normal theme picker and can't be applied
   to other boards.
+- The board stands on a **football pitch in a stadium** (`StadiumScene`):
+  an animated, **tappable crowd** (touch anyone to set off a Mexican wave
+  around the stands), **England** and **South Africa** flags fluttering
+  beside the board, floodlights, and little **footballs** along the top of
+  the board in place of fairy lights.
 - A **fixtures panel** (the `⚽ fixtures` button, bottom-left) lists all
   fixtures and results, grouped by stage, refreshed from a live API.
 - Each fixture has a **📌 pin** that drops it onto the board as a normal
   movable note — so you can decorate the games you watched with your own
-  notes and photos. Adding notes/photos works exactly like any board.
+  notes and photos. **Pinned fixtures stay live**: their scoreline
+  updates automatically as games are played (the board re-polls the API
+  every minute and fixture-linked notes redraw themselves).
 - **Auto-retires:** two days after the final, the board moves itself
   into Memories and the ⚽ button disappears. The dates live in
   `src/lib/worldcup.ts` (`WORLD_CUP`).
@@ -49,8 +56,10 @@ the board falls back to the built-in schedule so it never breaks.
 
 ## Setup
 
-Run migration
+Run migrations
 [`0005_worldcup_board.sql`](../supabase/migrations/0005_worldcup_board.sql)
-once in the Supabase SQL editor (adds the `kind` column; safe on
-existing data). The board itself is created automatically the first time
-you open `/worldcup`.
+and [`0006_fixture_notes.sql`](../supabase/migrations/0006_fixture_notes.sql)
+once in the Supabase SQL editor (they add the `kind` column and the
+`fixture_id` column for live-scoring notes; safe on existing data). The
+board itself is created automatically the first time you open
+`/worldcup`.

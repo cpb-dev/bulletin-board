@@ -301,6 +301,8 @@ export async function createNote(
     x: number;
     y: number;
     rotation: number;
+    /** Link to a World Cup fixture so the note's score stays live. */
+    fixture_id?: string;
   }
 ): Promise<BoardItem> {
   const { data, error } = await supabase

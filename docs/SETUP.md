@@ -66,8 +66,9 @@ are safe on existing data:
 - [`0003_created_by_defaults.sql`](../supabase/migrations/0003_created_by_defaults.sql) — stamps notes with their author, stops self-notifications
 - [`0004_multiple_boards.sql`](../supabase/migrations/0004_multiple_boards.sql) — multiple named boards (the 🗂️ Boards dropdown)
 - [`0005_worldcup_board.sql`](../supabase/migrations/0005_worldcup_board.sql) — the temporary World Cup board (see [docs/WORLDCUP.md](WORLDCUP.md))
+- [`0006_fixture_notes.sql`](../supabase/migrations/0006_fixture_notes.sql) — live-scoring fixture notes on the World Cup board
 
-(Fresh setups run `0001` through `0005` in order.)
+(Fresh setups run `0001` through `0006` in order.)
 
 ## Optional: turn on phone notifications
 

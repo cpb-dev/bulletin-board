@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { clampScale } from "./board-geometry";
 import type { Board, BoardItem, Profile } from "./types";
+import type { Fixture } from "./worldcup";
 
 export type ViewMode = "room" | "board";
 /** What pointer drags do on the board. */
@@ -67,6 +68,10 @@ interface BoardState {
   removeItem: (id: string) => void;
   moveItemLocal: (id: string, x: number, y: number) => void;
   scaleItemLocal: (id: string, scale: number) => void;
+
+  /** Live World Cup fixtures, keyed by id (only used on the WC board). */
+  worldCupFixtures: Record<string, Fixture>;
+  setWorldCupFixtures: (fixtures: Record<string, Fixture>) => void;
 }
 
 const clampZoom = (z: number) => Math.min(5, Math.max(0.45, z));
@@ -209,4 +214,7 @@ export const useBoardStore = create<BoardState>((set) => ({
         i.id === id ? { ...i, scale: clampScale(scale) } : i
       ),
     })),
+
+  worldCupFixtures: {},
+  setWorldCupFixtures: (worldCupFixtures) => set({ worldCupFixtures }),
 }));
