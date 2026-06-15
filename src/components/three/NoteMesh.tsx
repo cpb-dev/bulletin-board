@@ -7,6 +7,7 @@ import { ITEM_Z, NOTE_BASE, normToWorld } from "@/lib/board-geometry";
 import type { BoardItem } from "@/lib/types";
 import { useBoardStore } from "@/lib/store";
 import { noteStamp } from "@/lib/format";
+import { fixtureNoteText } from "@/lib/worldcup";
 import { drawNoteTexture } from "./textures";
 import { Pin } from "./Pin";
 import { SelectionFrame } from "./SelectionFrame";
@@ -51,16 +52,22 @@ export function NoteMesh({
   );
   const footer = noteStamp(authorName, item.created_at);
 
+  // Fixture-linked notes show the live scoreline, updated as games play.
+  const liveFixture = useBoardStore((s) =>
+    item.fixture_id ? s.worldCupFixtures[item.fixture_id] : undefined
+  );
+  const content = liveFixture ? fixtureNoteText(liveFixture) : item.content;
+
   const texture = useMemo(
     () =>
       drawNoteTexture({
-        text: item.content,
+        text: content,
         bg: paper.bg,
         ink: paper.ink,
         footer,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [item.content, paper.bg, paper.ink, footer, fontsReady]
+    [content, paper.bg, paper.ink, footer, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 
