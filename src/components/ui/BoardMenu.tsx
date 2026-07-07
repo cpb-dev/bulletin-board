@@ -8,18 +8,28 @@ import {
   archiveBoard,
   archiveBoardAndStartFresh,
   createAdditionalBoard,
+  createSurpriseBoard,
   deleteBoard,
   listActiveBoards,
   promoteBoardToMain,
   renameBoard,
+  updateSurpriseReveal,
 } from "@/lib/api";
 import { getTheme } from "@/lib/themes";
 import { useBoardStore } from "@/lib/store";
+import { isStillSecret, validateRevealDate } from "@/lib/surprise";
 import type { Board } from "@/lib/types";
 
 /** Path for a board: the primary lives at /board, others at /board/[id]. */
 function boardHref(b: Board): string {
   return b.is_primary ? "/board" : `/board/${b.id}`;
+}
+
+/** ISO (UTC) -> value for a datetime-local input, in the user's zone. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
 /**
@@ -43,7 +53,19 @@ export function BoardMenu() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🎁 surprise planner
+  const [surpriseOpen, setSurpriseOpen] = useState(false);
+  const [surpriseTitle, setSurpriseTitle] = useState("");
+  const [surpriseDate, setSurpriseDate] = useState("");
+  const [surpriseMessage, setSurpriseMessage] = useState("");
+
   useEffect(() => setName(board?.title ?? ""), [board?.title]);
+  useEffect(() => {
+    if (board && isStillSecret(board)) {
+      setSurpriseDate(board.reveal_at ? toLocalInput(board.reveal_at) : "");
+      setSurpriseMessage(board.reveal_message ?? "");
+    }
+  }, [board]);
 
   const refresh = useCallback(() => {
     listActiveBoards(supabase)
@@ -73,6 +95,60 @@ export function BoardMenu() {
       router.push(`/board/${fresh.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not make that board.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function planSurprise() {
+    const dateError = validateRevealDate(surpriseDate);
+    if (dateError) {
+      setError(dateError);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const fresh = await createSurpriseBoard(supabase, {
+        title: surpriseTitle,
+        revealAt: surpriseDate,
+        revealMessage: surpriseMessage,
+      });
+      setSurpriseOpen(false);
+      setSurpriseTitle("");
+      setOpen(false);
+      router.push(`/board/${fresh.id}`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not create the surprise."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveReveal() {
+    if (!board) return;
+    const dateError = validateRevealDate(surpriseDate);
+    if (dateError) {
+      setError(dateError);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await updateSurpriseReveal(supabase, board.id, {
+        revealAt: surpriseDate,
+        revealMessage: surpriseMessage,
+      });
+      setBoard({
+        ...board,
+        reveal_at: new Date(surpriseDate).toISOString(),
+        reveal_message: surpriseMessage.trim() || null,
+        revealed_at: null,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save that.");
     } finally {
       setBusy(false);
     }
@@ -193,7 +269,7 @@ export function BoardMenu() {
               aria-label="Board name"
             />
             {/* the current board's own actions (only when it's not main) */}
-            {board && !board.is_primary && (
+            {board && !board.is_primary && !isStillSecret(board) && (
               <div className="flex gap-2 mt-2">
                 <button
                   className="cute-button !px-2 !py-1 text-xs flex-1"
@@ -219,6 +295,47 @@ export function BoardMenu() {
               </div>
             )}
 
+            {/* a still-secret surprise board: reveal settings live here */}
+            {board && isStillSecret(board) && (
+              <div className="mt-2 rounded-lg bg-black/15 p-2">
+                <p className="text-xs opacity-80 mb-1">
+                  🔒 only you can see this board. it unlocks (and she gets
+                  your message) at:
+                </p>
+                <input
+                  className="cute-input !py-1.5 text-sm"
+                  type="datetime-local"
+                  value={surpriseDate}
+                  onChange={(e) => setSurpriseDate(e.target.value)}
+                  aria-label="Reveal date and time"
+                />
+                <textarea
+                  className="cute-input !py-1.5 text-sm mt-2 min-h-16 resize-none"
+                  placeholder="the message she'll get… (e.g. Happy birthday my love 🌹)"
+                  value={surpriseMessage}
+                  maxLength={160}
+                  onChange={(e) => setSurpriseMessage(e.target.value)}
+                  aria-label="Reveal message"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="cute-button !px-2 !py-1 text-xs flex-1"
+                    onClick={saveReveal}
+                    disabled={busy}
+                  >
+                    save reveal
+                  </button>
+                  <button
+                    className="cute-button danger !px-2 !py-1 text-xs"
+                    onClick={() => removeBoard(board)}
+                    disabled={busy}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            )}
+
             {others.length > 0 && (
               <>
                 <p className="text-xs opacity-70 mt-3 mb-1">switch to</p>
@@ -234,6 +351,9 @@ export function BoardMenu() {
                           {getTheme(b.theme).emoji} {b.title}
                           {b.is_primary && (
                             <span className="opacity-60"> · main</span>
+                          )}
+                          {isStillSecret(b) && (
+                            <span className="opacity-80"> · 🎁 secret</span>
                           )}
                         </Link>
                         {/* main board is the exception — no ⋯ actions */}
@@ -252,13 +372,15 @@ export function BoardMenu() {
                       </div>
                       {rowOpen === b.id && !b.is_primary && (
                         <div className="flex gap-2 px-2 pb-2">
-                          <button
-                            className="cute-button !px-2 !py-1 text-xs flex-1"
-                            onClick={() => makeMain(b)}
-                            disabled={busy}
-                          >
-                            ⭐ make main
-                          </button>
+                          {!isStillSecret(b) && (
+                            <button
+                              className="cute-button !px-2 !py-1 text-xs flex-1"
+                              onClick={() => makeMain(b)}
+                              disabled={busy}
+                            >
+                              ⭐ make main
+                            </button>
+                          )}
                           <button
                             className="cute-button danger !px-2 !py-1 text-xs flex-1"
                             onClick={() => removeBoard(b)}
@@ -292,6 +414,64 @@ export function BoardMenu() {
                 add
               </button>
             </div>
+
+            {/* plan a surprise: private to you until the reveal moment */}
+            {!surpriseOpen ? (
+              <button
+                className="cute-button ghost w-full mt-3 text-sm"
+                onClick={() => {
+                  setSurpriseOpen(true);
+                  setSurpriseDate("");
+                  setSurpriseMessage("");
+                }}
+              >
+                🎁 plan a surprise
+              </button>
+            ) : (
+              <div className="mt-3 rounded-lg bg-black/15 p-2">
+                <p className="text-xs opacity-80 mb-1">
+                  a secret board only you can see — it unlocks for her on the
+                  date you pick, with your message as the notification 💝
+                </p>
+                <input
+                  className="cute-input !py-1.5 text-sm"
+                  placeholder="name it… (e.g. Happy Birthday!)"
+                  value={surpriseTitle}
+                  maxLength={40}
+                  onChange={(e) => setSurpriseTitle(e.target.value)}
+                />
+                <input
+                  className="cute-input !py-1.5 text-sm mt-2"
+                  type="datetime-local"
+                  value={surpriseDate}
+                  onChange={(e) => setSurpriseDate(e.target.value)}
+                  aria-label="Reveal date and time"
+                />
+                <textarea
+                  className="cute-input !py-1.5 text-sm mt-2 min-h-16 resize-none"
+                  placeholder="the message she'll get…"
+                  value={surpriseMessage}
+                  maxLength={160}
+                  onChange={(e) => setSurpriseMessage(e.target.value)}
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="cute-button !px-3 !py-1 text-xs flex-1"
+                    onClick={planSurprise}
+                    disabled={busy || !surpriseDate}
+                  >
+                    {busy ? "creating…" : "create the surprise 🎁"}
+                  </button>
+                  <button
+                    className="cute-button ghost !px-3 !py-1 text-xs"
+                    onClick={() => setSurpriseOpen(false)}
+                    disabled={busy}
+                  >
+                    cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             {board && board.is_primary && (
               <button

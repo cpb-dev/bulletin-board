@@ -5,6 +5,7 @@ import {
   archiveBoardAndStartFresh,
   createAdditionalBoard,
   createNote,
+  createSurpriseBoard,
   deleteBoard,
   deleteItem,
   exportBoard,
@@ -15,6 +16,7 @@ import {
   promoteBoardToMain,
   renameBoard,
   updateBoardTheme,
+  updateSurpriseReveal,
 } from "../api";
 import type { Board } from "../types";
 
@@ -45,6 +47,7 @@ function mockSupabase(fromResults: ReturnType<typeof chain>[]) {
   return {
     client: {
       from,
+      auth: { getUser: async () => ({ data: { user: { id: "u1" } } }) },
       storage: { from: vi.fn(() => ({ remove: storageRemove })) },
     } as unknown as SupabaseClient,
     from,
@@ -59,6 +62,10 @@ const board: Board = {
   status: "active",
   is_primary: true,
   kind: "standard",
+  private_to: null,
+  reveal_at: null,
+  reveal_message: null,
+  revealed_at: null,
   created_by: "u1",
   created_at: "2026-01-01T00:00:00Z",
   archived_at: null,
@@ -156,20 +163,85 @@ describe("archiveBoard", () => {
 
 describe("promoteBoardToMain", () => {
   it("demotes the current primary, then promotes the target", async () => {
+    const target = { ...board, id: "b2", is_primary: false };
     const { client, from } = mockSupabase([
+      chain({ data: target, error: null }), // preflight: fetch target
       chain({ data: null, error: null }), // demote current primary
       chain({ data: null, error: null }), // promote target
     ]);
     await expect(promoteBoardToMain(client, "b2")).resolves.toBeUndefined();
-    expect(from).toHaveBeenCalledTimes(2);
+    expect(from).toHaveBeenCalledTimes(3);
+  });
+
+  it("refuses to promote a still-secret surprise board", async () => {
+    const secret = {
+      ...board,
+      id: "b9",
+      is_primary: false,
+      private_to: "u1",
+      reveal_at: "2999-01-01T00:00:00Z",
+    };
+    const { client, from } = mockSupabase([chain({ data: secret, error: null })]);
+    await expect(promoteBoardToMain(client, "b9")).rejects.toThrow(
+      /after the reveal/
+    );
+    expect(from).toHaveBeenCalledTimes(1); // never reached the demote step
   });
 
   it("stops if demoting the current primary fails", async () => {
+    const target = { ...board, id: "b2", is_primary: false };
     const { client, from } = mockSupabase([
+      chain({ data: target, error: null }), // preflight
       chain({ data: null, error: { message: "nope" } }),
     ]);
     await expect(promoteBoardToMain(client, "b2")).rejects.toThrow("nope");
-    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("createSurpriseBoard", () => {
+  it("creates a board private to its creator with the reveal set", async () => {
+    const made = {
+      ...board,
+      id: "b9",
+      is_primary: false,
+      private_to: "u1",
+      theme: "rose-picnic",
+      reveal_at: "2026-07-19T08:00:00.000Z",
+    };
+    const { client } = mockSupabase([chain({ data: made, error: null })]);
+    const result = await createSurpriseBoard(client, {
+      title: "Happy Birthday!",
+      revealAt: "2026-07-19T08:00:00Z",
+      revealMessage: "Happy birthday my love 🌹",
+    });
+    expect(result.private_to).toBe("u1");
+    expect(result.theme).toBe("rose-picnic");
+  });
+
+  it("surfaces creation errors", async () => {
+    const { client } = mockSupabase([
+      chain({ data: null, error: { message: "nope" } }),
+    ]);
+    await expect(
+      createSurpriseBoard(client, {
+        title: "x",
+        revealAt: "2026-07-19T08:00:00Z",
+        revealMessage: "",
+      })
+    ).rejects.toThrow("nope");
+  });
+});
+
+describe("updateSurpriseReveal", () => {
+  it("does not throw on success", async () => {
+    const { client } = mockSupabase([chain({ data: null, error: null })]);
+    await expect(
+      updateSurpriseReveal(client, "b9", {
+        revealAt: "2026-07-20T08:00:00Z",
+        revealMessage: "new message",
+      })
+    ).resolves.toBeUndefined();
   });
 });
 

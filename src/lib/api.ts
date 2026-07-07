@@ -10,6 +10,7 @@ import {
   WORLD_CUP_THEME_ID,
   worldCupArchiveDue,
 } from "./worldcup";
+import { isStillSecret, SURPRISE_THEME_ID } from "./surprise";
 
 export const APP_NAME =
   process.env.NEXT_PUBLIC_APP_NAME || "Our Little Board";
@@ -241,6 +242,13 @@ export async function promoteBoardToMain(
   supabase: SupabaseClient,
   boardId: string
 ): Promise<void> {
+  // A still-secret surprise board must never become the main board —
+  // the other member wouldn't be able to see their own main board.
+  const target = await getBoard(supabase, boardId);
+  if (target && isStillSecret(target)) {
+    fail(undefined, "Surprise boards can become the main board after the reveal.");
+  }
+
   // Demote whoever is currently primary (keep it active & switchable).
   const { error: demoteError } = await supabase
     .from("boards")
@@ -263,6 +271,57 @@ export async function deleteBoard(
 ): Promise<void> {
   const { error } = await supabase.from("boards").delete().eq("id", boardId);
   if (error) fail(error.message, "Could not delete that board.");
+}
+
+// ---------- Surprise boards (private until a reveal date) ----------
+
+/**
+ * Create a board only its creator can see (enforced by RLS) until the
+ * reveal moment, when it unlocks for everyone and the reveal message is
+ * pushed to them. Reusable for birthdays, anniversaries, whatever.
+ */
+export async function createSurpriseBoard(
+  supabase: SupabaseClient,
+  input: { title: string; revealAt: string; revealMessage: string }
+): Promise<Board> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) fail(undefined, "You need to be signed in for this.");
+
+  const { data, error } = await supabase
+    .from("boards")
+    .insert({
+      title: input.title.trim() || "A surprise",
+      theme: SURPRISE_THEME_ID,
+      is_primary: false,
+      kind: "standard",
+      private_to: user.id,
+      reveal_at: new Date(input.revealAt).toISOString(),
+      reveal_message: input.revealMessage.trim() || null,
+    })
+    .select()
+    .single();
+  if (error || !data) fail(error?.message, "Could not create the surprise.");
+  return data as Board;
+}
+
+/** Change a surprise board's reveal moment or message (creator only). */
+export async function updateSurpriseReveal(
+  supabase: SupabaseClient,
+  boardId: string,
+  input: { revealAt: string; revealMessage: string }
+): Promise<void> {
+  const { error } = await supabase
+    .from("boards")
+    .update({
+      reveal_at: new Date(input.revealAt).toISOString(),
+      reveal_message: input.revealMessage.trim() || null,
+      // date pushed into the future again? allow the reveal to re-send
+      revealed_at: null,
+    })
+    .eq("id", boardId);
+  if (error) fail(error.message, "Could not update the surprise.");
 }
 
 export async function updateBoardTheme(

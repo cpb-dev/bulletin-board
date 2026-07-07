@@ -1,12 +1,15 @@
 "use client";
 
 import { useBoardStore } from "@/lib/store";
+import { isSurpriseBoard } from "@/lib/surprise";
 
 /** Bottom action bar — changes with where you're standing and the mode. */
 export function Toolbar() {
   const view = useBoardStore((s) => s.view);
   const mode = useBoardStore((s) => s.mode);
   const readOnly = useBoardStore((s) => s.readOnly);
+  // Surprise boards keep their exclusive theme — no theme switching.
+  const surprise = useBoardStore((s) => isSurpriseBoard(s.board));
   const addMenuOpen = useBoardStore((s) => s.addMenuOpen);
   const walkUp = useBoardStore((s) => s.walkUp);
   const stepBack = useBoardStore((s) => s.stepBack);
@@ -60,13 +63,15 @@ export function Toolbar() {
             >
               ✏️ edit
             </button>
-            <button
-              className="cute-button ghost"
-              onClick={() => setThemePickerOpen(true)}
-              aria-label="Change theme"
-            >
-              🎨
-            </button>
+            {!surprise && (
+              <button
+                className="cute-button ghost"
+                onClick={() => setThemePickerOpen(true)}
+                aria-label="Change theme"
+              >
+                🎨
+              </button>
+            )}
             <button className="cute-button ghost" onClick={stepBack}>
               step back
             </button>

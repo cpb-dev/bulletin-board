@@ -42,14 +42,36 @@ export function normToWorld(nx: number, ny: number): { x: number; y: number } {
   return { x: nx * hx, y: BOARD.centerY + ny * hy };
 }
 
-/** World x/y (board space) -> normalized, clamped to -1..1. */
-export function worldToNorm(x: number, y: number): { nx: number; ny: number } {
+/**
+ * World x/y (board space) -> normalized. X clamps to [-1, maxNx]; themes
+ * with a second mini board pass EXTENDED_MAX_NX so items can be dragged
+ * onto it (positions stay valid on any theme since rendering never clamps).
+ */
+export function worldToNorm(
+  x: number,
+  y: number,
+  maxNx = 1
+): { nx: number; ny: number } {
   const { hx, hy } = usableHalfExtents();
   return {
-    nx: clamp(hx === 0 ? 0 : x / hx, -1, 1),
+    nx: clamp(hx === 0 ? 0 : x / hx, -1, maxNx),
     ny: clamp(hy === 0 ? 0 : (y - BOARD.centerY) / hy, -1, 1),
   };
 }
+
+// ---------- Mini board (scenes with a second, smaller board) ----------
+
+/** The "your day" mini board that sits beside the main board. */
+export const MINI_BOARD = {
+  /** World x of the mini board's centre. */
+  offsetX: 4.6,
+  width: 2.4,
+  height: 1.7,
+  centerY: 1.45,
+} as const;
+
+/** Furthest normalized x pannable/placeable when a mini board exists. */
+export const EXTENDED_MAX_NX = 2.9;
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));

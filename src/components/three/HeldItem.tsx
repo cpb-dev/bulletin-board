@@ -128,11 +128,12 @@ function HeldNote({
         bg: paper.bg,
         ink: paper.ink,
         footer,
+        shape: item.paper === "heart" ? "heart" : "square",
         width: 768,
         height: 768,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [item.content, paper.bg, paper.ink, footer, fontsReady]
+    [item.content, paper.bg, paper.ink, footer, item.paper, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 

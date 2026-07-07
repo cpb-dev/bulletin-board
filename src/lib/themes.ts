@@ -45,9 +45,11 @@ export interface BoardTheme {
   garland: string;
   decorations: "cabin" | "cottage" | "night" | "meadow" | "summer";
   /** Which environment the board lives in. Defaults to the indoor room. */
-  scene?: "room" | "beach" | "stadium";
+  scene?: "room" | "beach" | "stadium" | "rosefield";
   /** What's strung across the top of the board. Defaults to fairy lights. */
-  boardDecor?: "lights" | "shells" | "footballs";
+  boardDecor?: "lights" | "shells" | "footballs" | "hearts";
+  /** A second, smaller pannable board beside the main one. */
+  miniBoard?: { label: string };
   /** Indoor wall treatment. Defaults to flat painted walls. */
   wallStyle?: "flat" | "logs";
   /** The feature on the back wall. Defaults to a window. */
@@ -363,7 +365,57 @@ export const WORLD_CUP_THEME: BoardTheme = {
 };
 
 /** All themes including the special ones, for resolution only. */
-const ALL_THEMES: BoardTheme[] = [...THEMES, WORLD_CUP_THEME];
+/**
+ * The exclusive surprise-board theme: a rose field at golden hour with a
+ * picnic laid out below the boards. Not in THEMES, so it never appears
+ * in the theme picker — only surprise boards use it.
+ */
+export const ROSE_PICNIC_THEME: BoardTheme = {
+  id: "rose-picnic",
+  name: "Rose Picnic",
+  tagline: "A rose field at golden hour",
+  emoji: "🌹",
+  room: {
+    wall: "#f7c9d4",
+    wallTrim: "#fff3f0",
+    floor: "#6a9e57",
+    rug: "#ffd7e0",
+    accent: "#e5527a",
+  },
+  board: {
+    surface: "#f6e3d2",
+    surfaceSpeckle: "#e2c4ad",
+    frame: "#fff5f2",
+  },
+  light: {
+    sky: "#ffd9c4",
+    ambientIntensity: 0.9,
+    key: "#ffe6c9",
+    keyIntensity: 1.5,
+    lamp: "#ffc7a1",
+  },
+  pins: ["#e5527a", "#ff9ec0", "#c98ce0", "#f6c34c"],
+  papers: [
+    // "heart" is the exclusive heart-shaped note (drawn as a heart).
+    { id: "heart", name: "Heart", bg: "#ff9ec0", ink: "#7c2044" },
+    { id: "petal", name: "Petal", bg: "#ffe3ec", ink: "#96345a" },
+    { id: "cream", name: "Cream", bg: "#fff8ef", ink: "#8a5a44" },
+    { id: "leaf", name: "Leaf", bg: "#e4f0d8", ink: "#48603a" },
+  ],
+  garland: "#ff9ec0",
+  decorations: "meadow",
+  scene: "rosefield",
+  boardDecor: "hearts",
+  miniBoard: { label: "your day" },
+  ui: {
+    bg: "#8a2547",
+    panel: "#a53560",
+    accent: "#ffb3cb",
+    text: "#fff0f5",
+  },
+};
+
+const ALL_THEMES: BoardTheme[] = [...THEMES, WORLD_CUP_THEME, ROSE_PICNIC_THEME];
 
 export function getTheme(id: string | null | undefined): BoardTheme {
   return ALL_THEMES.find((t) => t.id === id) ?? THEMES[0];

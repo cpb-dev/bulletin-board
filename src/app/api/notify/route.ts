@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 import { buildNotifyContent } from "@/lib/notify-content";
+import { isStillSecret } from "@/lib/surprise";
 
 // web-push relies on Node crypto — must not run on the edge runtime.
 export const runtime = "nodejs";
@@ -59,6 +60,20 @@ export async function POST(request: Request) {
   });
 
   const authorId = (payload.record.created_by as string | null) ?? null;
+
+  // NEVER notify about activity on a still-secret surprise board — a
+  // "left you a note" push would spoil it. (This route runs with the
+  // service role, so it must check board privacy itself.)
+  if (payload.table === "items" && payload.record.board_id) {
+    const { data: board } = await supabase
+      .from("boards")
+      .select("private_to, reveal_at")
+      .eq("id", payload.record.board_id as string)
+      .maybeSingle();
+    if (board && isStillSecret(board)) {
+      return NextResponse.json({ ok: true, skipped: "surprise board" });
+    }
+  }
 
   let authorName = "Someone lovely";
   if (authorId) {

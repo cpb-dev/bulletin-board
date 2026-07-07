@@ -27,6 +27,10 @@ two of you can ever get in.
 - **World Cup board ⚽** (temporary) — a separate football-themed board
   with live fixtures & results you can pin and decorate; auto-retires to
   Memories after the tournament ([docs/WORLDCUP.md](docs/WORLDCUP.md)).
+- **Surprise boards 🎁** — plan a board that's completely private to you
+  until a reveal date, when it unlocks for your partner with a personal
+  push notification; comes with the exclusive Rose Picnic theme and
+  heart-shaped notes ([docs/SURPRISE.md](docs/SURPRISE.md)).
 - **Hold a note** — tap any pinned note or photo in view mode and it
   floats up close, like holding it in your hand (tilt it with your
   finger); editing happens in Edit mode.
