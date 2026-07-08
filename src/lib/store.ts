@@ -79,7 +79,8 @@ interface BoardState {
 
 const clampZoom = (z: number) => Math.min(5, Math.max(0.45, z));
 const clampFocus = (v: number) => Math.min(1, Math.max(-1, v));
-const clampYaw = (v: number) => Math.min(0.7, Math.max(-0.7, v));
+// Wide enough to bring the "your day" mini board into view from the room.
+const clampYaw = (v: number) => Math.min(1.05, Math.max(-1.05, v));
 const clampPitch = (v: number) => Math.min(0.32, Math.max(-0.32, v));
 
 export const useBoardStore = create<BoardState>((set) => ({

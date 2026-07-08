@@ -151,7 +151,13 @@ function Meadow() {
         <planeGeometry args={[46, 40]} />
         <meshStandardMaterial color="#5f9b4c" roughness={1} />
       </mesh>
-      <instancedMesh ref={bladeRef} args={[undefined, undefined, COUNT]}>
+      <instancedMesh
+        ref={bladeRef}
+        args={[undefined, undefined, COUNT]}
+        // instanced bounds are computed from the tiny base geometry, so
+        // three would cull the whole field when the origin leaves view
+        frustumCulled={false}
+      >
         <coneGeometry args={[0.015, 0.16, 4]} />
         <meshStandardMaterial roughness={1} />
       </instancedMesh>
@@ -223,15 +229,29 @@ function RoseField() {
 
   return (
     <group>
-      <instancedMesh ref={stems} args={[undefined, undefined, COUNT]} castShadow>
+      <instancedMesh
+        ref={stems}
+        args={[undefined, undefined, COUNT]}
+        castShadow
+        frustumCulled={false}
+      >
         <cylinderGeometry args={[0.012, 0.02, 0.5, 5]} />
         <meshStandardMaterial roughness={0.9} />
       </instancedMesh>
-      <instancedMesh ref={blooms} args={[undefined, undefined, COUNT]} castShadow>
+      <instancedMesh
+        ref={blooms}
+        args={[undefined, undefined, COUNT]}
+        castShadow
+        frustumCulled={false}
+      >
         <icosahedronGeometry args={[0.085, 1]} />
         <meshStandardMaterial roughness={0.55} flatShading />
       </instancedMesh>
-      <instancedMesh ref={leaves} args={[undefined, undefined, COUNT]}>
+      <instancedMesh
+        ref={leaves}
+        args={[undefined, undefined, COUNT]}
+        frustumCulled={false}
+      >
         <sphereGeometry args={[0.05, 6, 4]} />
         <meshStandardMaterial roughness={0.9} />
       </instancedMesh>
@@ -644,7 +664,7 @@ function FallingPetals() {
   });
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]} frustumCulled={false}>
       <circleGeometry args={[0.04, 8]} />
       <meshStandardMaterial roughness={0.6} side={THREE.DoubleSide} />
     </instancedMesh>

@@ -107,7 +107,7 @@ describe("camera state", () => {
   it("clamps room look-around angles", () => {
     useBoardStore.getState().setRoomLook({ yaw: 5, pitch: -5 });
     const { yaw, pitch } = useBoardStore.getState().roomLook;
-    expect(yaw).toBe(0.7);
+    expect(yaw).toBe(1.05);
     expect(pitch).toBe(-0.32);
   });
 

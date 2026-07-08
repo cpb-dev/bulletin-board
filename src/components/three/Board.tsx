@@ -214,10 +214,11 @@ function MiniBoardMesh({
           polygonOffsetFactor={-1}
         />
       </mesh>
+      {/* bunting sits ON the board, overlapping its top edge */}
       <LetterBunting
         text={label}
         width={MINI_BOARD.width + 0.3}
-        y={MINI_BOARD.height / 2 + 0.32}
+        y={MINI_BOARD.height / 2 - 0.04}
       />
     </group>
   );
