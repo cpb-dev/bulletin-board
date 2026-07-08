@@ -70,6 +70,8 @@ export interface NoteTextureOptions {
   transparent?: boolean;
   /** Little "posted by · date" stamp drawn at the foot of the note. */
   footer?: string;
+  /** Paper silhouette — "heart" is the surprise board's love note. */
+  shape?: "square" | "heart";
   width?: number;
   height?: number;
 }
@@ -88,23 +90,45 @@ export function drawNoteTexture(
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
+  const heart = options.shape === "heart" && !options.transparent;
+
   if (!options.transparent) {
-    // Paper with slightly irregular hand-cut edges.
     ctx.fillStyle = options.bg;
-    roundRect(ctx, 6, 6, w - 12, h - 12, 18);
-    ctx.fill();
-    // A faint top strip where the paper catches the light.
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    roundRect(ctx, 6, 6, w - 12, 26, 12);
-    ctx.fill();
+    if (heart) {
+      // Heart-shaped paper with a soft highlight on the left lobe.
+      heartPath(ctx, w, h);
+      ctx.fill();
+      const shine = ctx.createRadialGradient(
+        w * 0.34,
+        h * 0.28,
+        10,
+        w * 0.34,
+        h * 0.28,
+        w * 0.4
+      );
+      shine.addColorStop(0, "rgba(255,255,255,0.4)");
+      shine.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = shine;
+      heartPath(ctx, w, h);
+      ctx.fill();
+    } else {
+      // Paper with slightly irregular hand-cut edges.
+      roundRect(ctx, 6, 6, w - 12, h - 12, 18);
+      ctx.fill();
+      // A faint top strip where the paper catches the light.
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      roundRect(ctx, 6, 6, w - 12, 26, 12);
+      ctx.fill();
+    }
   }
 
-  const pad = options.transparent ? 8 : 44;
+  // Hearts narrow toward the tip, so the writing area is tighter.
+  const pad = options.transparent ? 8 : heart ? Math.round(w * 0.22) : 44;
   // Reserve a strip at the foot for the "posted by" stamp.
   const footerH = options.footer && !options.transparent ? 58 : 0;
   const maxWidth = w - pad * 2;
-  const areaTop = pad;
-  const areaBottom = h - pad - footerH;
+  const areaTop = heart ? h * 0.26 : pad;
+  const areaBottom = heart ? h * 0.66 - footerH * 0.4 : h - pad - footerH;
   const maxHeight = areaBottom - areaTop;
   ctx.fillStyle = options.ink;
   ctx.textAlign = "center";
@@ -129,7 +153,12 @@ export function drawNoteTexture(
     ctx.fillText(line, w / 2, startY + i * lineHeight, maxWidth);
   });
 
-  if (footerH > 0) {
+  if (footerH > 0 && heart) {
+    // Stamp sits in the narrowing lower lobe — no divider on a heart.
+    ctx.fillStyle = withAlpha(options.ink, 0.7);
+    ctx.font = handwritingFont(28);
+    ctx.fillText(options.footer!, w / 2, h * 0.72, w * 0.4);
+  } else if (footerH > 0) {
     // hand-drawn divider + small stamp
     ctx.strokeStyle = withAlpha(options.ink, 0.25);
     ctx.lineWidth = 2;
@@ -146,6 +175,17 @@ export function drawNoteTexture(
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
   return texture;
+}
+
+/** A classic two-lobed heart filling the canvas. */
+function heartPath(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5, h * 0.92);
+  ctx.bezierCurveTo(w * 0.04, h * 0.6, w * 0.02, h * 0.26, w * 0.28, h * 0.12);
+  ctx.bezierCurveTo(w * 0.42, h * 0.04, w * 0.5, h * 0.14, w * 0.5, h * 0.24);
+  ctx.bezierCurveTo(w * 0.5, h * 0.14, w * 0.58, h * 0.04, w * 0.72, h * 0.12);
+  ctx.bezierCurveTo(w * 0.98, h * 0.26, w * 0.96, h * 0.6, w * 0.5, h * 0.92);
+  ctx.closePath();
 }
 
 /** "#rrggbb" + alpha -> "rgba(r,g,b,a)" for translucent stamp ink. */

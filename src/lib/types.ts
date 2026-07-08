@@ -16,6 +16,14 @@ export interface Board {
   is_primary: boolean;
   /** "standard" or "worldcup" (the special temporary board). */
   kind: string;
+  /** Surprise boards: visible only to this user until reveal_at. */
+  private_to: string | null;
+  /** When the board becomes visible to everyone (RLS flips by time). */
+  reveal_at: string | null;
+  /** Personal message pushed to the other member at reveal time. */
+  reveal_message: string | null;
+  /** Stamped once the reveal notification has been sent. */
+  revealed_at: string | null;
   created_by: string | null;
   created_at: string;
   archived_at: string | null;

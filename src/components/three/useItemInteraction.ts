@@ -69,8 +69,13 @@ export function useItemDrag(item: BoardItem) {
     if (!drag.current) return;
     e.stopPropagation();
     if (!e.ray.intersectPlane(plane, hit.current)) return;
-    const { nx, ny } = worldToNorm(hit.current.x, hit.current.y);
     const state = useBoardStore.getState();
+    // focusMaxX > 1 when the theme has a mini board to drag onto.
+    const { nx, ny } = worldToNorm(
+      hit.current.x,
+      hit.current.y,
+      state.focusMaxX
+    );
     const current = state.items.find((i) => i.id === item.id);
     if (
       current &&

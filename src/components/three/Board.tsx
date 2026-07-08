@@ -6,6 +6,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import {
   BOARD,
   BOARD_SURFACE_Z,
+  EXTENDED_MAX_NX,
+  MINI_BOARD,
   usableHalfExtents,
   worldToNorm,
 } from "@/lib/board-geometry";
@@ -133,10 +135,240 @@ export function Board({
         <Shells gradient={gradient} />
       ) : theme.boardDecor === "footballs" ? (
         <Footballs />
+      ) : theme.boardDecor === "hearts" ? (
+        <Hearts />
       ) : (
         <FairyLights color={theme.garland} />
       )}
+
+      {theme.miniBoard && (
+        <MiniBoardMesh
+          label={theme.miniBoard.label}
+          theme={theme}
+          gradient={gradient}
+          cork={cork}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        />
+      )}
       {children}
+    </group>
+  );
+}
+
+/**
+ * The smaller second board ("your day") beside the main one — pan right
+ * to reach it; items drag onto it like anywhere else. Shares the main
+ * board's pan handlers so the view slides naturally across both.
+ */
+function MiniBoardMesh({
+  label,
+  theme,
+  gradient,
+  cork,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  label: string;
+  theme: BoardTheme;
+  gradient: THREE.Texture;
+  cork: THREE.Texture;
+  onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerUp: (e: ThreeEvent<PointerEvent>) => void;
+}) {
+  function onClick(e: ThreeEvent<MouseEvent>) {
+    const state = useBoardStore.getState();
+    if (state.view !== "room") return;
+    if (state.suppressNextWalkUp) {
+      state.setSuppressNextWalkUp(false);
+      return;
+    }
+    e.stopPropagation();
+    const { nx, ny } = worldToNorm(e.point.x, e.point.y, EXTENDED_MAX_NX);
+    state.walkUp({ x: nx, y: ny * 0.5 });
+  }
+
+  return (
+    <group position={[MINI_BOARD.offsetX, MINI_BOARD.centerY, 0]}>
+      <mesh position={[0, 0, BOARD_SURFACE_Z - 0.13]} castShadow>
+        <boxGeometry
+          args={[MINI_BOARD.width + 0.2, MINI_BOARD.height + 0.2, 0.12]}
+        />
+        <meshToonMaterial color={theme.board.frame} gradientMap={gradient} />
+      </mesh>
+      <mesh
+        position={[0, 0, BOARD_SURFACE_Z]}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onClick={onClick}
+      >
+        <planeGeometry args={[MINI_BOARD.width, MINI_BOARD.height]} />
+        <meshStandardMaterial
+          map={cork}
+          roughness={1}
+          polygonOffset
+          polygonOffsetFactor={-1}
+        />
+      </mesh>
+      {/* bunting sits ON the board, overlapping its top edge */}
+      <LetterBunting
+        text={label}
+        width={MINI_BOARD.width + 0.3}
+        y={MINI_BOARD.height / 2 - 0.04}
+      />
+    </group>
+  );
+}
+
+/** Cute pennant bunting spelling out a word, letter by letter. */
+function LetterBunting({
+  text,
+  width,
+  y,
+}: {
+  text: string;
+  width: number;
+  y: number;
+}) {
+  const flags = useMemo(() => {
+    const letters = text.toUpperCase().split("");
+    const palette = ["#ff9ec0", "#fff0f5", "#c98ce0", "#ffd7e0"];
+    return letters.map((letter, i) => {
+      const t = letters.length === 1 ? 0.5 : i / (letters.length - 1);
+      const texture = makePennantTexture(
+        letter,
+        palette[i % palette.length],
+        "#8a2547"
+      );
+      return {
+        letter,
+        texture,
+        x: -width / 2 + t * width,
+        sag: Math.sin(t * Math.PI) * 0.12,
+        tilt: (t - 0.5) * 0.4,
+      };
+    });
+  }, [text, width]);
+  useEffect(
+    () => () => flags.forEach((f) => f.texture.dispose()),
+    [flags]
+  );
+
+  const curve = useMemo(() => {
+    const pts = flags.map(
+      (f) => new THREE.Vector3(f.x, y - f.sag + 0.14, BOARD_SURFACE_Z + 0.04)
+    );
+    return pts.length > 1 ? new THREE.CatmullRomCurve3(pts) : null;
+  }, [flags, y]);
+
+  return (
+    <group>
+      {curve && (
+        <mesh>
+          <tubeGeometry args={[curve, 24, 0.005, 6, false]} />
+          <meshBasicMaterial color="#b56a83" />
+        </mesh>
+      )}
+      {flags.map((f, i) =>
+        f.letter === " " ? null : (
+          <mesh
+            key={i}
+            position={[f.x, y - f.sag, BOARD_SURFACE_Z + 0.045]}
+            rotation={[0, 0, f.tilt * 0.3]}
+          >
+            <planeGeometry args={[0.26, 0.3]} />
+            <meshBasicMaterial map={f.texture} transparent />
+          </mesh>
+        )
+      )}
+    </group>
+  );
+}
+
+/** A triangular pennant with a single letter, drawn to a canvas. */
+function makePennantTexture(
+  letter: string,
+  bg: string,
+  ink: string
+): THREE.CanvasTexture {
+  const w = 96;
+  const h = 112;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  ctx.beginPath();
+  ctx.moveTo(4, 4);
+  ctx.lineTo(w - 4, 4);
+  ctx.lineTo(w / 2, h - 6);
+  ctx.closePath();
+  ctx.fillStyle = bg;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.12)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = ink;
+  ctx.font = "bold 44px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(letter, w / 2, h * 0.36);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** A garland of plump pink hearts along the top of the board. */
+function Hearts() {
+  const geometry = useMemo(() => {
+    const s = new THREE.Shape();
+    // unit heart, later scaled down
+    s.moveTo(0, -0.42);
+    s.bezierCurveTo(-0.46, -0.1, -0.48, 0.24, -0.22, 0.38);
+    s.bezierCurveTo(-0.08, 0.46, 0, 0.36, 0, 0.26);
+    s.bezierCurveTo(0, 0.36, 0.08, 0.46, 0.22, 0.38);
+    s.bezierCurveTo(0.48, 0.24, 0.46, -0.1, 0, -0.42);
+    return new THREE.ExtrudeGeometry(s, {
+      depth: 0.18,
+      bevelEnabled: true,
+      bevelSize: 0.04,
+      bevelThickness: 0.04,
+      bevelSegments: 2,
+    });
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  const hearts = useMemo(() => {
+    const rand = mulberry32(14);
+    const count = 8;
+    return Array.from({ length: count }, (_, i) => {
+      const t = i / (count - 1);
+      return {
+        x: -BOARD.width / 2 + 0.35 + t * (BOARD.width - 0.7),
+        y:
+          BOARD.centerY + BOARD.height / 2 + 0.14 - Math.sin(t * Math.PI) * 0.06,
+        tilt: (rand() - 0.5) * 0.5,
+        tint: i % 2 === 0 ? "#ff8fb4" : "#ffc2d6",
+      };
+    });
+  }, []);
+
+  return (
+    <group>
+      {hearts.map((hh, i) => (
+        <mesh
+          key={i}
+          geometry={geometry}
+          position={[hh.x, hh.y, BOARD_SURFACE_Z + 0.05]}
+          rotation={[0, 0, hh.tilt]}
+          scale={0.16}
+        >
+          <meshStandardMaterial color={hh.tint} roughness={0.55} />
+        </mesh>
+      ))}
     </group>
   );
 }

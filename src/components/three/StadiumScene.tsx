@@ -394,11 +394,16 @@ function Crowd() {
         args={[undefined, undefined, people.length]}
         onPointerDown={onPointerDown}
         castShadow
+        frustumCulled={false}
       >
         <capsuleGeometry args={[0.12, 0.3, 4, 8]} />
         <meshStandardMaterial roughness={0.85} />
       </instancedMesh>
-      <instancedMesh ref={heads} args={[undefined, undefined, people.length]}>
+      <instancedMesh
+        ref={heads}
+        args={[undefined, undefined, people.length]}
+        frustumCulled={false}
+      >
         <sphereGeometry args={[0.12, 10, 10]} />
         <meshStandardMaterial roughness={0.8} />
       </instancedMesh>

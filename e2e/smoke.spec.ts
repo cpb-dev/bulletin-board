@@ -81,6 +81,18 @@ test("the notify API route rejects unauthenticated calls", async ({
   expect([401, 503]).toContain(res.status());
 });
 
+test("the reveal sweep is reachable and reveals nothing about boards", async ({
+  request,
+}) => {
+  // Unconfigured env -> 503; configured -> a bare counters object. Either
+  // way it must never leak board contents to the caller.
+  const res = await request.post("/api/reveal");
+  expect([200, 503]).toContain(res.status());
+  const body = await res.text();
+  expect(body).not.toContain("title");
+  expect(body).not.toContain("reveal_message");
+});
+
 test("PWA manifest is served with icons", async ({ request }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBeTruthy();

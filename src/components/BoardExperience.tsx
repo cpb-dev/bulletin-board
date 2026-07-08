@@ -14,10 +14,12 @@ import {
 import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getTheme } from "@/lib/themes";
+import { EXTENDED_MAX_NX } from "@/lib/board-geometry";
 import type { Fixture } from "@/lib/worldcup";
 import { Room } from "./three/Room";
 import { BeachScene } from "./three/BeachScene";
 import { StadiumScene } from "./three/StadiumScene";
+import { RoseFieldScene } from "./three/RoseFieldScene";
 import { Board } from "./three/Board";
 import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
@@ -108,6 +110,20 @@ export function BoardExperience({
 
   useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
+  const theme = getTheme(board?.theme);
+
+  // Themes with a mini board let you pan past the main board's edge.
+  useEffect(() => {
+    useBoardStore.getState().setFocusMaxX(theme.miniBoard ? EXTENDED_MAX_NX : 1);
+    return () => useBoardStore.getState().setFocusMaxX(1);
+  }, [theme.miniBoard]);
+
+  // Opportunistic reveal sweep: if a surprise unlocked while nobody was
+  // around, opening the app delivers its notification promptly.
+  useEffect(() => {
+    fetch("/api/reveal", { method: "POST" }).catch(() => {});
+  }, []);
+
   // World Cup mode: keep fixtures (and pinned scores) live by polling.
   useEffect(() => {
     if (!worldCup) return;
@@ -130,8 +146,6 @@ export function BoardExperience({
       useBoardStore.getState().setWorldCupFixtures({});
     };
   }, [worldCup]);
-
-  const theme = getTheme(board?.theme);
 
   // Wheel + pinch zoom for the close-up view.
   const pinch = useRef<number | null>(null);
@@ -210,6 +224,8 @@ export function BoardExperience({
           <BeachScene theme={theme} />
         ) : theme.scene === "stadium" ? (
           <StadiumScene theme={theme} />
+        ) : theme.scene === "rosefield" ? (
+          <RoseFieldScene theme={theme} />
         ) : (
           <Room theme={theme} />
         )}

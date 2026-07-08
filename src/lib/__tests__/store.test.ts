@@ -30,6 +30,7 @@ beforeEach(() => {
     readOnly: false,
     view: "room",
     focus: { x: 0, y: 0 },
+    focusMaxX: 1,
     zoom: 1,
     roomLook: { yaw: 0, pitch: 0 },
     suppressNextWalkUp: false,
@@ -86,6 +87,16 @@ describe("camera state", () => {
     expect(useBoardStore.getState().focus).toEqual({ x: 1, y: -1 });
   });
 
+  it("lets focus pan past the main board when a mini board exists", () => {
+    useBoardStore.getState().setFocusMaxX(2.9);
+    useBoardStore.getState().setFocus({ x: 9, y: 0 });
+    expect(useBoardStore.getState().focus.x).toBe(2.9);
+    // back to a normal theme, the old clamp applies again
+    useBoardStore.getState().setFocusMaxX(1);
+    useBoardStore.getState().setFocus({ x: 9, y: 0 });
+    expect(useBoardStore.getState().focus.x).toBe(1);
+  });
+
   it("clamps the new wider zoom range", () => {
     useBoardStore.getState().setZoom(100);
     expect(useBoardStore.getState().zoom).toBe(5);
@@ -96,7 +107,7 @@ describe("camera state", () => {
   it("clamps room look-around angles", () => {
     useBoardStore.getState().setRoomLook({ yaw: 5, pitch: -5 });
     const { yaw, pitch } = useBoardStore.getState().roomLook;
-    expect(yaw).toBe(0.7);
+    expect(yaw).toBe(1.05);
     expect(pitch).toBe(-0.32);
   });
 

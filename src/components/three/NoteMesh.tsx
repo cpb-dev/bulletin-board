@@ -65,9 +65,10 @@ export function NoteMesh({
         bg: paper.bg,
         ink: paper.ink,
         footer,
+        shape: item.paper === "heart" ? "heart" : "square",
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [content, paper.bg, paper.ink, footer, fontsReady]
+    [content, paper.bg, paper.ink, footer, item.paper, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 

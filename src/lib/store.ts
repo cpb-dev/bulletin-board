@@ -18,6 +18,8 @@ interface BoardState {
   view: ViewMode;
   /** Where on the board the close-up camera is looking (normalized). */
   focus: { x: number; y: number };
+  /** How far right you can pan (1 = main board; larger = mini board). */
+  focusMaxX: number;
   zoom: number;
   /** Head turn while standing back in the room (radians). */
   roomLook: { yaw: number; pitch: number };
@@ -47,6 +49,7 @@ interface BoardState {
   walkUp: (focus?: { x: number; y: number }) => void;
   stepBack: () => void;
   setFocus: (focus: { x: number; y: number }) => void;
+  setFocusMaxX: (max: number) => void;
   setZoom: (zoom: number) => void;
   setRoomLook: (look: { yaw: number; pitch: number }) => void;
   setSuppressNextWalkUp: (suppress: boolean) => void;
@@ -76,7 +79,8 @@ interface BoardState {
 
 const clampZoom = (z: number) => Math.min(5, Math.max(0.45, z));
 const clampFocus = (v: number) => Math.min(1, Math.max(-1, v));
-const clampYaw = (v: number) => Math.min(0.7, Math.max(-0.7, v));
+// Wide enough to bring the "your day" mini board into view from the room.
+const clampYaw = (v: number) => Math.min(1.05, Math.max(-1.05, v));
 const clampPitch = (v: number) => Math.min(0.32, Math.max(-0.32, v));
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -87,6 +91,7 @@ export const useBoardStore = create<BoardState>((set) => ({
 
   view: "room",
   focus: { x: 0, y: 0 },
+  focusMaxX: 1,
   zoom: 1,
   roomLook: { yaw: 0, pitch: 0 },
   suppressNextWalkUp: false,
@@ -128,7 +133,13 @@ export const useBoardStore = create<BoardState>((set) => ({
       themePickerOpen: false,
     }),
   setFocus: (focus) =>
-    set({ focus: { x: clampFocus(focus.x), y: clampFocus(focus.y) } }),
+    set((s) => ({
+      focus: {
+        x: Math.min(s.focusMaxX, Math.max(-1, focus.x)),
+        y: clampFocus(focus.y),
+      },
+    })),
+  setFocusMaxX: (focusMaxX) => set({ focusMaxX }),
   setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
   setRoomLook: (look) =>
     set({
