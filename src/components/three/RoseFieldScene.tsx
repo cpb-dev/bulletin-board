@@ -24,8 +24,10 @@ export function RoseFieldScene({ theme }: { theme: BoardTheme }) {
     <group>
       <GoldenHourSky />
       <ambientLight intensity={0.7} color="#ffe4ee" />
+      {/* steeper key light so shadows sit beneath things instead of
+          smearing off to the right */}
       <directionalLight
-        position={[-6, 5, 6]}
+        position={[-3.5, 11, 4]}
         intensity={1.7}
         color="#ffd9a8"
         castShadow
@@ -34,7 +36,7 @@ export function RoseFieldScene({ theme }: { theme: BoardTheme }) {
         shadow-camera-right={10}
         shadow-camera-top={10}
         shadow-camera-bottom={-4}
-        shadow-bias={-0.0004}
+        shadow-bias={-0.0002}
       />
       <hemisphereLight args={["#ffc9d8", "#3d7a3a", 0.55]} />
 
@@ -460,9 +462,9 @@ function Picnic() {
         ))}
       </group>
 
-      {/* the two drinks */}
-      <BeerGlass position={[0.85, 0, -0.05]} />
-      <AperolSpritz position={[1.12, 0, -0.28]} />
+      {/* the two drinks — one beside each cushion */}
+      <BeerGlass position={[-0.68, 0, 0.5]} />
+      <AperolSpritz position={[0.72, 0, 0.42]} />
 
       {/* a couple of loose rose petals on the blanket */}
       {[
