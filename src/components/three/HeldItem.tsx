@@ -118,6 +118,8 @@ function HeldNote({
   );
   const footer = noteStamp(authorName, item.created_at);
   const size = 0.5;
+  // Matches the board: no square drop shadow boxing in the heart silhouette.
+  const isHeart = item.paper === "heart";
 
   useEffect(() => onNatural({ w: size, h: size }), [onNatural]);
 
@@ -139,10 +141,12 @@ function HeldNote({
 
   return (
     <group>
-      <mesh position={[0.02, -0.025, -0.012]}>
-        <planeGeometry args={[size, size]} />
-        <meshBasicMaterial color="#000" transparent opacity={0.22} />
-      </mesh>
+      {!isHeart && (
+        <mesh position={[0.02, -0.025, -0.012]}>
+          <planeGeometry args={[size, size]} />
+          <meshBasicMaterial color="#000" transparent opacity={0.22} />
+        </mesh>
+      )}
       <mesh>
         <planeGeometry args={[size, size]} />
         <meshBasicMaterial map={texture} transparent />

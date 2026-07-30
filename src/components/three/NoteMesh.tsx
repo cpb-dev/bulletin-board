@@ -74,6 +74,9 @@ export function NoteMesh({
 
   const { x, y } = normToWorld(item.x, item.y);
   const size = NOTE_BASE * item.scale;
+  // Hearts float free: a square drop shadow would box them in, and a pin
+  // through the top notch looks wrong on a love note.
+  const isHeart = item.paper === "heart";
   const lift = isActive ? 0.07 : 0;
   const pop = isActive ? 1.05 : hovered ? 1.02 : 1;
 
@@ -81,10 +84,12 @@ export function NoteMesh({
     <group position={[x, y, ITEM_Z + lift]} rotation={[0, 0, item.rotation]}>
       <group scale={pop}>
         {/* soft fake shadow */}
-        <mesh position={[0.02, -0.025, -0.012]}>
-          <planeGeometry args={[size, size]} />
-          <meshBasicMaterial color="#000000" transparent opacity={0.16} />
-        </mesh>
+        {!isHeart && (
+          <mesh position={[0.02, -0.025, -0.012]}>
+            <planeGeometry args={[size, size]} />
+            <meshBasicMaterial color="#000000" transparent opacity={0.16} />
+          </mesh>
+        )}
         <mesh
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -100,10 +105,12 @@ export function NoteMesh({
             side={THREE.FrontSide}
           />
         </mesh>
-        <Pin
-          color={pinColorFor(theme, item.id)}
-          position={[0, size / 2 - 0.05, 0.012]}
-        />
+        {!isHeart && (
+          <Pin
+            color={pinColorFor(theme, item.id)}
+            position={[0, size / 2 - 0.05, 0.012]}
+          />
+        )}
         {isSelected && (
           <SelectionFrame
             item={item}
