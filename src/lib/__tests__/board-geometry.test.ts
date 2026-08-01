@@ -3,15 +3,18 @@ import {
   BOARD,
   clamp,
   clampScale,
+  EXTENDED_MAX_NX,
   MAX_ITEM_SCALE,
   MIN_ITEM_SCALE,
   normToWorld,
+  placementBox,
   photoPlaneSize,
   randomTilt,
   round3,
   scaleFromHandleDrag,
   suggestPlacement,
   usableHalfExtents,
+  visibleHalfExtents,
   worldToNorm,
   wrapLines,
 } from "../board-geometry";
@@ -111,6 +114,94 @@ describe("suggestPlacement", () => {
       expect(Math.abs(spot.x)).toBeLessThanOrEqual(1);
       expect(Math.abs(spot.y)).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("lands near where the camera is looking, not the far end", () => {
+    const view = { focus: { x: -0.7, y: 0.5 }, zoom: 1.5, aspect: 1.6 };
+    const box = placementBox(view);
+    // Guard against the assertion below passing only because the box
+    // collapsed to a point.
+    expect(box.maxX - box.minX).toBeGreaterThan(0.1);
+    expect(box.maxY - box.minY).toBeGreaterThan(0.1);
+
+    // One item right under the camera: without a view the best clearance
+    // would be the opposite corner, off screen.
+    for (let seed = 0; seed < 20; seed++) {
+      const spot = suggestPlacement([{ x: -0.7, y: 0.5 }], Math.random, view);
+      expect(Math.abs(spot.x - view.focus.x)).toBeLessThanOrEqual(0.25);
+      expect(Math.abs(spot.y - view.focus.y)).toBeLessThanOrEqual(0.25);
+    }
+  });
+
+  it("centres the item when zoomed in too close to fit a spread", () => {
+    // Phone-shaped viewport, nose to the cork: a note is wider than the
+    // screen, so the only sensible spot is dead centre of view.
+    const view = { focus: { x: 0.3, y: -0.2 }, zoom: 4, aspect: 0.5 };
+    const spot = suggestPlacement([{ x: 0.3, y: -0.2 }], Math.random, view);
+    expect(spot.x).toBeCloseTo(0.3);
+    expect(spot.y).toBeCloseTo(-0.2);
+  });
+
+  it("still spreads across the whole board with no view", () => {
+    const spread = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const spot = suggestPlacement([{ x: 0, y: 0 }]);
+      spread.add(spot.x > 0 ? "right" : "left");
+    }
+    expect(spread.size).toBe(2);
+  });
+});
+
+describe("placementBox", () => {
+  it("covers the whole main board when standing back in the room", () => {
+    const box = placementBox();
+    expect(box.minX).toBeCloseTo(-0.85);
+    expect(box.maxX).toBeCloseTo(0.85);
+    expect(box.minY).toBeCloseTo(-0.75);
+    expect(box.maxY).toBeCloseTo(0.75);
+  });
+
+  it("never spills off the main board when looking at its edge", () => {
+    const box = placementBox({ focus: { x: 0.85, y: 0.75 }, zoom: 1 });
+    expect(box.maxX).toBeLessThanOrEqual(0.85 + 1e-9);
+    expect(box.maxY).toBeLessThanOrEqual(0.75 + 1e-9);
+  });
+
+  it("tightens as you zoom in", () => {
+    const wide = placementBox({ focus: { x: 0, y: 0 }, zoom: 1 });
+    const close = placementBox({ focus: { x: 0, y: 0 }, zoom: 4 });
+    expect(close.maxX - close.minX).toBeLessThan(wide.maxX - wide.minX);
+    expect(close.maxY - close.minY).toBeLessThan(wide.maxY - wide.minY);
+  });
+
+  it("places onto the mini board when panned over to it", () => {
+    const box = placementBox({
+      focus: { x: 2.3, y: 0 },
+      zoom: 1,
+      maxNx: EXTENDED_MAX_NX,
+    });
+    expect(box.minX).toBeGreaterThan(1);
+    expect(box.maxX).toBeLessThanOrEqual(EXTENDED_MAX_NX);
+  });
+
+  it("ignores the mini board on themes without one", () => {
+    const box = placementBox({ focus: { x: 1, y: 0 }, zoom: 1, maxNx: 1 });
+    expect(box.maxX).toBeLessThanOrEqual(0.85 + 1e-9);
+  });
+});
+
+describe("visibleHalfExtents", () => {
+  it("sees less of the board the closer you get", () => {
+    const far = visibleHalfExtents(0.5);
+    const near = visibleHalfExtents(4);
+    expect(near.nx).toBeLessThan(far.nx);
+    expect(near.ny).toBeLessThan(far.ny);
+  });
+
+  it("widens with a wider viewport", () => {
+    expect(visibleHalfExtents(1, 2).nx).toBeCloseTo(
+      visibleHalfExtents(1, 1).nx * 2
+    );
   });
 });
 

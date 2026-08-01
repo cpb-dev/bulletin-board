@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createNote } from "@/lib/api";
 import { randomTilt, suggestPlacement } from "@/lib/board-geometry";
-import { useBoardStore } from "@/lib/store";
+import { currentPlacementView, useBoardStore } from "@/lib/store";
 import { fixtureLine, fixtureNoteText, groupFixtures, type Fixture } from "@/lib/worldcup";
 import { Sheet } from "./Sheet";
 
@@ -41,8 +41,12 @@ export function FixturesPanel({
     if (!boardId || readOnly) return;
     setPinned(f.id);
     try {
-      const items = useBoardStore.getState().items;
-      const spot = suggestPlacement(items);
+      const store = useBoardStore.getState();
+      const spot = suggestPlacement(
+        store.items,
+        Math.random,
+        currentPlacementView(store)
+      );
       const note = await createNote(supabase, {
         board_id: boardId,
         content: fixtureNoteText(f),

@@ -22,6 +22,14 @@ export const BOARD = {
 /** Z of the board's front (cork) surface in world space. */
 export const BOARD_SURFACE_Z = BOARD.wallZ + 0.09;
 
+/** Edge length of a note at scale 1, in world units. */
+export const NOTE_BASE = 0.52;
+
+/** Vertical field of view of the scene camera, in degrees. */
+export const CAMERA_FOV = 46;
+/** Distance from the cork when walked up at zoom 1; scales as 1/zoom. */
+export const CAMERA_BASE_DIST = 1.6;
+
 /** Items float just proud of the cork. */
 export const ITEM_Z = BOARD_SURFACE_Z + 0.02;
 
@@ -87,27 +95,140 @@ export interface PlacedItem {
   y: number;
 }
 
+/** A normalized rectangle that new item centres must stay inside. */
+export interface PlacementBox {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/** Where the close-up camera is looking, so new items land in view. */
+export interface PlacementView {
+  /** Normalized board coords at the centre of the screen. */
+  focus: { x: number; y: number };
+  /** Camera zoom (1 = default framing, larger = closer in). */
+  zoom: number;
+  /** Viewport aspect ratio (width / height). */
+  aspect?: number;
+  /** Furthest placeable x — EXTENDED_MAX_NX on mini-board themes. */
+  maxNx?: number;
+}
+
+/** Keep new item centres this far inside a board's edge, in world units. */
+const PLACE_INSET = NOTE_BASE / 2 + 0.04;
+/** Hand-tuned keep-out on the main board, in normalized units. */
+const MAIN_PLACE_HX = 0.85;
+const MAIN_PLACE_HY = 0.75;
+
+/**
+ * Half of what the walked-up camera can see at `zoom`, in normalized
+ * board units. Mirrors the framing in CameraRig.
+ */
+export function visibleHalfExtents(
+  zoom: number,
+  aspect = 1
+): { nx: number; ny: number } {
+  const dist = CAMERA_BASE_DIST / Math.max(zoom, 1e-3);
+  const halfH = dist * Math.tan((CAMERA_FOV * Math.PI) / 360);
+  const { hx, hy } = usableHalfExtents();
+  return { nx: (halfH * aspect) / hx, ny: halfH / hy };
+}
+
+/** Normalized box of the mini board, inset so a note sits fully on it. */
+function miniBoardBox(): PlacementBox {
+  const { hx, hy } = usableHalfExtents();
+  return {
+    minX: (MINI_BOARD.offsetX - MINI_BOARD.width / 2 + PLACE_INSET) / hx,
+    maxX: (MINI_BOARD.offsetX + MINI_BOARD.width / 2 - PLACE_INSET) / hx,
+    minY:
+      (MINI_BOARD.centerY - MINI_BOARD.height / 2 + PLACE_INSET - BOARD.centerY) /
+      hy,
+    maxY:
+      (MINI_BOARD.centerY + MINI_BOARD.height / 2 - PLACE_INSET - BOARD.centerY) /
+      hy,
+  };
+}
+
+/** Shrink `want` so it never leaves `limit`. May collapse to a point. */
+function clipBox(want: PlacementBox, limit: PlacementBox): PlacementBox {
+  return {
+    minX: clamp(want.minX, limit.minX, limit.maxX),
+    maxX: clamp(want.maxX, limit.minX, limit.maxX),
+    minY: clamp(want.minY, limit.minY, limit.maxY),
+    maxY: clamp(want.maxY, limit.minY, limit.maxY),
+  };
+}
+
+/**
+ * The region a new item may land in: the whole main board when we have
+ * no camera framing (standing back in the room), otherwise just what
+ * the user is currently looking at, clipped to whichever board that is.
+ */
+export function placementBox(view?: PlacementView): PlacementBox {
+  const main = {
+    minX: -MAIN_PLACE_HX,
+    maxX: MAIN_PLACE_HX,
+    minY: -MAIN_PLACE_HY,
+    maxY: MAIN_PLACE_HY,
+  };
+  if (!view) return main;
+
+  const mini = miniBoardBox();
+  // Panned past the gap between the two boards? Then place on the mini one.
+  const onMini =
+    (view.maxNx ?? 1) > 1 && view.focus.x > (main.maxX + mini.minX) / 2;
+  const board = onMini ? mini : main;
+
+  const { hx, hy } = usableHalfExtents();
+  const seen = visibleHalfExtents(view.zoom, view.aspect ?? 1);
+  // Pull in by half a note so the whole thing lands on screen, not just
+  // its centre.
+  const hxSpread = Math.max(0, seen.nx - PLACE_INSET / hx);
+  const hySpread = Math.max(0, seen.ny - PLACE_INSET / hy);
+
+  return clipBox(
+    {
+      minX: view.focus.x - hxSpread,
+      maxX: view.focus.x + hxSpread,
+      minY: view.focus.y - hySpread,
+      maxY: view.focus.y + hySpread,
+    },
+    board
+  );
+}
+
 /**
  * Pick a spot for a new item, preferring places far from existing
  * items so fresh notes do not land on top of each other. Samples a
  * handful of candidates and keeps the one with the best clearance.
+ *
+ * Pass `view` to keep the item where the user is currently looking —
+ * without it a note can land at the far end of the board, off screen.
  */
 export function suggestPlacement(
   existing: PlacedItem[],
-  rand: () => number = Math.random
+  rand: () => number = Math.random,
+  view?: PlacementView
 ): { x: number; y: number } {
-  let best = { x: 0, y: 0 };
+  const box = placementBox(view);
+  const midX = (box.minX + box.maxX) / 2;
+  const midY = (box.minY + box.maxY) / 2;
+
+  let best = { x: midX, y: midY };
   let bestScore = -Infinity;
   const candidates = 14;
   for (let i = 0; i < candidates; i++) {
-    const cx = (rand() * 2 - 1) * 0.85;
-    const cy = (rand() * 2 - 1) * 0.75;
+    const cx = box.minX + rand() * (box.maxX - box.minX);
+    const cy = box.minY + rand() * (box.maxY - box.minY);
     let nearest = Infinity;
     for (const item of existing) {
       const d = Math.hypot(cx - item.x, cy - item.y);
       nearest = Math.min(nearest, d);
     }
-    const score = existing.length === 0 ? -Math.hypot(cx, cy) : nearest;
+    // With nothing to dodge, sit near the middle of what's on screen.
+    const score =
+      existing.length === 0 ? -Math.hypot(cx - midX, cy - midY) : nearest;
     if (score > bestScore) {
       bestScore = score;
       best = { x: cx, y: cy };
@@ -122,8 +243,6 @@ export function round3(v: number): number {
 
 // ---------- Item sizing & resize ----------
 
-/** Edge length of a note at scale 1, in world units. */
-export const NOTE_BASE = 0.52;
 export const MIN_ITEM_SCALE = 0.6;
 export const MAX_ITEM_SCALE = 2.4;
 

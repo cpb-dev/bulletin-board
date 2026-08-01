@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { clampScale } from "./board-geometry";
+import { clampScale, type PlacementView } from "./board-geometry";
 import type { Board, BoardItem, Profile } from "./types";
 import type { Fixture } from "./worldcup";
 
@@ -229,3 +229,20 @@ export const useBoardStore = create<BoardState>((set) => ({
   worldCupFixtures: {},
   setWorldCupFixtures: (worldCupFixtures) => set({ worldCupFixtures }),
 }));
+
+/**
+ * Camera framing for `suggestPlacement`, so a new item lands where the
+ * user is looking rather than at the far end of the board. Undefined
+ * while standing back in the room — from there the whole board is in
+ * view, so the old spread-them-out behaviour is the right one.
+ */
+export function currentPlacementView(
+  s: BoardState = useBoardStore.getState()
+): PlacementView | undefined {
+  if (s.view !== "board") return undefined;
+  const aspect =
+    typeof window !== "undefined" && window.innerHeight > 0
+      ? window.innerWidth / window.innerHeight
+      : 1;
+  return { focus: s.focus, zoom: s.zoom, aspect, maxNx: s.focusMaxX };
+}
