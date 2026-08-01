@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { createPhotoItem, uploadPhoto } from "@/lib/api";
 import { compressImage } from "@/lib/image";
 import { randomTilt, suggestPlacement } from "@/lib/board-geometry";
-import { useBoardStore } from "@/lib/store";
+import { currentPlacementView, useBoardStore } from "@/lib/store";
 import { Sheet } from "./Sheet";
 
 export function PhotoComposer() {
@@ -39,7 +39,11 @@ export function PhotoComposer() {
       const { blob } = await compressImage(file);
       const path = await uploadPhoto(supabase, board.id, blob);
       const store = useBoardStore.getState();
-      const spot = suggestPlacement(store.items);
+      const spot = suggestPlacement(
+        store.items,
+        Math.random,
+        currentPlacementView(store)
+      );
       const item = await createPhotoItem(supabase, {
         board_id: board.id,
         photo_path: path,

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createNote } from "@/lib/api";
 import { randomTilt, suggestPlacement } from "@/lib/board-geometry";
-import { useBoardStore } from "@/lib/store";
+import { currentPlacementView, useBoardStore } from "@/lib/store";
 import { getTheme } from "@/lib/themes";
 import { Sheet, Swatch } from "./Sheet";
 
@@ -29,7 +29,11 @@ export function NoteComposer() {
     setError(null);
     try {
       const store = useBoardStore.getState();
-      const spot = suggestPlacement(store.items);
+      const spot = suggestPlacement(
+        store.items,
+        Math.random,
+        currentPlacementView(store)
+      );
       const note = await createNote(supabase, {
         board_id: board.id,
         content: text.trim(),

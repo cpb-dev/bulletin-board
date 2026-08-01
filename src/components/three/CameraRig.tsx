@@ -3,7 +3,12 @@
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { BOARD, BOARD_SURFACE_Z, normToWorld } from "@/lib/board-geometry";
+import {
+  BOARD,
+  BOARD_SURFACE_Z,
+  CAMERA_BASE_DIST,
+  normToWorld,
+} from "@/lib/board-geometry";
 import { useBoardStore } from "@/lib/store";
 
 // Standing further back in the room now, so you can take the whole
@@ -48,7 +53,7 @@ export function CameraRig() {
       // Closer base distance + wide zoom range. At min zoom you can pull
       // back far enough to take in the whole board; at max you're nose
       // to the cork.
-      const dist = 1.6 / zoom;
+      const dist = CAMERA_BASE_DIST / zoom;
       goalTarget.current.set(x, y, BOARD_SURFACE_Z);
       goalPos.current.set(x * 0.96, y * 0.98 + 0.04, BOARD_SURFACE_Z + dist);
     }

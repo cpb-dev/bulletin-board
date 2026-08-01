@@ -14,7 +14,7 @@ import {
 import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getTheme } from "@/lib/themes";
-import { EXTENDED_MAX_NX } from "@/lib/board-geometry";
+import { CAMERA_FOV, EXTENDED_MAX_NX } from "@/lib/board-geometry";
 import type { Fixture } from "@/lib/worldcup";
 import { Room } from "./three/Room";
 import { BeachScene } from "./three/BeachScene";
@@ -215,7 +215,12 @@ export function BoardExperience({
     >
       <Canvas
         shadows
-        camera={{ fov: 46, position: [0.55, 1.4, 3.3], near: 0.1, far: 120 }}
+        camera={{
+          fov: CAMERA_FOV,
+          position: [0.55, 1.4, 3.3],
+          near: 0.1,
+          far: 120,
+        }}
         dpr={[1, 2]}
         // without this, mobile browsers steal drag gestures for scrolling
         style={{ touchAction: "none" }}
