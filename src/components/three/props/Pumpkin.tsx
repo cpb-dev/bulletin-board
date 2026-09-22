@@ -202,15 +202,18 @@ export function makePumpkinFaceTexture(variant: number): THREE.CanvasTexture {
     ctx.fill();
     ctx.globalCompositeOperation = "destination-out";
     ctx.shadowBlur = 0;
+    // Fangs hang DOWN from the roof of the mouth: base along the top
+    // edge (y 330), point below it. Apex-up reads as spikes growing out
+    // of the jaw instead.
     poly([
-      [212, 332],
-      [236, 396],
-      [188, 396],
+      [188, 330],
+      [236, 330],
+      [212, 398],
     ]);
     poly([
-      [300, 332],
-      [324, 396],
-      [276, 396],
+      [276, 330],
+      [324, 330],
+      [300, 398],
     ]);
     ctx.globalCompositeOperation = "source-over";
   } else if (variant === 2) {
