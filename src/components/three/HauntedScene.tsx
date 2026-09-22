@@ -195,35 +195,6 @@ function Window({
   seed: number;
   gradient: THREE.Texture;
 }) {
-  const ghost = useRef<THREE.Group>(null);
-  const material = useRef<THREE.MeshBasicMaterial>(null);
-  const rand = useMemo(() => mulberry32(seed * 104729), [seed]);
-  // Stagger the first sighting so they don't all arrive at once.
-  const nextAt = useRef(seed * 2.2 + rand() * 6);
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    const g = ghost.current;
-    const m = material.current;
-    if (!g || !m) return;
-
-    const p = (t - nextAt.current) / GHOST_PASS_DURATION;
-    const pose = ghostPass(p);
-    if (!pose) {
-      g.visible = false;
-      // Once the pass is over, book the next one.
-      if (p > 1) nextAt.current = nextGhostTime(t, rand);
-      return;
-    }
-    g.visible = true;
-    // Scaled so the ghost's full width stays inside the pane at both
-    // ends of the drift — there's no cheap way to clip to the glass, so
-    // it must never wander onto the wall.
-    g.position.x = pose.x * w * 0.55;
-    g.position.y = pose.bob;
-    m.opacity = pose.opacity * 0.85;
-  });
-
   return (
     <group position={[x, y, 2.02]}>
       {/* the lit pane */}
@@ -234,25 +205,7 @@ function Window({
 
       {/* the ghost lives between the pane and the glazing bars, so it
           genuinely reads as being behind the glass */}
-      <group ref={ghost} position={[0, 0, 0.01]} visible={false}>
-        <mesh>
-          <planeGeometry args={[w * 0.34, h * 0.62]} />
-          <meshBasicMaterial
-            ref={material}
-            color="#f4f1ff"
-            transparent
-            opacity={0}
-            depthWrite={false}
-          />
-        </mesh>
-        {/* hollow eyes */}
-        {[-0.06, 0.06].map((ex, i) => (
-          <mesh key={i} position={[ex * (w / 0.9), h * 0.12, 0.005]}>
-            <circleGeometry args={[w * 0.05, 10]} />
-            <meshBasicMaterial color="#2a2233" transparent opacity={0.75} />
-          </mesh>
-        ))}
-      </group>
+      <WindowGhost w={w} h={h} seed={seed} />
 
       {/* glazing bars, in front of the ghost */}
       <mesh position={[0, 0, 0.02]}>
@@ -281,6 +234,174 @@ function Window({
   );
 }
 
+/**
+ * A ghost drifting behind a window. The figure is drawn to a canvas so
+ * it can carry real detail — hollow sockets, a wailing mouth, a ragged
+ * hem — and the mesh it sits on is a segmented plane whose lower rows
+ * are warped every frame, so the shroud actually billows rather than
+ * sliding past as a rigid cut-out.
+ */
+function WindowGhost({ w, h, seed }: { w: number; h: number; seed: number }) {
+  const group = useRef<THREE.Group>(null);
+  const mat = useRef<THREE.MeshBasicMaterial>(null);
+  const geo = useRef<THREE.PlaneGeometry>(null);
+  const base = useRef<Float32Array | null>(null);
+  const rand = useMemo(() => mulberry32(seed * 104729), [seed]);
+  // Stagger the first sighting so they don't all arrive at once.
+  const nextAt = useRef(seed * 2.2 + rand() * 6);
+
+  const texture = useMemo(() => makeGhostTexture(seed), [seed]);
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  const gw = w * 0.42;
+  const gh = h * 0.8;
+
+  useFrame((state) => {
+    const g = group.current;
+    const m = mat.current;
+    const geometry = geo.current;
+    if (!g || !m || !geometry) return;
+    const t = state.clock.elapsedTime;
+
+    const p = (t - nextAt.current) / GHOST_PASS_DURATION;
+    const pose = ghostPass(p);
+    if (!pose) {
+      g.visible = false;
+      // Once the pass is over, book the next one.
+      if (p > 1) nextAt.current = nextGhostTime(t, rand);
+      return;
+    }
+    g.visible = true;
+    // Scaled so the figure's full width stays inside the pane at both
+    // ends of the drift — there's no cheap way to clip to the glass, so
+    // it must never wander onto the wall.
+    g.position.x = pose.x * w * 0.45;
+    g.position.y = pose.bob;
+    m.opacity = pose.opacity * 0.9;
+    // a slow, uneasy lean as it passes
+    g.rotation.z = Math.sin(t * 0.9 + seed) * 0.05;
+
+    const pos = geometry.attributes.position;
+    if (!base.current) {
+      base.current = Float32Array.from(pos.array as ArrayLike<number>);
+    }
+    const b = base.current;
+    for (let i = 0; i < pos.count; i++) {
+      const bx = b[i * 3];
+      const by = b[i * 3 + 1];
+      // 0 at the head, 1 at the hem — the head barely moves, the
+      // shroud below it swings.
+      const d = Math.max(0, 0.5 - by / gh);
+      const fall = d * d;
+      pos.setXYZ(
+        i,
+        bx + Math.sin(t * 2.4 + by * 9 + seed) * gw * 0.18 * fall,
+        by + Math.sin(t * 3.1 + bx * 7 + seed) * gh * 0.04 * fall,
+        Math.sin(t * 1.9 + by * 6) * 0.015 * fall
+      );
+    }
+    pos.needsUpdate = true;
+  });
+
+  return (
+    <group ref={group} position={[0, 0, 0.01]} visible={false}>
+      <mesh>
+        <planeGeometry ref={geo} args={[gw, gh, 10, 14]} />
+        <meshBasicMaterial
+          ref={mat}
+          map={texture}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Draws one hollow-eyed figure in a shroud: a head, sunken angled
+ * sockets, a long wailing mouth and a torn hem. `seed` shifts the
+ * features so the five windows aren't haunted by identical twins.
+ */
+function makeGhostTexture(seed: number): THREE.CanvasTexture {
+  const W = 256;
+  const H = 384;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext("2d")!;
+  ctx.clearRect(0, 0, W, H);
+
+  const rand = mulberry32(seed * 7717);
+  const lean = (rand() - 0.5) * 14; // a little asymmetry per ghost
+
+  // ---- shroud silhouette ----
+  ctx.beginPath();
+  ctx.moveTo(66, 112);
+  ctx.arc(128, 112, 62, Math.PI, 0, true); // over the top of the head
+  ctx.bezierCurveTo(206, 162, 212 + lean, 232, 208, 302);
+  // torn hem, right to left
+  ctx.quadraticCurveTo(190, 352, 170, 308);
+  ctx.quadraticCurveTo(150, 356, 130, 306);
+  ctx.quadraticCurveTo(110, 350, 90, 308);
+  ctx.quadraticCurveTo(68, 354, 48, 302);
+  ctx.bezierCurveTo(44 + lean, 232, 50, 162, 66, 112);
+  ctx.closePath();
+
+  const body = ctx.createLinearGradient(0, 40, 0, 356);
+  body.addColorStop(0, "rgba(247, 250, 255, 0.97)");
+  body.addColorStop(0.55, "rgba(222, 232, 248, 0.86)");
+  body.addColorStop(1, "rgba(186, 204, 232, 0.35)"); // wisps away at the hem
+  ctx.fillStyle = body;
+  ctx.shadowColor = "rgba(226, 238, 255, 0.85)";
+  ctx.shadowBlur = 26;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // ---- shading, so it reads as a form rather than a flat cut-out ----
+  const shade = ctx.createRadialGradient(112, 130, 20, 128, 200, 170);
+  shade.addColorStop(0, "rgba(255, 255, 255, 0)");
+  shade.addColorStop(1, "rgba(120, 140, 175, 0.35)");
+  ctx.fillStyle = shade;
+  ctx.fill();
+
+  // ---- sunken sockets, angled inward so it glares ----
+  const socket = (cx: number, tilt: number) => {
+    ctx.save();
+    ctx.translate(cx, 106);
+    ctx.rotate(tilt);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 14, 21, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(18, 16, 28, 0.88)";
+    ctx.fill();
+    // a faint rim of light at the top of the socket
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 14, 21, 0, Math.PI, Math.PI * 2);
+    ctx.strokeStyle = "rgba(210, 226, 255, 0.45)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  };
+  socket(102, 0.26);
+  socket(154, -0.26);
+
+  // ---- open, wailing mouth ----
+  ctx.beginPath();
+  ctx.ellipse(128, 170, 17, 27, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(14, 12, 22, 0.8)";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(128, 164, 11, 17, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(30, 26, 44, 0.55)";
+  ctx.fill();
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Trees & leaves                                                     */
 /* ------------------------------------------------------------------ */
@@ -290,13 +411,16 @@ const AUTUMN = ["#c2571f", "#d97b25", "#a33717", "#c99029", "#8f4420"];
 function AutumnTrees({ gradient }: { gradient: THREE.Texture }) {
   const trees = useMemo(() => {
     const rand = mulberry32(2029);
-    // All to the right of the house and pushed well back, so nothing
-    // crowds it and the graveyard has open ground.
+    // Weighted to the right so the graveyard sits in woodland, with a
+    // couple far back behind the board for depth.
     return [
       { x: -2.6, z: -9.8, scale: 1.3 },
       { x: 1.8, z: -10.5, scale: 1.15 },
-      { x: 7.2, z: -7.0, scale: 1.1 },
-      { x: 9.8, z: -2.5, scale: 1.0 },
+      { x: 6.8, z: -8.6, scale: 1.2 },
+      { x: 9.2, z: -5.4, scale: 1.05 },
+      { x: 10.4, z: -9.2, scale: 1.25 },
+      { x: 10.8, z: -2.4, scale: 0.95 },
+      { x: 7.6, z: -11.8, scale: 1.1 },
     ].map((t) => ({ ...t, seed: Math.floor(rand() * 10000) }));
   }, []);
 
@@ -444,15 +568,16 @@ function FallingLeaves() {
 function Graves({ gradient }: { gradient: THREE.Texture }) {
   const graves = useMemo(
     () => [
-      // The graveyard proper: one cluster off to the right, well back
-      // from the camera at z 4.4.
-      { x: 3.4, z: -2.2, rot: 0.12 },
-      { x: 4.8, z: -1.5, rot: -0.2 },
-      { x: 5.6, z: -3.0, rot: 0.3 },
-      { x: 4.0, z: -4.0, rot: -0.08 },
-      // The one that isn't part of the cluster: left of the board,
-      // over towards the house, turned to face the camera so it reads.
-      { x: -3.6, z: -1.2, rot: 0.1, epitaph: "SPOOKY\nSEASON" },
+      // The graveyard proper: off to the right among the trees, spread
+      // out rather than huddled, and well back from the camera at z 4.4.
+      { x: 2.8, z: -1.5, rot: 0.12 },
+      { x: 5.4, z: -0.8, rot: -0.2 },
+      { x: 5.0, z: -2.6, rot: 0.3 },
+      { x: 3.6, z: -4.4, rot: -0.08 },
+      { x: 6.6, z: -4.0, rot: 0.18 },
+      // The one that isn't part of the cluster: just off the board's
+      // left edge, turned to face the camera so the carving reads.
+      { x: -3.1, z: -1.4, rot: 0.1, epitaph: "SPOOKY\nSEASON" },
     ],
     []
   );
@@ -650,57 +775,190 @@ function Pumpkins({
 }) {
   const pumpkins = useMemo(() => {
     const rand = mulberry32(777);
-    // Room view has the camera at (0.4, 4.4); a carved pumpkin is only
-    // worth carving if its face is turned towards it, so those get an
-    // aimed rotation rather than the random one.
+    // Room view has the camera at (0.4, 4.4). A carved face is only
+    // worth carving if it's turned towards the viewer, so each pumpkin
+    // is aimed at it rather than randomly rotated.
     const CAM_X = 0.4;
     const CAM_Z = 4.4;
     return [
-      { x: -2.4, z: 0.2, s: 0.4, carved: true },
-      { x: 2.6, z: -0.4, s: 0.32, carved: false },
-      { x: -4.3, z: -1.4, s: 0.46, carved: false },
-      { x: 4.6, z: -2.6, s: 0.36, carved: true },
-      { x: 1.4, z: -1.1, s: 0.26, carved: false },
+      // kept well clear of the SPOOKY SEASON stone at (-3.1, -1.4)
+      { x: -1.5, z: 0.9, s: 0.4, face: 0 },
+      { x: -5.2, z: -0.6, s: 0.46, face: 1 },
+      { x: 2.6, z: -0.4, s: 0.32, face: 2 },
+      { x: 4.6, z: -2.6, s: 0.36, face: 0 },
+      { x: 1.4, z: -1.1, s: 0.26, face: 1 },
     ].map((p) => ({
       ...p,
-      rot: p.carved
-        ? Math.atan2(CAM_X - p.x, CAM_Z - p.z)
-        : rand() * Math.PI,
+      // every one is carved now, so every one is aimed at the viewer
+      rot: Math.atan2(CAM_X - p.x, CAM_Z - p.z),
+      wobble: (rand() - 0.5) * 0.25,
     }));
   }, []);
 
   return (
     <>
       {pumpkins.map((p, i) => (
-        <group key={i} position={[p.x, p.s * 0.8, p.z]} rotation={[0, p.rot, 0]}>
-          {/* squashed sphere reads as a pumpkin at this scale */}
-          <mesh scale={[1, 0.78, 1]} castShadow>
-            <sphereGeometry args={[p.s, 14, 12]} />
-            <meshToonMaterial color={accent} gradientMap={gradient} />
-          </mesh>
-          {/* stalk */}
-          <mesh position={[0, p.s * 0.78, 0]} castShadow>
-            <cylinderGeometry args={[p.s * 0.1, p.s * 0.14, p.s * 0.34, 6]} />
-            <meshToonMaterial color="#5f7a38" gradientMap={gradient} />
-          </mesh>
-          {p.carved && (
-            <group position={[0, 0, p.s * 0.97]}>
-              {[-0.3, 0.3].map((ex, j) => (
-                <mesh key={j} position={[ex * p.s, p.s * 0.18, 0]}>
-                  <circleGeometry args={[p.s * 0.16, 3]} />
-                  <meshBasicMaterial color="#ffd166" />
-                </mesh>
-              ))}
-              <mesh position={[0, -p.s * 0.2, 0]}>
-                <planeGeometry args={[p.s * 0.5, p.s * 0.16]} />
-                <meshBasicMaterial color="#ffd166" />
-              </mesh>
-            </group>
-          )}
-        </group>
+        <Pumpkin key={i} gradient={gradient} accent={accent} {...p} />
       ))}
     </>
   );
+}
+
+/** A ribbed jack-o'-lantern with a carved, lit face. */
+function Pumpkin({
+  gradient,
+  accent,
+  x,
+  z,
+  s,
+  rot,
+  wobble,
+  face,
+}: {
+  gradient: THREE.Texture;
+  accent: string;
+  x: number;
+  z: number;
+  s: number;
+  rot: number;
+  wobble: number;
+  face: number;
+}) {
+  const carved = useMemo(() => makePumpkinFace(face), [face]);
+  useEffect(() => () => carved.dispose(), [carved]);
+
+  // Six lobes around a core give the ribbed gourd shape; a single
+  // squashed sphere read as an orange.
+  const lobes = useMemo(
+    () =>
+      Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return [Math.cos(a) * s * 0.5, 0, Math.sin(a) * s * 0.5] as [
+          number,
+          number,
+          number,
+        ];
+      }),
+    [s]
+  );
+
+  return (
+    <group position={[x, s * 0.78, z]} rotation={[0, rot, wobble]}>
+      <mesh scale={[1, 0.78, 1]} castShadow>
+        <sphereGeometry args={[s * 0.88, 14, 12]} />
+        <meshToonMaterial color={accent} gradientMap={gradient} />
+      </mesh>
+      {lobes.map((pos, i) => (
+        <mesh key={i} position={pos} scale={[1, 0.86, 1]} castShadow>
+          <sphereGeometry args={[s * 0.5, 12, 10]} />
+          <meshToonMaterial color={accent} gradientMap={gradient} />
+        </mesh>
+      ))}
+      {/* stalk, with a slight kink */}
+      <mesh position={[0, s * 0.74, 0]} rotation={[0.18, 0, 0.12]} castShadow>
+        <cylinderGeometry args={[s * 0.09, s * 0.15, s * 0.36, 7]} />
+        <meshToonMaterial color="#5f7a38" gradientMap={gradient} />
+      </mesh>
+      {/* the carved face, glowing from the candle inside */}
+      <mesh position={[0, s * 0.02, s * 1.02]}>
+        <planeGeometry args={[s * 1.35, s * 1.15]} />
+        <meshBasicMaterial map={carved} transparent depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Three carved faces, drawn glowing on a transparent background. */
+function makePumpkinFace(variant: number): THREE.CanvasTexture {
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const ctx = c.getContext("2d")!;
+  ctx.clearRect(0, 0, S, S);
+
+  const glow = ctx.createRadialGradient(128, 140, 10, 128, 140, 120);
+  glow.addColorStop(0, "#fff3b0");
+  glow.addColorStop(1, "#ffb638");
+  ctx.fillStyle = glow;
+  ctx.shadowColor = "rgba(255, 190, 80, 0.95)";
+  ctx.shadowBlur = 18;
+
+  const tri = (pts: [number, number][]) => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (const [px, py] of pts.slice(1)) ctx.lineTo(px, py);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  // eyes — angled inward so every face looks a bit cross
+  tri([
+    [62, 78],
+    [112, 104],
+    [64, 118],
+  ]);
+  tri([
+    [194, 78],
+    [144, 104],
+    [192, 118],
+  ]);
+  // nose
+  tri([
+    [128, 118],
+    [146, 152],
+    [110, 152],
+  ]);
+
+  // mouths
+  if (variant === 0) {
+    // jagged grin with teeth
+    ctx.beginPath();
+    ctx.moveTo(56, 176);
+    const top = [176, 186, 176, 186, 176, 186, 176];
+    const step = (200 - 56) / (top.length - 1);
+    top.forEach((yy, i) => ctx.lineTo(56 + i * step, yy));
+    ctx.lineTo(196, 206);
+    const bottom = [222, 210, 222, 210, 222];
+    const bstep = (196 - 60) / (bottom.length - 1);
+    bottom.forEach((yy, i) => ctx.lineTo(196 - i * bstep, yy));
+    ctx.closePath();
+    ctx.fill();
+  } else if (variant === 1) {
+    // wide open howl
+    ctx.beginPath();
+    ctx.ellipse(128, 194, 52, 34, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // two fangs bitten out of it
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.shadowBlur = 0;
+    tri([
+      [104, 162],
+      [116, 194],
+      [92, 194],
+    ]);
+    tri([
+      [152, 162],
+      [164, 194],
+      [140, 194],
+    ]);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.shadowColor = "rgba(255, 190, 80, 0.95)";
+    ctx.shadowBlur = 18;
+  } else {
+    // long crooked smirk
+    ctx.beginPath();
+    ctx.moveTo(58, 178);
+    ctx.quadraticCurveTo(128, 236, 200, 170);
+    ctx.quadraticCurveTo(128, 208, 58, 178);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.shadowBlur = 0;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** Two stout posts holding the board up out of the leaves. */
