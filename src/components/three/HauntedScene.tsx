@@ -750,7 +750,10 @@ function Pumpkins({ accent }: { accent: string }) {
       { x: -1.5, z: 0.9, s: 0.4, face: 0 },
       { x: -5.2, z: -0.6, s: 0.46, face: 1 },
       { x: 2.6, z: -0.4, s: 0.32, face: 2 },
-      { x: 4.6, z: -2.6, s: 0.36, face: 0 },
+      // Sat 0.4 from the cross grave at (5.0, -2.6) — close enough to
+      // block it. Pushed back behind the stone; the room camera is at
+      // z 4.4, so a more negative z reads as further away.
+      { x: 4.3, z: -3.5, s: 0.36, face: 0 },
       { x: 1.4, z: -1.1, s: 0.26, face: 1 },
     ].map((p) => ({
       ...p,
