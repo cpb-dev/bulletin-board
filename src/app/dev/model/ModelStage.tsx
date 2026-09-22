@@ -4,10 +4,26 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { Pumpkin } from "@/components/three/props/Pumpkin";
+import {
+  Headstone,
+  type HeadstoneKind,
+} from "@/components/three/props/Headstone";
+
+const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
 
 /** Props the harness can stage, by `?m=` name. */
-const MODELS: Record<string, (variant: number) => React.ReactNode> = {
+const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> = {
   pumpkin: (v) => <Pumpkin size={0.9} face={v} />,
+  headstone: (v, age) => (
+    <Headstone
+      kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}
+      seed={v + 1}
+      size={1.5}
+      lean={0.04}
+      age={age}
+      epitaph={v === 0 ? "SPOOKY\nSEASON" : undefined}
+    />
+  ),
 };
 
 function Stage() {
@@ -15,6 +31,7 @@ function Stage() {
   const name = params.get("m") ?? "pumpkin";
   const angle = Number(params.get("a") ?? 0) * (Math.PI / 180);
   const variant = Number(params.get("v") ?? 0);
+  const age = Number(params.get("g") ?? 0.5);
   const dist = Number(params.get("d") ?? 6.2);
   const eye = Number(params.get("y") ?? 1.15);
   const render = MODELS[name];
@@ -44,7 +61,7 @@ function Stage() {
         />
         <hemisphereLight args={["#c9b79b", "#6b5436", 0.55]} />
 
-        <group rotation={[0, angle, 0]}>{render ? render(variant) : null}</group>
+        <group rotation={[0, angle, 0]}>{render ? render(variant, age) : null}</group>
 
         {/* ground, so contact and shadow shape are visible */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/haunted";
 import { makeToonGradient, mulberry32 } from "./textures";
 import { Pumpkin } from "./props/Pumpkin";
+import { Headstone, type HeadstoneKind } from "./props/Headstone";
 
 // The board's occlusion shadow in room view reaches roughly x -5.2..4.3
 // at this depth, so a house centred behind the board is almost entirely
@@ -571,21 +572,32 @@ function Graves({ gradient }: { gradient: THREE.Texture }) {
     () => [
       // The graveyard proper: off to the right among the trees, spread
       // out rather than huddled, and well back from the camera at z 4.4.
-      { x: 2.8, z: -1.5, rot: 0.12 },
-      { x: 5.4, z: -0.8, rot: -0.2 },
-      { x: 5.0, z: -2.6, rot: 0.3 },
-      { x: 3.6, z: -4.4, rot: -0.08 },
-      { x: 6.6, z: -4.0, rot: 0.18 },
+      // A spread of ages, so the yard looks like it filled up over
+      // decades rather than all at once.
+      { x: 2.8, z: -1.5, rot: 0.12, kind: "round" as const, size: 0.92, age: 0.9 },
+      { x: 5.4, z: -0.8, rot: -0.2, kind: "gabled" as const, size: 0.86, age: 0.4 },
+      { x: 5.0, z: -2.6, rot: 0.3, kind: "cross" as const, size: 1.0, age: 1 },
+      { x: 3.6, z: -4.4, rot: -0.08, kind: "round" as const, size: 0.8, age: 0.72 },
+      { x: 6.6, z: -4.0, rot: 0.18, kind: "gabled" as const, size: 0.95, age: 0.2 },
       // The one that isn't part of the cluster: just off the board's
       // left edge, turned to face the camera so the carving reads.
-      { x: -3.1, z: -1.4, rot: 0.1, epitaph: "SPOOKY\nSEASON" },
+      {
+        x: -3.1,
+        z: -1.4,
+        rot: 0.1,
+        kind: "round" as const,
+        size: 1.0,
+        // kept lightly weathered so the carving stays readable
+        age: 0.35,
+        epitaph: "SPOOKY\nSEASON",
+      },
     ],
     []
   );
   return (
     <>
       {graves.map((g, i) => (
-        <Grave key={i} gradient={gradient} {...g} />
+        <Grave key={i} gradient={gradient} seed={i + 1} {...g} />
       ))}
     </>
   );
@@ -601,12 +613,20 @@ function Grave({
   x,
   z,
   rot,
+  kind,
+  size,
+  seed,
+  age,
   epitaph,
 }: {
   gradient: THREE.Texture;
   x: number;
   z: number;
   rot: number;
+  kind: HeadstoneKind;
+  size: number;
+  seed: number;
+  age: number;
   /** Carved into the headstone's face, newline-separated. */
   epitaph?: string;
 }) {
@@ -615,12 +635,6 @@ function Grave({
   const now = useRef(0);
   const start = useRef(-99);
   const [rising, setRising] = useState(false);
-
-  const carved = useMemo(
-    () => (epitaph ? makeEpitaphTexture(epitaph) : null),
-    [epitaph]
-  );
-  useEffect(() => () => carved?.dispose(), [carved]);
 
   function disturb(e: ThreeEvent<PointerEvent>) {
     e.stopPropagation();
@@ -659,30 +673,16 @@ function Grave({
 
   return (
     <group position={[x, 0, z]} rotation={[0, rot, 0]}>
-      {/* Headstone parts share one transform so the carved face stays
-          flush against the stone however the stone is tilted. */}
-      <group position={[0, 0.42, -0.35]} rotation={[0.06, 0, rot * 0.5]}>
-        <mesh
-          castShadow
+      <group position={[0, 0, -0.35]}>
+        <Headstone
+          kind={kind}
+          seed={seed}
+          size={size}
+          age={age}
+          lean={rot * 0.5}
+          epitaph={epitaph}
           onPointerDown={disturb}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <boxGeometry args={[0.62, 0.85, 0.12]} />
-          <meshToonMaterial color="#8d8a86" gradientMap={gradient} />
-        </mesh>
-        {/* rounded top */}
-        <mesh position={[0, 0.42, 0]}>
-          <cylinderGeometry
-            args={[0.31, 0.31, 0.12, 14, 1, false, 0, Math.PI]}
-          />
-          <meshToonMaterial color="#8d8a86" gradientMap={gradient} />
-        </mesh>
-        {carved && (
-          <mesh position={[0, 0.03, 0.062]}>
-            <planeGeometry args={[0.5, 0.5]} />
-            <meshBasicMaterial map={carved} transparent depthWrite={false} />
-          </mesh>
-        )}
+        />
       </group>
 
       {/* mound of loose soil — the tap target that reads as "the grave" */}
@@ -733,36 +733,6 @@ function Grave({
   );
 }
 
-/** Lettering carved into a headstone face, transparent around the text. */
-function makeEpitaphTexture(text: string): THREE.CanvasTexture {
-  const size = 256;
-  const c = document.createElement("canvas");
-  c.width = size;
-  c.height = size;
-  const ctx = c.getContext("2d")!;
-  ctx.clearRect(0, 0, size, size);
-
-  const lines = text.split("\n");
-  const lineHeight = 56;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = "bold 44px Georgia, 'Times New Roman', serif";
-
-  const top = size / 2 - ((lines.length - 1) * lineHeight) / 2;
-  lines.forEach((line, i) => {
-    const y = top + i * lineHeight;
-    // a pale lip under each letter sells the chiselled groove
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.fillText(line, size / 2, y + 2.5);
-    ctx.fillStyle = "#3c3833";
-    ctx.fillText(line, size / 2, y);
-  });
-
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
 /* ------------------------------------------------------------------ */
 /*  Set dressing                                                       */
 /* ------------------------------------------------------------------ */
@@ -780,7 +750,10 @@ function Pumpkins({ accent }: { accent: string }) {
       { x: -1.5, z: 0.9, s: 0.4, face: 0 },
       { x: -5.2, z: -0.6, s: 0.46, face: 1 },
       { x: 2.6, z: -0.4, s: 0.32, face: 2 },
-      { x: 4.6, z: -2.6, s: 0.36, face: 0 },
+      // Sat 0.4 from the cross grave at (5.0, -2.6) — close enough to
+      // block it. Pushed back behind the stone; the room camera is at
+      // z 4.4, so a more negative z reads as further away.
+      { x: 4.3, z: -3.5, s: 0.36, face: 0 },
       { x: 1.4, z: -1.1, s: 0.26, face: 1 },
     ].map((p) => ({
       ...p,
