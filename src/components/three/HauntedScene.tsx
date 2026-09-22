@@ -14,7 +14,13 @@ import {
 } from "@/lib/haunted";
 import { makeToonGradient, mulberry32 } from "./textures";
 
-const HOUSE_Z = BOARD.wallZ - 7; // well back, so the board reads in front
+// The board's occlusion shadow in room view reaches roughly x -5.2..4.3
+// at this depth, so a house centred behind the board is almost entirely
+// hidden by it. It sits off to the left instead, turned towards the
+// viewer so you read it as a house rather than a flat slab.
+const HOUSE_Z = BOARD.wallZ - 4.8;
+const HOUSE_X = -5.8;
+const HOUSE_TURN = 0.62; // radians, front face swung towards the camera
 
 /**
  * The Haunted Hollow scene: the board stands on posts in an autumn
@@ -131,7 +137,7 @@ function HauntedHouse({ gradient }: { gradient: THREE.Texture }) {
   const roof = "#2f2733";
 
   return (
-    <group position={[0.6, 0, HOUSE_Z]}>
+    <group position={[HOUSE_X, 0, HOUSE_Z]} rotation={[0, HOUSE_TURN, 0]}>
       {/* main block */}
       <mesh position={[0, 2.6, 0]} castShadow receiveShadow>
         <boxGeometry args={[6.4, 5.2, 4]} />
@@ -275,11 +281,12 @@ const AUTUMN = ["#c2571f", "#d97b25", "#a33717", "#c99029", "#8f4420"];
 function AutumnTrees({ gradient }: { gradient: THREE.Texture }) {
   const trees = useMemo(() => {
     const rand = mulberry32(2029);
+    // Kept out of the house's footprint, and off the board's sight line.
     return [
-      { x: -6.2, z: -4.5, scale: 1.25 },
-      { x: 6.4, z: -3.2, scale: 1.1 },
-      { x: -8.4, z: 0.4, scale: 0.95 },
-      { x: 8.2, z: 1.2, scale: 1.05 },
+      { x: -10.2, z: -3.4, scale: 1.25 },
+      { x: 6.6, z: -3.2, scale: 1.1 },
+      { x: -8.6, z: 3.4, scale: 0.95 },
+      { x: 8.4, z: 1.2, scale: 1.05 },
     ].map((t) => ({ ...t, seed: Math.floor(rand() * 10000) }));
   }, []);
 
@@ -427,9 +434,11 @@ function FallingLeaves() {
 function Graves({ gradient }: { gradient: THREE.Texture }) {
   const graves = useMemo(
     () => [
-      { x: -3.0, z: 1.4, rot: -0.14 },
-      { x: 3.2, z: 1.9, rot: 0.1 },
-      { x: -1.6, z: 3.0, rot: 0.22 },
+      // Room view puts the camera at z 4.4, so the old z 1.4-3.0 placed
+      // these right under the viewer's nose. Back and to the sides now.
+      { x: -3.0, z: 0.3, rot: -0.14 },
+      { x: 3.1, z: -0.1, rot: 0.1 },
+      { x: -1.6, z: -1.2, rot: 0.22 },
     ],
     []
   );

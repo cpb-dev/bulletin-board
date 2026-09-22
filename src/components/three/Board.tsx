@@ -656,30 +656,41 @@ function makeWebTexture(): THREE.CanvasTexture {
   return t;
 }
 
-/** Cobwebs draped across each corner of the frame, with spiders on them. */
+/** Cobwebs tucked into each corner of the frame, with spiders on them. */
 function Cobwebs() {
   const web = useMemo(() => makeWebTexture(), []);
   useEffect(() => () => web.dispose(), [web]);
 
-  const halfW = BOARD.width / 2 + 0.12;
-  const halfH = BOARD.height / 2 + 0.12;
-  const size = 1.15;
+  // Sized and placed off the frame's own extents so the webs sit inside
+  // the board rather than hanging off its edges.
+  const halfW = (BOARD.width + 0.24) / 2;
+  const halfH = (BOARD.height + 0.24) / 2;
+  const size = 0.8;
   const z = BOARD_SURFACE_Z + 0.04;
+  const inset = size / 2;
 
-  // one web per corner: [x, y, z-rotation] — the texture is anchored at
-  // its top-left, so each corner is a quarter turn of the same art
+  // The texture's web is anchored at the canvas's top-left, which maps
+  // to the plane's top-left corner. Each rotation swings that anchor to
+  // a different corner, so the web always fans inward from the frame:
+  //   0    → anchor top-left      π/2  → anchor bottom-left
+  //  -π/2  → anchor top-right     π    → anchor bottom-right
   const corners: { pos: [number, number, number]; rot: number }[] = [
-    { pos: [-halfW, BOARD.centerY + halfH, z], rot: 0 },
-    { pos: [halfW, BOARD.centerY + halfH, z], rot: Math.PI / 2 },
-    { pos: [halfW, BOARD.centerY - halfH, z], rot: Math.PI },
-    { pos: [-halfW, BOARD.centerY - halfH, z], rot: -Math.PI / 2 },
+    { pos: [-halfW + inset, BOARD.centerY + halfH - inset, z], rot: 0 },
+    {
+      pos: [halfW - inset, BOARD.centerY + halfH - inset, z],
+      rot: -Math.PI / 2,
+    },
+    { pos: [halfW - inset, BOARD.centerY - halfH + inset, z], rot: Math.PI },
+    {
+      pos: [-halfW + inset, BOARD.centerY - halfH + inset, z],
+      rot: Math.PI / 2,
+    },
   ];
 
   return (
     <group>
       {corners.map((c, i) => (
         <mesh key={i} position={c.pos} rotation={[0, 0, c.rot]}>
-          {/* offset so the texture's anchored corner sits on the frame */}
           <planeGeometry args={[size, size]} />
           <meshBasicMaterial
             map={web}
@@ -712,7 +723,7 @@ function Spider({
   cycle: number;
 }) {
   const group = useRef<THREE.Group>(null);
-  const span = BOARD.width + 0.1;
+  const span = BOARD.width - 0.5; // stay within the frame, like the webs
 
   useFrame((state) => {
     const g = group.current;
