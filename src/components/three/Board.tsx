@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { ThreeEvent } from "@react-three/fiber";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import {
   BOARD,
   BOARD_SURFACE_Z,
@@ -11,6 +11,7 @@ import {
   usableHalfExtents,
   worldToNorm,
 } from "@/lib/board-geometry";
+import { spiderProgress } from "@/lib/haunted";
 import { useBoardStore } from "@/lib/store";
 import type { BoardTheme } from "@/lib/themes";
 import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
@@ -137,6 +138,8 @@ export function Board({
         <Footballs />
       ) : theme.boardDecor === "hearts" ? (
         <Hearts />
+      ) : theme.boardDecor === "cobwebs" ? (
+        <Cobwebs />
       ) : (
         <FairyLights color={theme.garland} />
       )}
@@ -588,6 +591,167 @@ function FairyLights({ color }: { color: string }) {
           <meshBasicMaterial color={color} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Haunted Hollow: cobwebs in the corners, spiders skittering on them */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Draws a corner web — spokes fanning out from the corner, joined by
+ * sagging spiral threads. Transparent everywhere else, so it drapes
+ * over the frame rather than sitting on a visible panel.
+ */
+function makeWebTexture(): THREE.CanvasTexture {
+  const size = 256;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d")!;
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = "rgba(233, 233, 240, 0.85)";
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = "round";
+
+  const SPOKES = 8;
+  const RINGS = 7;
+  const R = size * 0.96;
+  // anchored at the top-left corner of the texture
+  const angles = Array.from(
+    { length: SPOKES },
+    (_, i) => (i / (SPOKES - 1)) * (Math.PI / 2)
+  );
+
+  for (const a of angles) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R);
+    ctx.stroke();
+  }
+
+  for (let ring = 1; ring <= RINGS; ring++) {
+    const r = (ring / RINGS) * R;
+    ctx.beginPath();
+    for (let i = 0; i < angles.length - 1; i++) {
+      const a1 = angles[i];
+      const a2 = angles[i + 1];
+      const x1 = Math.cos(a1) * r;
+      const y1 = Math.sin(a1) * r;
+      const x2 = Math.cos(a2) * r;
+      const y2 = Math.sin(a2) * r;
+      // sag the thread inward between spokes
+      const mid = (a1 + a2) / 2;
+      const cx = Math.cos(mid) * r * 0.86;
+      const cy = Math.sin(mid) * r * 0.86;
+      if (i === 0) ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo(cx, cy, x2, y2);
+    }
+    ctx.stroke();
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Cobwebs draped across each corner of the frame, with spiders on them. */
+function Cobwebs() {
+  const web = useMemo(() => makeWebTexture(), []);
+  useEffect(() => () => web.dispose(), [web]);
+
+  const halfW = BOARD.width / 2 + 0.12;
+  const halfH = BOARD.height / 2 + 0.12;
+  const size = 1.15;
+  const z = BOARD_SURFACE_Z + 0.04;
+
+  // one web per corner: [x, y, z-rotation] — the texture is anchored at
+  // its top-left, so each corner is a quarter turn of the same art
+  const corners: { pos: [number, number, number]; rot: number }[] = [
+    { pos: [-halfW, BOARD.centerY + halfH, z], rot: 0 },
+    { pos: [halfW, BOARD.centerY + halfH, z], rot: Math.PI / 2 },
+    { pos: [halfW, BOARD.centerY - halfH, z], rot: Math.PI },
+    { pos: [-halfW, BOARD.centerY - halfH, z], rot: -Math.PI / 2 },
+  ];
+
+  return (
+    <group>
+      {corners.map((c, i) => (
+        <mesh key={i} position={c.pos} rotation={[0, 0, c.rot]}>
+          {/* offset so the texture's anchored corner sits on the frame */}
+          <planeGeometry args={[size, size]} />
+          <meshBasicMaterial
+            map={web}
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+
+      <Spider seed={1} y={BOARD.centerY + halfH - 0.18} cycle={1.1} />
+      <Spider seed={2} y={BOARD.centerY - halfH + 0.16} cycle={0.85} />
+      <Spider seed={3} y={BOARD.centerY + halfH * 0.2} cycle={1.35} />
+    </group>
+  );
+}
+
+/**
+ * A spider skittering along a horizontal thread: fast darts between
+ * waypoints with a freeze in between, plus a nervous little jitter.
+ */
+function Spider({
+  seed,
+  y,
+  cycle,
+}: {
+  seed: number;
+  y: number;
+  cycle: number;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const span = BOARD.width + 0.1;
+
+  useFrame((state) => {
+    const g = group.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    const p = spiderProgress(t, seed, cycle);
+    g.position.x = -span / 2 + p * span;
+    // tiny vertical jitter — legs working, never quite still
+    g.position.y = y + Math.sin(t * 22 + seed) * 0.006;
+    // face the direction of travel
+    const ahead = spiderProgress(t + 0.05, seed, cycle);
+    if (Math.abs(ahead - p) > 0.0005) g.rotation.z = ahead > p ? 0 : Math.PI;
+  });
+
+  return (
+    <group ref={group} position={[0, y, BOARD_SURFACE_Z + 0.06]}>
+      {/* body */}
+      <mesh>
+        <sphereGeometry args={[0.035, 10, 8]} />
+        <meshBasicMaterial color="#1b1720" />
+      </mesh>
+      {/* head */}
+      <mesh position={[0.035, 0, 0]}>
+        <sphereGeometry args={[0.021, 8, 8]} />
+        <meshBasicMaterial color="#241f29" />
+      </mesh>
+      {/* legs — three a side, splayed */}
+      {[-1, 1].map((side) =>
+        [-0.5, 0, 0.5].map((tilt, i) => (
+          <mesh
+            key={`${side}-${i}`}
+            position={[tilt * 0.03, side * 0.03, 0]}
+            rotation={[0, 0, side * (0.7 + tilt)]}
+          >
+            <boxGeometry args={[0.055, 0.006, 0.006]} />
+            <meshBasicMaterial color="#1b1720" />
+          </mesh>
+        ))
+      )}
     </group>
   );
 }

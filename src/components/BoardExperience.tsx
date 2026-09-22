@@ -20,6 +20,7 @@ import { Room } from "./three/Room";
 import { BeachScene } from "./three/BeachScene";
 import { StadiumScene } from "./three/StadiumScene";
 import { RoseFieldScene } from "./three/RoseFieldScene";
+import { HauntedScene } from "./three/HauntedScene";
 import { Board } from "./three/Board";
 import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
@@ -231,6 +232,8 @@ export function BoardExperience({
           <StadiumScene theme={theme} />
         ) : theme.scene === "rosefield" ? (
           <RoseFieldScene theme={theme} />
+        ) : theme.scene === "haunted" ? (
+          <HauntedScene theme={theme} />
         ) : (
           <Room theme={theme} />
         )}

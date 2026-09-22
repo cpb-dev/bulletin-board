@@ -13,15 +13,21 @@ describe("theme catalogue", () => {
     expect(new Set(THEMES.map((t) => t.id)).size).toBe(THEMES.length);
   });
 
-  it("includes the summer house and beach hut themes", () => {
+  it("includes the summer house, beach hut and haunted hollow themes", () => {
     expect(THEMES.some((t) => t.id === "summer-house")).toBe(true);
     expect(THEMES.some((t) => t.id === "beach-hut")).toBe(true);
+    expect(THEMES.some((t) => t.id === "haunted-hollow")).toBe(true);
   });
 
-  it("only the beach hut uses the beach scene; the rest are indoor", () => {
+  it("pairs each outdoor theme with its own scene; the rest are indoor", () => {
+    // A theme naming a scene it doesn't have a component for renders as
+    // the indoor room, which would be a silent, very confusing bug.
+    const outdoor: Record<string, string> = {
+      "beach-hut": "beach",
+      "haunted-hollow": "haunted",
+    };
     for (const t of THEMES) {
-      if (t.id === "beach-hut") expect(t.scene).toBe("beach");
-      else expect(t.scene ?? "room").toBe("room");
+      expect(t.scene ?? "room").toBe(outdoor[t.id] ?? "room");
     }
   });
 
