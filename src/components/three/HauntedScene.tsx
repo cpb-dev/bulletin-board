@@ -263,11 +263,20 @@ function Window({
         <boxGeometry args={[w, h * 0.06, 0.02]} />
         <meshToonMaterial color="#2a2028" gradientMap={gradient} />
       </mesh>
-      {/* frame */}
-      <mesh position={[0, 0, 0.015]}>
-        <boxGeometry args={[w * 1.12, h * 1.1, 0.01]} />
-        <meshToonMaterial color="#241c22" gradientMap={gradient} />
-      </mesh>
+      {/* Frame, as four bars around the edge. This was one solid box
+          spanning the whole window, which sat in front of the pane and
+          hid the ghost completely. */}
+      {[
+        { p: [0, h / 2, 0.015], a: [w * 1.12, h * 0.07, 0.012] },
+        { p: [0, -h / 2, 0.015], a: [w * 1.12, h * 0.07, 0.012] },
+        { p: [-w / 2, 0, 0.015], a: [w * 0.09, h * 1.1, 0.012] },
+        { p: [w / 2, 0, 0.015], a: [w * 0.09, h * 1.1, 0.012] },
+      ].map((bar, i) => (
+        <mesh key={i} position={bar.p as [number, number, number]}>
+          <boxGeometry args={bar.a as [number, number, number]} />
+          <meshToonMaterial color="#241c22" gradientMap={gradient} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -281,12 +290,13 @@ const AUTUMN = ["#c2571f", "#d97b25", "#a33717", "#c99029", "#8f4420"];
 function AutumnTrees({ gradient }: { gradient: THREE.Texture }) {
   const trees = useMemo(() => {
     const rand = mulberry32(2029);
-    // Kept out of the house's footprint, and off the board's sight line.
+    // All to the right of the house and pushed well back, so nothing
+    // crowds it and the graveyard has open ground.
     return [
-      { x: -10.2, z: -3.4, scale: 1.25 },
-      { x: 6.6, z: -3.2, scale: 1.1 },
-      { x: -8.6, z: 3.4, scale: 0.95 },
-      { x: 8.4, z: 1.2, scale: 1.05 },
+      { x: -2.6, z: -9.8, scale: 1.3 },
+      { x: 1.8, z: -10.5, scale: 1.15 },
+      { x: 7.2, z: -7.0, scale: 1.1 },
+      { x: 9.8, z: -2.5, scale: 1.0 },
     ].map((t) => ({ ...t, seed: Math.floor(rand() * 10000) }));
   }, []);
 
@@ -434,11 +444,15 @@ function FallingLeaves() {
 function Graves({ gradient }: { gradient: THREE.Texture }) {
   const graves = useMemo(
     () => [
-      // Room view puts the camera at z 4.4, so the old z 1.4-3.0 placed
-      // these right under the viewer's nose. Back and to the sides now.
-      { x: -3.0, z: 0.3, rot: -0.14 },
-      { x: 3.1, z: -0.1, rot: 0.1 },
-      { x: -1.6, z: -1.2, rot: 0.22 },
+      // The graveyard proper: one cluster off to the right, well back
+      // from the camera at z 4.4.
+      { x: 3.4, z: -2.2, rot: 0.12 },
+      { x: 4.8, z: -1.5, rot: -0.2 },
+      { x: 5.6, z: -3.0, rot: 0.3 },
+      { x: 4.0, z: -4.0, rot: -0.08 },
+      // The one that isn't part of the cluster: left of the board,
+      // over towards the house, turned to face the camera so it reads.
+      { x: -3.6, z: -1.2, rot: 0.1, epitaph: "SPOOKY\nSEASON" },
     ],
     []
   );
@@ -461,17 +475,26 @@ function Grave({
   x,
   z,
   rot,
+  epitaph,
 }: {
   gradient: THREE.Texture;
   x: number;
   z: number;
   rot: number;
+  /** Carved into the headstone's face, newline-separated. */
+  epitaph?: string;
 }) {
   const hand = useRef<THREE.Group>(null);
   const fingers = useRef<THREE.Group>(null);
   const now = useRef(0);
   const start = useRef(-99);
   const [rising, setRising] = useState(false);
+
+  const carved = useMemo(
+    () => (epitaph ? makeEpitaphTexture(epitaph) : null),
+    [epitaph]
+  );
+  useEffect(() => () => carved?.dispose(), [carved]);
 
   function disturb(e: ThreeEvent<PointerEvent>) {
     e.stopPropagation();
@@ -510,22 +533,31 @@ function Grave({
 
   return (
     <group position={[x, 0, z]} rotation={[0, rot, 0]}>
-      {/* headstone */}
-      <mesh
-        position={[0, 0.42, -0.35]}
-        rotation={[0.06, 0, rot * 0.5]}
-        castShadow
-        onPointerDown={disturb}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <boxGeometry args={[0.62, 0.85, 0.12]} />
-        <meshToonMaterial color="#8d8a86" gradientMap={gradient} />
-      </mesh>
-      {/* rounded top */}
-      <mesh position={[0, 0.84, -0.35]} rotation={[0.06, 0, rot * 0.5]}>
-        <cylinderGeometry args={[0.31, 0.31, 0.12, 14, 1, false, 0, Math.PI]} />
-        <meshToonMaterial color="#8d8a86" gradientMap={gradient} />
-      </mesh>
+      {/* Headstone parts share one transform so the carved face stays
+          flush against the stone however the stone is tilted. */}
+      <group position={[0, 0.42, -0.35]} rotation={[0.06, 0, rot * 0.5]}>
+        <mesh
+          castShadow
+          onPointerDown={disturb}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <boxGeometry args={[0.62, 0.85, 0.12]} />
+          <meshToonMaterial color="#8d8a86" gradientMap={gradient} />
+        </mesh>
+        {/* rounded top */}
+        <mesh position={[0, 0.42, 0]}>
+          <cylinderGeometry
+            args={[0.31, 0.31, 0.12, 14, 1, false, 0, Math.PI]}
+          />
+          <meshToonMaterial color="#8d8a86" gradientMap={gradient} />
+        </mesh>
+        {carved && (
+          <mesh position={[0, 0.03, 0.062]}>
+            <planeGeometry args={[0.5, 0.5]} />
+            <meshBasicMaterial map={carved} transparent depthWrite={false} />
+          </mesh>
+        )}
+      </group>
 
       {/* mound of loose soil — the tap target that reads as "the grave" */}
       <mesh
@@ -575,6 +607,36 @@ function Grave({
   );
 }
 
+/** Lettering carved into a headstone face, transparent around the text. */
+function makeEpitaphTexture(text: string): THREE.CanvasTexture {
+  const size = 256;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d")!;
+  ctx.clearRect(0, 0, size, size);
+
+  const lines = text.split("\n");
+  const lineHeight = 56;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 44px Georgia, 'Times New Roman', serif";
+
+  const top = size / 2 - ((lines.length - 1) * lineHeight) / 2;
+  lines.forEach((line, i) => {
+    const y = top + i * lineHeight;
+    // a pale lip under each letter sells the chiselled groove
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillText(line, size / 2, y + 2.5);
+    ctx.fillStyle = "#3c3833";
+    ctx.fillText(line, size / 2, y);
+  });
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Set dressing                                                       */
 /* ------------------------------------------------------------------ */
@@ -588,13 +650,23 @@ function Pumpkins({
 }) {
   const pumpkins = useMemo(() => {
     const rand = mulberry32(777);
+    // Room view has the camera at (0.4, 4.4); a carved pumpkin is only
+    // worth carving if its face is turned towards it, so those get an
+    // aimed rotation rather than the random one.
+    const CAM_X = 0.4;
+    const CAM_Z = 4.4;
     return [
-      { x: -2.2, z: 2.6, s: 0.4, carved: true },
-      { x: 2.4, z: 3.0, s: 0.32, carved: false },
-      { x: -4.1, z: 0.6, s: 0.46, carved: false },
-      { x: 4.3, z: 0.2, s: 0.36, carved: true },
-      { x: 1.1, z: 3.6, s: 0.26, carved: false },
-    ].map((p) => ({ ...p, rot: rand() * Math.PI }));
+      { x: -2.4, z: 0.2, s: 0.4, carved: true },
+      { x: 2.6, z: -0.4, s: 0.32, carved: false },
+      { x: -4.3, z: -1.4, s: 0.46, carved: false },
+      { x: 4.6, z: -2.6, s: 0.36, carved: true },
+      { x: 1.4, z: -1.1, s: 0.26, carved: false },
+    ].map((p) => ({
+      ...p,
+      rot: p.carved
+        ? Math.atan2(CAM_X - p.x, CAM_Z - p.z)
+        : rand() * Math.PI,
+    }));
   }, []);
 
   return (

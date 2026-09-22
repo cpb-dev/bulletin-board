@@ -11,7 +11,7 @@ import {
   usableHalfExtents,
   worldToNorm,
 } from "@/lib/board-geometry";
-import { spiderProgress } from "@/lib/haunted";
+import { spiderPoint } from "@/lib/haunted";
 import { useBoardStore } from "@/lib/store";
 import type { BoardTheme } from "@/lib/themes";
 import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
@@ -702,44 +702,50 @@ function Cobwebs() {
         </mesh>
       ))}
 
-      <Spider seed={1} y={BOARD.centerY + halfH - 0.18} cycle={1.1} />
-      <Spider seed={2} y={BOARD.centerY - halfH + 0.16} cycle={0.85} />
-      <Spider seed={3} y={BOARD.centerY + halfH * 0.2} cycle={1.35} />
+      <Spider seed={1} cycle={2.3} />
+      <Spider seed={2} cycle={3.1} />
+      <Spider seed={3} cycle={2.7} />
     </group>
   );
 }
 
 /**
- * A spider skittering along a horizontal thread: fast darts between
- * waypoints with a freeze in between, plus a nervous little jitter.
+ * A spider roaming the board: it picks a spot, scurries to it, freezes,
+ * then picks another. Both axes move on the same cycle, so each dart is
+ * one diagonal scuttle rather than two independent slides.
  */
-function Spider({
-  seed,
-  y,
-  cycle,
-}: {
-  seed: number;
-  y: number;
-  cycle: number;
-}) {
+function Spider({ seed, cycle }: { seed: number; cycle: number }) {
   const group = useRef<THREE.Group>(null);
-  const span = BOARD.width - 0.5; // stay within the frame, like the webs
+  const prev = useRef({ x: 0.5, y: 0.5 });
+
+  // Kept inside the frame, with a margin so no leg pokes over the edge.
+  const spanX = BOARD.width - 0.5;
+  const spanY = BOARD.height - 0.5;
 
   useFrame((state) => {
     const g = group.current;
     if (!g) return;
     const t = state.clock.elapsedTime;
-    const p = spiderProgress(t, seed, cycle);
-    g.position.x = -span / 2 + p * span;
-    // tiny vertical jitter — legs working, never quite still
-    g.position.y = y + Math.sin(t * 22 + seed) * 0.006;
-    // face the direction of travel
-    const ahead = spiderProgress(t + 0.05, seed, cycle);
-    if (Math.abs(ahead - p) > 0.0005) g.rotation.z = ahead > p ? 0 : Math.PI;
+    const p = spiderPoint(t, seed, cycle);
+
+    g.position.x = -spanX / 2 + p.x * spanX;
+    g.position.y = BOARD.centerY - spanY / 2 + p.y * spanY;
+
+    // Point the way it's travelling; while it's parked, hold the last
+    // heading rather than snapping back to zero.
+    const dx = p.x - prev.current.x;
+    const dy = p.y - prev.current.y;
+    if (Math.hypot(dx, dy) > 0.0004) {
+      g.rotation.z = Math.atan2(dy * spanY, dx * spanX);
+    }
+    prev.current = p;
+
+    // legs working, never quite still
+    g.position.z = BOARD_SURFACE_Z + 0.06 + Math.sin(t * 18 + seed) * 0.002;
   });
 
   return (
-    <group ref={group} position={[0, y, BOARD_SURFACE_Z + 0.06]}>
+    <group ref={group} position={[0, BOARD.centerY, BOARD_SURFACE_Z + 0.06]}>
       {/* body */}
       <mesh>
         <sphereGeometry args={[0.035, 10, 8]} />

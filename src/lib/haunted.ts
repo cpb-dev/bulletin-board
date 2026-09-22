@@ -83,7 +83,7 @@ export function zombieHandPose(p: number): {
 }
 
 /** How long a spider's dart between two points takes, in seconds. */
-export const SPIDER_DART_DURATION = 0.32;
+export const SPIDER_DART_DURATION = 0.5;
 
 /**
  * A deterministic 0..1 waypoint for spider `seed` at step `i`. Hashed
@@ -97,9 +97,9 @@ export function spiderWaypoint(seed: number, i: number): number {
 }
 
 /**
- * Where a spider sits along its thread at time `t`, as 0..1.
+ * Where a spider sits along one axis at time `t`, as 0..1.
  *
- * Each `cycle` is one fast dart to the next waypoint followed by a
+ * Each `cycle` is one dart to the next waypoint followed by a
  * stillness — spiders skitter and freeze, they don't glide.
  */
 export function spiderProgress(
@@ -115,4 +115,29 @@ export function spiderProgress(
   if (local >= 1) return to; // arrived — hold still until the next cycle
   const e = local * local * (3 - 2 * local); // smoothstep dart
   return from + (to - from) * e;
+}
+
+/**
+ * Salt that gives a spider's vertical path its own waypoint sequence.
+ * Without it both axes would share a sequence and every spider would
+ * crawl the board's diagonal.
+ */
+const SPIDER_Y_SALT = 0x5bf0;
+
+/**
+ * A spider's position on the board at time `t`, as 0..1 on each axis.
+ *
+ * Both axes advance on the same cycle, so each dart is a single move to
+ * a new spot rather than two independent slides — the spider picks a
+ * corner, scurries there, freezes, then picks another.
+ */
+export function spiderPoint(
+  t: number,
+  seed: number,
+  cycle: number
+): { x: number; y: number } {
+  return {
+    x: spiderProgress(t, seed, cycle),
+    y: spiderProgress(t, (seed + SPIDER_Y_SALT) | 0, cycle),
+  };
 }

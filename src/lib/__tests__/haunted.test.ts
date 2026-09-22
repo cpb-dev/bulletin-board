@@ -5,6 +5,7 @@ import {
   ghostPass,
   nextGhostTime,
   SPIDER_DART_DURATION,
+  spiderPoint,
   spiderProgress,
   spiderWaypoint,
   zombieHandPose,
@@ -130,5 +131,50 @@ describe("spiderProgress", () => {
 
   it("survives a zero cycle instead of dividing by it", () => {
     expect(Number.isFinite(spiderProgress(3, 1, 0))).toBe(true);
+  });
+});
+
+describe("spiderPoint", () => {
+  const cycle = 2.3;
+
+  it("roams both axes rather than tracking one", () => {
+    // If x and y shared a waypoint sequence the spider would only ever
+    // crawl the board's diagonal.
+    let differed = false;
+    for (let t = 0; t < 40; t += cycle) {
+      const p = spiderPoint(t + cycle - 0.01, 3, cycle);
+      if (Math.abs(p.x - p.y) > 0.05) differed = true;
+    }
+    expect(differed).toBe(true);
+  });
+
+  it("stays on the board on both axes", () => {
+    for (let t = 0; t < 60; t += 0.13) {
+      const p = spiderPoint(t, 2, cycle);
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x).toBeLessThanOrEqual(1);
+      expect(p.y).toBeGreaterThanOrEqual(0);
+      expect(p.y).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("moves both axes together, so a dart is one diagonal scuttle", () => {
+    const a = spiderPoint(0.05, 4, cycle);
+    const b = spiderPoint(0.2, 4, cycle);
+    expect(a.x).not.toBe(b.x);
+    expect(a.y).not.toBe(b.y);
+  });
+
+  it("freezes between darts on both axes", () => {
+    const settled = spiderPoint(SPIDER_DART_DURATION + 0.2, 6, cycle);
+    const later = spiderPoint(cycle - 0.01, 6, cycle);
+    expect(later.x).toBeCloseTo(settled.x, 6);
+    expect(later.y).toBeCloseTo(settled.y, 6);
+  });
+
+  it("gives each spider its own path", () => {
+    const a = spiderPoint(1.4, 1, cycle);
+    const b = spiderPoint(1.4, 2, cycle);
+    expect(a.x === b.x && a.y === b.y).toBe(false);
   });
 });
