@@ -572,11 +572,13 @@ function Graves({ gradient }: { gradient: THREE.Texture }) {
     () => [
       // The graveyard proper: off to the right among the trees, spread
       // out rather than huddled, and well back from the camera at z 4.4.
-      { x: 2.8, z: -1.5, rot: 0.12, kind: "round" as const, size: 0.92 },
-      { x: 5.4, z: -0.8, rot: -0.2, kind: "gabled" as const, size: 0.86 },
-      { x: 5.0, z: -2.6, rot: 0.3, kind: "cross" as const, size: 1.0 },
-      { x: 3.6, z: -4.4, rot: -0.08, kind: "round" as const, size: 0.8 },
-      { x: 6.6, z: -4.0, rot: 0.18, kind: "gabled" as const, size: 0.95 },
+      // A spread of ages, so the yard looks like it filled up over
+      // decades rather than all at once.
+      { x: 2.8, z: -1.5, rot: 0.12, kind: "round" as const, size: 0.92, age: 0.9 },
+      { x: 5.4, z: -0.8, rot: -0.2, kind: "gabled" as const, size: 0.86, age: 0.4 },
+      { x: 5.0, z: -2.6, rot: 0.3, kind: "cross" as const, size: 1.0, age: 1 },
+      { x: 3.6, z: -4.4, rot: -0.08, kind: "round" as const, size: 0.8, age: 0.72 },
+      { x: 6.6, z: -4.0, rot: 0.18, kind: "gabled" as const, size: 0.95, age: 0.2 },
       // The one that isn't part of the cluster: just off the board's
       // left edge, turned to face the camera so the carving reads.
       {
@@ -585,6 +587,8 @@ function Graves({ gradient }: { gradient: THREE.Texture }) {
         rot: 0.1,
         kind: "round" as const,
         size: 1.0,
+        // kept lightly weathered so the carving stays readable
+        age: 0.35,
         epitaph: "SPOOKY\nSEASON",
       },
     ],
@@ -612,6 +616,7 @@ function Grave({
   kind,
   size,
   seed,
+  age,
   epitaph,
 }: {
   gradient: THREE.Texture;
@@ -621,6 +626,7 @@ function Grave({
   kind: HeadstoneKind;
   size: number;
   seed: number;
+  age: number;
   /** Carved into the headstone's face, newline-separated. */
   epitaph?: string;
 }) {
@@ -672,6 +678,7 @@ function Grave({
           kind={kind}
           seed={seed}
           size={size}
+          age={age}
           lean={rot * 0.5}
           epitaph={epitaph}
           onPointerDown={disturb}

@@ -38,7 +38,9 @@ function wobble(x: number, y: number, z: number, seed: number): number {
  */
 export function makeHeadstoneGeometry(
   kind: HeadstoneKind = "round",
-  seed = 1
+  seed = 1,
+  /** 0 = recently set, 1 = ancient and crumbling. */
+  age = 0.5
 ): THREE.ExtrudeGeometry {
   const shape = new THREE.Shape();
   const hw = WIDTH / 2;
@@ -99,7 +101,7 @@ export function makeHeadstoneGeometry(
     const y = pos.getY(i);
     const z = pos.getZ(i);
     const exposure = Math.min(1, Math.max(0, y / HEIGHT));
-    const amount = 0.014 * (0.2 + exposure);
+    const amount = 0.012 * (0.2 + exposure) * (0.5 + age * 1.6);
     pos.setXY(
       i,
       x + wobble(x, y, z, seed) * amount,
@@ -107,8 +109,153 @@ export function makeHeadstoneGeometry(
     );
   }
   pos.needsUpdate = true;
+
+  // ExtrudeGeometry's default WorldUVGenerator writes raw x/y as UVs, so
+  // they come out in world units (~0.6 x 0.95 here) and a texture would
+  // sample one clamped corner. Remap them to 0..1 over the stone.
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    uv.setXY(i, (x + WIDTH / 2) / WIDTH, y / HEIGHT);
+  }
+  uv.needsUpdate = true;
+
   geo.computeVertexNormals();
   return geo;
+}
+
+/**
+ * The stone's surface: mottled granite, cracks that branch and taper,
+ * and moss creeping up from the base. `age` drives how far gone it is —
+ * a fresh stone gets a little mottling, an ancient one is split and
+ * half-green.
+ */
+export function makeStoneTexture(seed: number, age: number): THREE.CanvasTexture {
+  const W = 384;
+  const H = 576;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext("2d")!;
+  const r = mulberry(seed * 2654435761);
+
+  ctx.fillStyle = "#87847e";
+  ctx.fillRect(0, 0, W, H);
+
+  // mottling, so the stone is never a flat fill
+  for (let i = 0; i < 260; i++) {
+    const x = r() * W;
+    const y = r() * H;
+    const rad = 6 + r() * 30;
+    const dark = r() > 0.5;
+    ctx.fillStyle = dark
+      ? `rgba(110, 106, 100, ${0.05 + r() * 0.12})`
+      : `rgba(186, 182, 174, ${0.05 + r() * 0.12})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rad, rad * (0.6 + r() * 0.7), r() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // cracks — a jagged walk, with the odd branch splitting off it
+  const crackCount = Math.round(1 + age * 5);
+  const drawCrack = (
+    x: number,
+    y: number,
+    angle: number,
+    len: number,
+    width: number
+  ) => {
+    // walk the crack once, then stroke it twice: a pale lip offset down
+    // and right, then the dark fissure itself on top. One flat line reads
+    // as a pen mark; the pair reads as a split in the surface.
+    const pts: [number, number][] = [[x, y]];
+    let cx = x;
+    let cy = y;
+    let a = angle;
+    const steps = Math.max(3, Math.round(len / 16));
+    for (let i = 0; i < steps; i++) {
+      a += (r() - 0.5) * 1.1;
+      cx += Math.cos(a) * 16;
+      cy += Math.sin(a) * 16;
+      pts.push([cx, cy]);
+    }
+    const trace = (dx: number, dy: number) => {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0] + dx, pts[0][1] + dy);
+      for (const [px, py] of pts.slice(1)) ctx.lineTo(px + dx, py + dy);
+      ctx.stroke();
+    };
+    ctx.lineCap = "round";
+    ctx.lineWidth = width * 0.9;
+    ctx.strokeStyle = `rgba(214, 210, 198, ${0.3 + age * 0.25})`;
+    trace(1.6, 1.6);
+    ctx.lineWidth = width;
+    ctx.strokeStyle = `rgba(42, 38, 34, ${0.6 + age * 0.35})`;
+    trace(0, 0);
+    return { cx, cy, a };
+  };
+
+  for (let i = 0; i < crackCount; i++) {
+    // start on an edge — cracks propagate inward from where stone chips
+    const edge = Math.floor(r() * 4);
+    const x = edge === 1 ? W : edge === 3 ? 0 : r() * W;
+    const y = edge === 0 ? 0 : edge === 2 ? H : r() * H;
+    const toward = Math.atan2(H / 2 - y, W / 2 - x) + (r() - 0.5) * 0.9;
+    const len = 90 + r() * 200;
+    const end = drawCrack(x, y, toward, len, 2.2 + age * 3);
+    if (r() < 0.6 + age * 0.3) {
+      drawCrack(end.cx, end.cy, end.a + (r() - 0.5) * 2, len * 0.5, 1.4 + age * 1.6);
+    }
+  }
+
+  // moss climbing from the base, heaviest on an old stone
+  const mossCount = Math.round(10 + age * 46);
+  for (let i = 0; i < mossCount; i++) {
+    const x = r() * W;
+    // biased low: squaring pushes most of them towards the bottom
+    const y = H - Math.pow(r(), 1.9) * H * (0.4 + age * 0.5);
+    const rad = 10 + r() * 34;
+    ctx.fillStyle =
+      r() > 0.45
+        ? `rgba(96, 116, 72, ${0.14 + r() * 0.3 * (0.4 + age)})`
+        : `rgba(126, 142, 86, ${0.12 + r() * 0.26 * (0.4 + age)})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rad, rad * 0.62, r() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Lichen: irregular clustered patches. Stroked circles read as soap
+  // bubbles, so each patch is a scatter of small overlapping blobs.
+  const lichen = Math.round(2 + age * 7);
+  for (let i = 0; i < lichen; i++) {
+    const px = r() * W;
+    const py = r() * H;
+    const spread = 10 + r() * 22;
+    const tint = r() > 0.5 ? "196, 200, 176" : "172, 178, 150";
+    for (let b = 0; b < 9; b++) {
+      const bx = px + (r() - 0.5) * spread * 2;
+      const by = py + (r() - 0.5) * spread * 1.4;
+      ctx.fillStyle = `rgba(${tint}, ${0.09 + r() * 0.16})`;
+      ctx.beginPath();
+      ctx.ellipse(
+        bx,
+        by,
+        3 + r() * 9,
+        3 + r() * 7,
+        r() * Math.PI,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.ClampToEdgeWrapping;
+  t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
 }
 
 export function Headstone({
@@ -118,6 +265,8 @@ export function Headstone({
   epitaph,
   /** Slight lean, in radians — nothing in a graveyard stands straight. */
   lean = 0,
+  /** 0 = recently set, 1 = ancient: more wear, more cracks, more moss. */
+  age = 0.5,
   onPointerDown,
 }: {
   kind?: HeadstoneKind;
@@ -125,15 +274,17 @@ export function Headstone({
   size?: number;
   epitaph?: string;
   lean?: number;
+  age?: number;
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   // More steps than the shared ramp so the bevelled edges and the worn
   // surface actually read; grey needs the midtones most.
   const ramp = useMemo(() => makeToonRamp([58, 104, 150, 196, 236, 255]), []);
   const stone = useMemo(
-    () => makeHeadstoneGeometry(kind, seed),
-    [kind, seed]
+    () => makeHeadstoneGeometry(kind, seed, age),
+    [kind, seed, age]
   );
+  const surface = useMemo(() => makeStoneTexture(seed, age), [seed, age]);
   const carved = useMemo(
     () => (epitaph ? makeEpitaphTexture(epitaph) : null),
     [epitaph]
@@ -146,7 +297,7 @@ export function Headstone({
     // swallowed by the slab.
     const plinthX = (WIDTH * 1.28) / 2;
     const plinthZ = (DEPTH * 2.1) / 2;
-    return Array.from({ length: 7 }, () => {
+    return Array.from({ length: 4 + Math.round(age * 7) }, () => {
       const side = r();
       const along = (r() - 0.5) * 2;
       const pos: [number, number, number] =
@@ -159,15 +310,16 @@ export function Headstone({
         tint: r() > 0.5 ? "#5f7348" : "#74875a",
       };
     });
-  }, [seed]);
+  }, [seed, age]);
 
   useEffect(
     () => () => {
       ramp.dispose();
       stone.dispose();
+      surface.dispose();
       carved?.dispose();
     },
-    [ramp, stone, carved]
+    [ramp, stone, surface, carved]
   );
 
   return (
@@ -183,7 +335,8 @@ export function Headstone({
           onPointerDown={onPointerDown}
           onClick={(e) => e.stopPropagation()}
         >
-          <meshToonMaterial color="#8d8a86" gradientMap={ramp} />
+          {/* white base colour so the surface map carries the tone */}
+          <meshToonMaterial color="#ffffff" map={surface} gradientMap={ramp} />
         </mesh>
 
         {carved && (
