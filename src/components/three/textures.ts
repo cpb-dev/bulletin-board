@@ -26,6 +26,25 @@ export function makeToonGradient(): THREE.DataTexture {
 }
 
 /** Speckled cork/linen surface for the board. */
+/**
+ * A toon ramp with more steps than `makeToonGradient`, for props whose
+ * form needs to read (ribs, folds, bevels). Deliberately a separate
+ * function: the 3-step gradient above is shared by every scene in the
+ * app and must not drift.
+ */
+export function makeToonRamp(levels: number[]): THREE.DataTexture {
+  const texture = new THREE.DataTexture(
+    new Uint8Array(levels),
+    levels.length,
+    1,
+    THREE.RedFormat
+  );
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export function makeCorkTexture(
   surface: string,
   speckle: string

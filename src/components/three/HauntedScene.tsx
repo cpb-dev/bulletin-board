@@ -13,6 +13,7 @@ import {
   zombieHandPose,
 } from "@/lib/haunted";
 import { makeToonGradient, mulberry32 } from "./textures";
+import { Pumpkin } from "./props/Pumpkin";
 
 // The board's occlusion shadow in room view reaches roughly x -5.2..4.3
 // at this depth, so a house centred behind the board is almost entirely
@@ -66,7 +67,7 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
 
       <BoardPosts gradient={gradient} />
       <Graves gradient={gradient} />
-      <Pumpkins gradient={gradient} accent={theme.room.accent} />
+      <Pumpkins accent={theme.room.accent} />
       <DeadBranch gradient={gradient} />
     </group>
   );
@@ -766,13 +767,7 @@ function makeEpitaphTexture(text: string): THREE.CanvasTexture {
 /*  Set dressing                                                       */
 /* ------------------------------------------------------------------ */
 
-function Pumpkins({
-  gradient,
-  accent,
-}: {
-  gradient: THREE.Texture;
-  accent: string;
-}) {
+function Pumpkins({ accent }: { accent: string }) {
   const pumpkins = useMemo(() => {
     const rand = mulberry32(777);
     // Room view has the camera at (0.4, 4.4). A carved face is only
@@ -789,7 +784,6 @@ function Pumpkins({
       { x: 1.4, z: -1.1, s: 0.26, face: 1 },
     ].map((p) => ({
       ...p,
-      // every one is carved now, so every one is aimed at the viewer
       rot: Math.atan2(CAM_X - p.x, CAM_Z - p.z),
       wobble: (rand() - 0.5) * 0.25,
     }));
@@ -798,167 +792,12 @@ function Pumpkins({
   return (
     <>
       {pumpkins.map((p, i) => (
-        <Pumpkin key={i} gradient={gradient} accent={accent} {...p} />
+        <group key={i} position={[p.x, 0, p.z]} rotation={[0, p.rot, p.wobble]}>
+          <Pumpkin size={p.s} face={p.face} color={accent} />
+        </group>
       ))}
     </>
   );
-}
-
-/** A ribbed jack-o'-lantern with a carved, lit face. */
-function Pumpkin({
-  gradient,
-  accent,
-  x,
-  z,
-  s,
-  rot,
-  wobble,
-  face,
-}: {
-  gradient: THREE.Texture;
-  accent: string;
-  x: number;
-  z: number;
-  s: number;
-  rot: number;
-  wobble: number;
-  face: number;
-}) {
-  const carved = useMemo(() => makePumpkinFace(face), [face]);
-  useEffect(() => () => carved.dispose(), [carved]);
-
-  // Six lobes around a core give the ribbed gourd shape; a single
-  // squashed sphere read as an orange.
-  const lobes = useMemo(
-    () =>
-      Array.from({ length: 6 }, (_, i) => {
-        const a = (i / 6) * Math.PI * 2;
-        return [Math.cos(a) * s * 0.5, 0, Math.sin(a) * s * 0.5] as [
-          number,
-          number,
-          number,
-        ];
-      }),
-    [s]
-  );
-
-  return (
-    <group position={[x, s * 0.78, z]} rotation={[0, rot, wobble]}>
-      <mesh scale={[1, 0.78, 1]} castShadow>
-        <sphereGeometry args={[s * 0.88, 14, 12]} />
-        <meshToonMaterial color={accent} gradientMap={gradient} />
-      </mesh>
-      {lobes.map((pos, i) => (
-        <mesh key={i} position={pos} scale={[1, 0.86, 1]} castShadow>
-          <sphereGeometry args={[s * 0.5, 12, 10]} />
-          <meshToonMaterial color={accent} gradientMap={gradient} />
-        </mesh>
-      ))}
-      {/* stalk, with a slight kink */}
-      <mesh position={[0, s * 0.74, 0]} rotation={[0.18, 0, 0.12]} castShadow>
-        <cylinderGeometry args={[s * 0.09, s * 0.15, s * 0.36, 7]} />
-        <meshToonMaterial color="#5f7a38" gradientMap={gradient} />
-      </mesh>
-      {/* the carved face, glowing from the candle inside */}
-      <mesh position={[0, s * 0.02, s * 1.02]}>
-        <planeGeometry args={[s * 1.35, s * 1.15]} />
-        <meshBasicMaterial map={carved} transparent depthWrite={false} />
-      </mesh>
-    </group>
-  );
-}
-
-/** Three carved faces, drawn glowing on a transparent background. */
-function makePumpkinFace(variant: number): THREE.CanvasTexture {
-  const S = 256;
-  const c = document.createElement("canvas");
-  c.width = S;
-  c.height = S;
-  const ctx = c.getContext("2d")!;
-  ctx.clearRect(0, 0, S, S);
-
-  const glow = ctx.createRadialGradient(128, 140, 10, 128, 140, 120);
-  glow.addColorStop(0, "#fff3b0");
-  glow.addColorStop(1, "#ffb638");
-  ctx.fillStyle = glow;
-  ctx.shadowColor = "rgba(255, 190, 80, 0.95)";
-  ctx.shadowBlur = 18;
-
-  const tri = (pts: [number, number][]) => {
-    ctx.beginPath();
-    ctx.moveTo(pts[0][0], pts[0][1]);
-    for (const [px, py] of pts.slice(1)) ctx.lineTo(px, py);
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  // eyes — angled inward so every face looks a bit cross
-  tri([
-    [62, 78],
-    [112, 104],
-    [64, 118],
-  ]);
-  tri([
-    [194, 78],
-    [144, 104],
-    [192, 118],
-  ]);
-  // nose
-  tri([
-    [128, 118],
-    [146, 152],
-    [110, 152],
-  ]);
-
-  // mouths
-  if (variant === 0) {
-    // jagged grin with teeth
-    ctx.beginPath();
-    ctx.moveTo(56, 176);
-    const top = [176, 186, 176, 186, 176, 186, 176];
-    const step = (200 - 56) / (top.length - 1);
-    top.forEach((yy, i) => ctx.lineTo(56 + i * step, yy));
-    ctx.lineTo(196, 206);
-    const bottom = [222, 210, 222, 210, 222];
-    const bstep = (196 - 60) / (bottom.length - 1);
-    bottom.forEach((yy, i) => ctx.lineTo(196 - i * bstep, yy));
-    ctx.closePath();
-    ctx.fill();
-  } else if (variant === 1) {
-    // wide open howl
-    ctx.beginPath();
-    ctx.ellipse(128, 194, 52, 34, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // two fangs bitten out of it
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.shadowBlur = 0;
-    tri([
-      [104, 162],
-      [116, 194],
-      [92, 194],
-    ]);
-    tri([
-      [152, 162],
-      [164, 194],
-      [140, 194],
-    ]);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.shadowColor = "rgba(255, 190, 80, 0.95)";
-    ctx.shadowBlur = 18;
-  } else {
-    // long crooked smirk
-    ctx.beginPath();
-    ctx.moveTo(58, 178);
-    ctx.quadraticCurveTo(128, 236, 200, 170);
-    ctx.quadraticCurveTo(128, 208, 58, 178);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  ctx.shadowBlur = 0;
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
 }
 
 /** Two stout posts holding the board up out of the leaves. */
