@@ -4,10 +4,25 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { Pumpkin } from "@/components/three/props/Pumpkin";
+import {
+  Headstone,
+  type HeadstoneKind,
+} from "@/components/three/props/Headstone";
+
+const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
 
 /** Props the harness can stage, by `?m=` name. */
 const MODELS: Record<string, (variant: number) => React.ReactNode> = {
   pumpkin: (v) => <Pumpkin size={0.9} face={v} />,
+  headstone: (v) => (
+    <Headstone
+      kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}
+      seed={v + 1}
+      size={1.5}
+      lean={0.04}
+      epitaph={v === 0 ? "SPOOKY\nSEASON" : undefined}
+    />
+  ),
 };
 
 function Stage() {
