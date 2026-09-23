@@ -55,35 +55,63 @@ export function makeMoundGeometry(
   const index: number[] = [];
   const BOWL = RADIUS * 0.36;
 
+  /**
+   * Rows given over to a skirt that flares out and drops below the
+   * ground, so the patch is bedded into it.
+   *
+   * Without this the rim sat a few millimetres proud, the clods could
+   * lift it further, and since the mound is one open surface you could
+   * see straight under the edge — which reads as soil hovering just off
+   * the floor, or as nothing at all where the backface is culled.
+   */
+  const SKIRT = 3;
+
   for (let j = 0; j <= segH; j++) {
+    const skirt = j < SKIRT;
     // v 0 at the rim, 1 at the crown
-    const v = j / segH;
+    const v = skirt ? 0 : (j - SKIRT) / (segH - SKIRT);
+    // 0 at the rim, 1 a little way in — keeps the clods off the edge
+    const rimFade = Math.min(1, v * 5);
+
     for (let i = 0; i <= segW; i++) {
       const u = i / segW;
       const a = u * Math.PI * 2;
       // the edge wanders, so the patch is never a clean disc
       let edge = RADIUS;
       for (const w of wob) edge += Math.sin(a * w.k + w.ph) * w.amp;
-      const r = edge * (1 - v);
+
+      // The skirt flares outwards and downwards from the rim.
+      const out = skirt ? (SKIRT - j) / SKIRT : 0;
+      const r = edge * (1 - v) * (1 + out * 0.07);
       const px = Math.cos(a) * r;
       const pz = Math.sin(a) * r;
 
+      if (skirt) {
+        position.push(px, -0.07 * out, pz);
+        uv.push(u * 2, 0);
+        colour.push(1, 0.97, 0.93);
+        continue;
+      }
+
       // A fresh grave is heaped; an old one has settled into a dip.
       const dome = Math.pow(Math.max(0, 1 - Math.pow(1 - v, 2)), 0.7);
-      let y = dome * 0.19 * (1 - age * 0.45) - age * 0.06 * Math.pow(v, 1.4);
+      let y = dome * 0.24 * (1 - age * 0.45) - age * 0.07 * Math.pow(v, 1.4);
 
+      let lump = 0;
       for (const c of clods) {
         const cx = Math.cos(c.a) * c.r * RADIUS;
         const cz = Math.sin(c.a) * c.r * RADIUS;
         const d = Math.hypot(px - cx, pz - cz) / (c.size * RADIUS);
-        if (d < 1) y += Math.cos(d * Math.PI * 0.5) * c.h;
+        if (d < 1) lump += Math.cos(d * Math.PI * 0.5) * c.h;
       }
       for (const c of rim) {
         const cx = Math.cos(c.a) * BOWL;
         const cz = Math.sin(c.a) * BOWL;
         const d = Math.hypot(px - cx, pz - cz) / (c.size * RADIUS);
-        if (d < 1) y += Math.cos(d * Math.PI * 0.5) * c.h;
+        if (d < 1) lump += Math.cos(d * Math.PI * 0.5) * c.h;
       }
+      // faded out at the rim, so no clod can prise the edge off the floor
+      y += lump * rimFade;
 
       /**
        * The hole something came up through: a bowl scooped out of the
@@ -91,14 +119,14 @@ export function makeMoundGeometry(
        *
        * It scales the height down rather than subtracting from it, so
        * the floor of the bowl can never go under the ground it sits on.
-       * The version before this dug to -0.1 and filled the gap with an
-       * unlit cone, which from eye level read as a black hole punched
-       * clean through the world.
+       * An earlier version dug to -0.1 and filled the gap with an unlit
+       * cone, which from eye level read as a black hole punched clean
+       * through the world.
        */
       const bowl = Math.pow(Math.max(0, 1 - Math.hypot(px, pz) / BOWL), 1.4);
-      y = y * (1 - bowl * 0.62) + 0.004;
+      y = y * (1 - bowl * 0.62);
 
-      position.push(px, Math.max(0.003, y), pz);
+      position.push(px, y, pz);
       uv.push(u * 2, v);
       // Dark down in the hole, where no light reaches.
       const shade = 1 - bowl * 0.55;
@@ -258,7 +286,7 @@ export function GraveMound({
       const r = RADIUS * (0.86 + rand() * 0.42);
       const s = 0.028 + rand() * 0.042;
       return {
-        p: [Math.cos(a) * r, s * 0.35, Math.sin(a) * r] as [number, number, number],
+        p: [Math.cos(a) * r, s * 0.2, Math.sin(a) * r] as [number, number, number],
         rot: [rand() * 3, rand() * 3, rand() * 3] as [number, number, number],
         s,
       };
