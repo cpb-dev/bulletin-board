@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { Pumpkin } from "@/components/three/props/Pumpkin";
 import { HauntedHouse } from "@/components/three/props/HauntedHouse";
+import { AutumnGrove } from "@/components/three/props/AutumnTree";
 import {
   Headstone,
   type HeadstoneKind,
@@ -16,6 +17,19 @@ const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
 const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> = {
   pumpkin: (v) => <Pumpkin size={0.9} face={v} />,
   house: () => <HauntedHouse />,
+  // `v` picks the seed, so the harness can compare one tree against the
+  // next rather than judging a single tree in isolation.
+  tree: (v) => (
+    <AutumnGrove
+      trees={[{ x: 0, z: 0, scale: 1, seed: [8123, 2217, 6490, 1338, 7702, 4051, 9614][v % 7] }]}
+      leaves={false}
+    />
+  ),
+  grove: () => <AutumnGrove trees={[
+    { x: -3.4, z: 0, scale: 1.2, seed: 8123 },
+    { x: 0, z: -1.2, scale: 1.05, seed: 2217 },
+    { x: 3.6, z: 0.3, scale: 1.15, seed: 6490 },
+  ]} />,
   headstone: (v, age) => (
     <Headstone
       kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}
@@ -37,9 +51,13 @@ function Stage() {
   const dist = Number(params.get("d") ?? 6.2);
   const eye = Number(params.get("y") ?? 1.15);
   // Slide the prop under the camera, so a detail on a big model can be
-  // framed without a second camera control.
+  // framed without a second camera control. `oy` moves the prop but not
+  // the ground plane, so for anything standing on the floor aim with
+  // `ty` instead.
   const ox = Number(params.get("ox") ?? 0);
   const oy = Number(params.get("oy") ?? 0);
+  /** Height the camera looks at. */
+  const ty = Number(params.get("ty") ?? 0);
   const render = MODELS[name];
 
   return (
@@ -48,7 +66,8 @@ function Stage() {
         shadows
         camera={{ fov: 32, position: [0, eye, dist], near: 0.1, far: 50 }}
         dpr={[1, 2]}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, camera }) => {
+          camera.lookAt(0, ty, 0);
           // let the screenshot script know the first frame is up
           gl.domElement.dataset.ready = "1";
         }}
