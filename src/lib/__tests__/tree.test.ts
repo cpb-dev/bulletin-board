@@ -264,3 +264,58 @@ describe("leafFall", () => {
     expect(Math.abs(a.y - b.y)).toBeGreaterThan(0.5);
   });
 });
+
+describe("dense crowns", () => {
+  const seedsWhere = (pick: (s: ReturnType<typeof treeShape>) => boolean) => {
+    const out: number[] = [];
+    for (let seed = 1; seed < 600; seed++) if (pick(treeShape(seed))) out.push(seed);
+    return out;
+  };
+
+  it("grows both kinds, and neither dominates", () => {
+    const dense = seedsWhere((s) => s.dense).length;
+    expect(dense).toBeGreaterThan(80);
+    expect(dense / 599).toBeLessThan(0.6);
+  });
+
+  it("never leaves a bare tree with a dense crown to fill", () => {
+    for (const seed of seedsWhere((s) => s.bare)) {
+      expect(treeShape(seed).dense).toBe(false);
+    }
+  });
+
+  it("carries far more foliage than an open tree", () => {
+    const count = (seed: number) =>
+      branchPlan(seed, treeShape(seed)).filter((b) => b.cluster > 0).length;
+    const dense = seedsWhere((s) => s.dense).slice(0, 30).map(count);
+    const open = seedsWhere((s) => !s.dense && !s.bare).slice(0, 30).map(count);
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    expect(avg(dense)).toBeGreaterThan(avg(open) * 1.6);
+  });
+
+  it("spreads wider than it climbs, the way an oak does", () => {
+    const reach = (seed: number) => {
+      const shape = treeShape(seed);
+      const limbs = branchPlan(seed, shape).filter((b) => b.level === 1);
+      // horizontal reach of a limb tip, relative to the tree's height
+      return (
+        limbs.reduce((m, b) => {
+          const tip = b.points.at(-1)!;
+          return Math.max(m, Math.hypot(tip[0], tip[2]));
+        }, 0) / shape.height
+      );
+    };
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    const dense = avg(seedsWhere((s) => s.dense).slice(0, 30).map(reach));
+    const open = avg(seedsWhere((s) => !s.dense && !s.bare).slice(0, 30).map(reach));
+    expect(dense).toBeGreaterThan(open);
+  });
+
+  it("still keeps every branch above the ground", () => {
+    for (let seed = 1; seed < 400; seed++) {
+      for (const b of branchPlan(seed, treeShape(seed))) {
+        for (const p of b.points) expect(p[1]).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+});

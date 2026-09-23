@@ -21,14 +21,14 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
   // next rather than judging a single tree in isolation.
   tree: (v) => (
     <AutumnGrove
-      trees={[{ x: 0, z: 0, scale: 1, seed: [8123, 2217, 6490, 1338, 7702, 4051, 9614][v % 7] }]}
+      trees={[{ x: 0, z: 0, scale: 1, seed: [1182, 1049, 1084, 1063, 1210, 1238, 1056][v % 7] }]}
       leaves={false}
     />
   ),
   grove: () => <AutumnGrove trees={[
-    { x: -3.4, z: 0, scale: 1.2, seed: 8123 },
-    { x: 0, z: -1.2, scale: 1.05, seed: 2217 },
-    { x: 3.6, z: 0.3, scale: 1.15, seed: 6490 },
+    { x: -3.4, z: 0, scale: 1.2, seed: 1182 },
+    { x: 0, z: -1.2, scale: 1.05, seed: 1049 },
+    { x: 3.6, z: 0.3, scale: 1.15, seed: 1084 },
   ]} />,
   headstone: (v, age) => (
     <Headstone

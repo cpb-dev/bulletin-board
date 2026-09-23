@@ -64,9 +64,11 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
       </group>
       <AutumnGrove trees={TREES} />
 
-      {/* ground */}
+      {/* Ground. Wide enough to run under everything and out into the
+          fog — at 40x24 it stopped at z -10.5, which left the tree at
+          z -11.8 standing on nothing. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 1.5]} receiveShadow>
-        <planeGeometry args={[40, 24]} />
+        <planeGeometry args={[80, 64]} />
         <meshToonMaterial color={theme.room.floor} gradientMap={gradient} />
       </mesh>
 
@@ -135,13 +137,16 @@ function SkyDome() {
  * different tree — see `src/lib/tree.ts`.
  */
 const TREES = [
-  { x: -2.6, z: -9.8, scale: 1.3, seed: 8123 },
-  { x: 1.8, z: -10.5, scale: 1.15, seed: 2217 },
-  { x: 6.8, z: -8.6, scale: 1.2, seed: 6490 },
-  { x: 9.2, z: -5.4, scale: 1.05, seed: 1338 },
-  { x: 10.4, z: -9.2, scale: 1.25, seed: 7702 },
-  { x: 10.8, z: -2.4, scale: 0.95, seed: 4051 },
-  { x: 7.6, z: -11.8, scale: 1.1, seed: 9614 },
+  // Seeds chosen for the mix rather than at random: three broad dense
+  // crowns, three open ones and one already bare, so the stand doesn't
+  // read as one kind of tree repeated.
+  { x: -2.6, z: -9.8, scale: 1.3, seed: 1182 },
+  { x: 1.8, z: -10.5, scale: 1.15, seed: 1049 },
+  { x: 6.8, z: -8.6, scale: 1.2, seed: 1084 },
+  { x: 9.2, z: -5.4, scale: 1.05, seed: 1063 },
+  { x: 10.4, z: -9.2, scale: 1.25, seed: 1210 },
+  { x: 10.8, z: -2.4, scale: 0.95, seed: 1238 },
+  { x: 7.6, z: -11.8, scale: 1.1, seed: 1056 },
 ];
 
 /* ------------------------------------------------------------------ */

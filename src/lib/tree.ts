@@ -39,6 +39,11 @@ export interface TreeShape {
   limbs: number;
   /** Twigs off each limb. */
   twigs: number;
+  /**
+   * A broad, dense crown — an oak — rather than an open, airy one.
+   * More limbs, many more twigs, and they reach out rather than up.
+   */
+  dense: boolean;
   /** 0..1 — how much foliage the clusters carry. */
   fullness: number;
   /** A tree that has already dropped its leaves. Bare branches, no clusters. */
@@ -56,14 +61,18 @@ export interface TreeShape {
  */
 export function treeShape(seed: number): TreeShape {
   const rand = mulberry(seed * 2654435761);
-  const bare = rand() < 0.22;
+  const bare = rand() < 0.18;
+  const dense = !bare && rand() < 0.45;
   return {
-    height: 2.7 + rand() * 1.9,
-    trunkRadius: 0.19 + rand() * 0.13,
+    // A dense crown sits on a stouter, shorter trunk — an oak is wide
+    // before it is tall.
+    height: dense ? 2.6 + rand() * 1.2 : 2.9 + rand() * 1.8,
+    trunkRadius: (dense ? 0.25 : 0.19) + rand() * 0.13,
     lean: (rand() - 0.5) * 0.17,
     leanDir: rand() * Math.PI * 2,
-    limbs: 3 + Math.floor(rand() * 4),
-    twigs: 3 + Math.floor(rand() * 3),
+    limbs: dense ? 5 + Math.floor(rand() * 3) : 3 + Math.floor(rand() * 3),
+    twigs: dense ? 5 + Math.floor(rand() * 3) : 3 + Math.floor(rand() * 2),
+    dense,
     fullness: bare ? 0 : 0.55 + rand() * 0.45,
     bare,
     warmth: rand(),
@@ -130,9 +139,14 @@ export function branchPlan(seed: number, shape: TreeShape): Limb[] {
     const u = 0.42 + (i / Math.max(1, shape.limbs - 1)) * 0.48 + (rand() - 0.5) * 0.06;
     const base = trunkPointAt(shape, Math.min(0.95, u));
     const az = i * GOLDEN + rand() * 0.5;
-    const len = shape.height * (0.46 - u * 0.17) * (0.8 + rand() * 0.5);
-    // Higher limbs climb more steeply; lower ones reach out and sag.
-    const rise = 0.3 + u * 0.75;
+    const len =
+      shape.height *
+      ((shape.dense ? 0.58 : 0.46) - u * 0.17) *
+      (0.8 + rand() * 0.5);
+    // Higher limbs climb more steeply; lower ones reach out and sag. A
+    // dense crown climbs less and spreads more, which is what makes it
+    // read as a broad dome rather than a fan.
+    const rise = (shape.dense ? 0.2 : 0.3) + u * (shape.dense ? 0.52 : 0.75);
     const dx = Math.cos(az);
     const dz = Math.sin(az);
 
@@ -156,7 +170,9 @@ export function branchPlan(seed: number, shape: TreeShape): Limb[] {
       level: 1,
       // Sized off the tree, not off the branch: a cluster scaled to a
       // limb's length grows with the limb and swallows the whole tree.
-      cluster: shape.bare ? 0 : shape.height * (0.048 + shape.fullness * 0.024),
+      cluster: shape.bare
+        ? 0
+        : shape.height * (0.048 + shape.fullness * 0.024),
       hue: rand(),
     };
     out.push(limb);
@@ -182,7 +198,11 @@ export function branchPlan(seed: number, shape: TreeShape): Limb[] {
         r0: r0 * 0.42,
         r1: r0 * 0.16,
         level: 2,
-        cluster: shape.bare ? 0 : shape.height * (0.058 + shape.fullness * 0.03),
+        cluster: shape.bare
+          ? 0
+          : shape.height *
+            (shape.dense ? 0.07 : 0.058) *
+            (1 + shape.fullness * 0.5),
         hue: rand(),
       });
     }
