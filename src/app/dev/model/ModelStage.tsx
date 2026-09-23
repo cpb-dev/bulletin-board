@@ -12,6 +12,7 @@ import {
 } from "@/components/three/props/Headstone";
 import { Ground } from "@/components/three/props/Ground";
 import { Sky } from "@/components/three/props/Sky";
+import { Spider } from "@/components/three/props/Spider";
 import { GraveMound } from "@/components/three/props/GraveMound";
 import {
   ARM_KINDS,
@@ -96,6 +97,18 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
     </>
   ),
   mound: (v, age) => <GraveMound seed={v + 1} age={age} />,
+  /** Spiders crawling on a flat panel, as they do on the board. */
+  spider: (v) => (
+    <group position={[0, 0.5, 0]}>
+      <mesh position={[0, 0, -0.01]}>
+        <planeGeometry args={[1.2, 0.9]} />
+        <meshBasicMaterial color="#7a6a4e" />
+      </mesh>
+      {Array.from({ length: Math.max(1, v) }, (_, i) => (
+        <Spider key={i} seed={i + 1} bounds={{ x: 0.55, y: 0.4 }} z={0.01} />
+      ))}
+    </group>
+  ),
   headstone: (v, age) => (
     <Headstone
       kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}

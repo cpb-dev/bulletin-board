@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent } from "@react-three/fiber";
 import {
   BOARD,
   BOARD_SURFACE_Z,
@@ -11,10 +11,10 @@ import {
   usableHalfExtents,
   worldToNorm,
 } from "@/lib/board-geometry";
-import { spiderPoint } from "@/lib/haunted";
 import { useBoardStore } from "@/lib/store";
 import type { BoardTheme } from "@/lib/themes";
 import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
+import { Spider } from "./props/Spider";
 
 /**
  * The bulletin board itself: chunky frame, speckled cork, a string of
@@ -702,73 +702,23 @@ function Cobwebs() {
         </mesh>
       ))}
 
-      <Spider seed={1} cycle={2.3} />
-      <Spider seed={2} cycle={3.1} />
-      <Spider seed={3} cycle={2.7} />
+      {/* Kept inside the frame, with a margin so no leg pokes over the
+          edge. Six of them: enough that one is always moving somewhere
+          in the corner of your eye. */}
+      <group position={[0, BOARD.centerY, 0]}>
+        {[1, 2, 3, 4, 5, 6].map((seed) => (
+          <Spider
+            key={seed}
+            seed={seed}
+            bounds={{
+              x: (BOARD.width - 0.5) / 2,
+              y: (BOARD.height - 0.5) / 2,
+            }}
+            z={BOARD_SURFACE_Z + 0.055}
+          />
+        ))}
+      </group>
     </group>
   );
 }
 
-/**
- * A spider roaming the board: it picks a spot, scurries to it, freezes,
- * then picks another. Both axes move on the same cycle, so each dart is
- * one diagonal scuttle rather than two independent slides.
- */
-function Spider({ seed, cycle }: { seed: number; cycle: number }) {
-  const group = useRef<THREE.Group>(null);
-  const prev = useRef({ x: 0.5, y: 0.5 });
-
-  // Kept inside the frame, with a margin so no leg pokes over the edge.
-  const spanX = BOARD.width - 0.5;
-  const spanY = BOARD.height - 0.5;
-
-  useFrame((state) => {
-    const g = group.current;
-    if (!g) return;
-    const t = state.clock.elapsedTime;
-    const p = spiderPoint(t, seed, cycle);
-
-    g.position.x = -spanX / 2 + p.x * spanX;
-    g.position.y = BOARD.centerY - spanY / 2 + p.y * spanY;
-
-    // Point the way it's travelling; while it's parked, hold the last
-    // heading rather than snapping back to zero.
-    const dx = p.x - prev.current.x;
-    const dy = p.y - prev.current.y;
-    if (Math.hypot(dx, dy) > 0.0004) {
-      g.rotation.z = Math.atan2(dy * spanY, dx * spanX);
-    }
-    prev.current = p;
-
-    // legs working, never quite still
-    g.position.z = BOARD_SURFACE_Z + 0.06 + Math.sin(t * 18 + seed) * 0.002;
-  });
-
-  return (
-    <group ref={group} position={[0, BOARD.centerY, BOARD_SURFACE_Z + 0.06]}>
-      {/* body */}
-      <mesh>
-        <sphereGeometry args={[0.035, 10, 8]} />
-        <meshBasicMaterial color="#1b1720" />
-      </mesh>
-      {/* head */}
-      <mesh position={[0.035, 0, 0]}>
-        <sphereGeometry args={[0.021, 8, 8]} />
-        <meshBasicMaterial color="#241f29" />
-      </mesh>
-      {/* legs — three a side, splayed */}
-      {[-1, 1].map((side) =>
-        [-0.5, 0, 0.5].map((tilt, i) => (
-          <mesh
-            key={`${side}-${i}`}
-            position={[tilt * 0.03, side * 0.03, 0]}
-            rotation={[0, 0, side * (0.7 + tilt)]}
-          >
-            <boxGeometry args={[0.055, 0.006, 0.006]} />
-            <meshBasicMaterial color="#1b1720" />
-          </mesh>
-        ))
-      )}
-    </group>
-  );
-}
