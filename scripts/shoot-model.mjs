@@ -20,10 +20,13 @@ const [
   // Slides the prop, to frame a detail on something big.
   ox = "",
   oy = "",
+  // Height the camera aims at — for anything standing on the ground,
+  // use this rather than `oy`, which slides the prop through the floor.
+  ty = "",
 ] = process.argv.slice(2);
 const extra =
   `${dist ? `&d=${dist}` : ""}${eye ? `&y=${eye}` : ""}` +
-  `${ox ? `&ox=${ox}` : ""}${oy ? `&oy=${oy}` : ""}`;
+  `${ox ? `&ox=${ox}` : ""}${oy ? `&oy=${oy}` : ""}${ty ? `&ty=${ty}` : ""}`;
 const base = process.env.HARNESS_URL ?? "http://localhost:3000";
 const exe = process.env.CHROME_PATH; // set when the bundled build is missing
 

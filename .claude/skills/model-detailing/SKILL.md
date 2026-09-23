@@ -38,15 +38,19 @@ expensive round trip through the person you're working with.
 ### The harness
 
 `/dev/model?m=<prop>&a=<angle>&v=<variant>&d=<distance>&y=<eye height>`
-`&ox=<x offset>&oy=<y offset>` stages one prop on a neutral turntable using
-the scene's own lighting, so what you judge matches what the scene will
-show.
+`&ox=<x offset>&oy=<y offset>&ty=<target height>` stages one prop on a
+neutral turntable using the scene's own lighting, so what you judge matches
+what the scene will show.
 
-`ox`/`oy` slide the prop under the camera, which always looks at the
-origin. On something big — a house, a tree — that is how you frame one
-detail: work out where the detail lands after the `a` rotation and offset
-it to the origin. `shoot-model.mjs` takes them as its last two arguments,
-after `<distance> <eye>`.
+For anything **standing on the ground**, frame it with `ty` — the height the
+camera aims at. `oy` moves the prop but *not* the stage's ground plane, so
+using it on a tree buries the bottom of the trunk and leaves you judging a
+shrub. `ox`/`oy` are for sliding a detail on a big model under the camera:
+work out where the detail lands after the `a` rotation and offset it to the
+origin.
+
+`shoot-model.mjs` takes these as trailing arguments:
+`<model> <outDir> <angles> <variant> <distance> <eye> <ox> <oy> <ty>`.
 
 To watch something animate you need several frames from **one** page load —
 each `goto` restarts the clock, so shooting the same angle twice gives you
@@ -107,12 +111,34 @@ Check these every time — each one shipped at least once:
 - **A pale detail on a lit surface.** A white cobweb over a lit window pane
   is invisible. Tint it dark and it silhouettes against the light. Give the
   component a `color` prop rather than baking two textures.
+- **A colour map that leaves the tint nothing to do.** A map is *multiplied*
+  by the material or instance colour. Paint the texture in full autumn red
+  and every instance comes out the same dark red however you tint it. Draw
+  the *light* — a pale, desaturated version — and let the colour do the
+  colouring. This is what makes one instanced geometry read as a dozen
+  different objects.
+- **A texture that wanders but doesn't come back.** Grain, furrows, anything
+  drawn by walking down the canvas with a random step will not line up at
+  the seam, and on a repeating surface that shows as a hard ring every tile.
+  Use a sum of sines over the tile's height instead — periodic by
+  construction, so it joins.
+- **Instances that are all one size.** Ragged geometry is not enough: if
+  every cluster is scaled the same, the eye reads the repeat anyway. Vary
+  the bulk per instance as well as the shape.
 - **Facing the wrong way.** Anything with a front — a carved face, a sign,
   an epitaph — must be aimed at the room camera at `(0.4, 1.45, 4.4)`.
   `Math.atan2(camX - x, camZ - z)` gives the rotation.
 - **Sub-parts rotating about their own centres.** Parts that must stay flush
   (a stone and the text carved into it) belong in one group with a shared
   transform, not positioned separately with matching rotations.
+- **Standing off the end of the world.** A prop that looks like it is
+  floating is often fine — it is the *ground* that ran out. Check the scene's
+  floor plane covers where you put it: a `planeGeometry` is centred on its
+  mesh position, so `args={[40, 24]}` at `z = 1.5` stops at `z = -10.5`, and
+  anything further back has nothing under it. If the edge also falls inside
+  the fog's near plane it reads as a hard line with sky behind it. Widen the
+  ground until its edge is well into the fog — but keep it inside the sky
+  dome's radius, or it will cut through and leave a seam.
 - **Too close to the camera.** Room view sits at `z = 4.4`. Props at
   `z > 2` are in the viewer's lap. Note also that the board casts a wide
   occlusion shadow — anything directly behind it is hidden.

@@ -7,6 +7,7 @@ import type { BoardTheme } from "@/lib/themes";
 import { BOARD } from "@/lib/board-geometry";
 import { ZOMBIE_HAND_DURATION, zombieHandPose } from "@/lib/haunted";
 import { makeToonGradient, mulberry32 } from "./textures";
+import { AutumnGrove } from "./props/AutumnTree";
 import { HauntedHouse } from "./props/HauntedHouse";
 import { Pumpkin } from "./props/Pumpkin";
 import { Headstone, type HeadstoneKind } from "./props/Headstone";
@@ -61,12 +62,13 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
       <group position={[HOUSE_X, 0, HOUSE_Z]} rotation={[0, HOUSE_TURN, 0]}>
         <HauntedHouse />
       </group>
-      <AutumnTrees gradient={gradient} />
-      <FallingLeaves />
+      <AutumnGrove trees={TREES} />
 
-      {/* ground */}
+      {/* Ground. Wide enough to run under everything and out into the
+          fog — at 40x24 it stopped at z -10.5, which left the tree at
+          z -11.8 standing on nothing. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 1.5]} receiveShadow>
-        <planeGeometry args={[40, 24]} />
+        <planeGeometry args={[80, 64]} />
         <meshToonMaterial color={theme.room.floor} gradientMap={gradient} />
       </mesh>
 
@@ -126,163 +128,26 @@ function SkyDome() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Trees & leaves                                                     */
+/*  Trees                                                             */
 /* ------------------------------------------------------------------ */
 
-const AUTUMN = ["#c2571f", "#d97b25", "#a33717", "#c99029", "#8f4420"];
-
-function AutumnTrees({ gradient }: { gradient: THREE.Texture }) {
-  const trees = useMemo(() => {
-    const rand = mulberry32(2029);
-    // Weighted to the right so the graveyard sits in woodland, with a
-    // couple far back behind the board for depth.
-    return [
-      { x: -2.6, z: -9.8, scale: 1.3 },
-      { x: 1.8, z: -10.5, scale: 1.15 },
-      { x: 6.8, z: -8.6, scale: 1.2 },
-      { x: 9.2, z: -5.4, scale: 1.05 },
-      { x: 10.4, z: -9.2, scale: 1.25 },
-      { x: 10.8, z: -2.4, scale: 0.95 },
-      { x: 7.6, z: -11.8, scale: 1.1 },
-    ].map((t) => ({ ...t, seed: Math.floor(rand() * 10000) }));
-  }, []);
-
-  return (
-    <>
-      {trees.map((t, i) => (
-        <AutumnTree key={i} gradient={gradient} {...t} />
-      ))}
-    </>
-  );
-}
-
 /**
- * Trunk plus a cluster of icosahedron blobs — the same chunky toon
- * foliage the indoor flower bush uses, in autumn colours.
+ * Weighted to the right so the graveyard sits in woodland, with a
+ * couple far back behind the board for depth. Each seed grows a
+ * different tree — see `src/lib/tree.ts`.
  */
-function AutumnTree({
-  gradient,
-  x,
-  z,
-  scale,
-  seed,
-}: {
-  gradient: THREE.Texture;
-  x: number;
-  z: number;
-  scale: number;
-  seed: number;
-}) {
-  const { blobs, branches } = useMemo(() => {
-    const rand = mulberry32(seed);
-    const blobs = Array.from({ length: 13 }, () => ({
-      pos: [
-        (rand() - 0.5) * 2.5,
-        2.6 + rand() * 1.5,
-        (rand() - 0.5) * 2.2,
-      ] as [number, number, number],
-      r: 0.5 + rand() * 0.45,
-      tint: AUTUMN[Math.floor(rand() * AUTUMN.length)],
-    }));
-    const branches = Array.from({ length: 3 }, (_, i) => ({
-      angle: (i / 3) * Math.PI * 2 + rand(),
-      y: 1.7 + rand() * 0.7,
-      len: 0.7 + rand() * 0.4,
-    }));
-    return { blobs, branches };
-  }, [seed]);
-
-  return (
-    <group position={[x, 0, z]} scale={scale}>
-      <mesh position={[0, 1.5, 0]} castShadow>
-        <cylinderGeometry args={[0.18, 0.32, 3, 9]} />
-        <meshToonMaterial color="#5b4132" gradientMap={gradient} />
-      </mesh>
-      {branches.map((b, i) => (
-        <mesh
-          key={i}
-          position={[
-            Math.cos(b.angle) * b.len * 0.5,
-            b.y,
-            Math.sin(b.angle) * b.len * 0.5,
-          ]}
-          rotation={[0, -b.angle, Math.PI / 3]}
-          castShadow
-        >
-          <cylinderGeometry args={[0.06, 0.1, b.len, 6]} />
-          <meshToonMaterial color="#4f3829" gradientMap={gradient} />
-        </mesh>
-      ))}
-      {blobs.map((b, i) => (
-        <mesh key={i} position={b.pos} castShadow>
-          <icosahedronGeometry args={[b.r, 0]} />
-          <meshToonMaterial color={b.tint} gradientMap={gradient} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/** Leaves tumbling down and resetting at the top — one instanced mesh. */
-function FallingLeaves() {
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  const COUNT = 42;
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const leaves = useMemo(() => {
-    const rand = mulberry32(55);
-    return Array.from({ length: COUNT }, () => ({
-      x: (rand() - 0.5) * 22,
-      z: (rand() - 0.5) * 14 - 1,
-      top: 4 + rand() * 4,
-      speed: 0.35 + rand() * 0.5,
-      spin: (rand() - 0.5) * 3,
-      sway: 0.4 + rand() * 0.9,
-      phase: rand() * Math.PI * 2,
-      tint: new THREE.Color(AUTUMN[Math.floor(rand() * AUTUMN.length)]),
-    }));
-  }, []);
-
-  useEffect(() => {
-    const m = mesh.current;
-    if (!m) return;
-    leaves.forEach((l, i) => m.setColorAt(i, l.tint));
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [leaves]);
-
-  useFrame((state) => {
-    const m = mesh.current;
-    if (!m) return;
-    const t = state.clock.elapsedTime;
-    leaves.forEach((l, i) => {
-      // wrap continuously from the top back down
-      const fallen = (t * l.speed) % (l.top + 0.5);
-      const y = l.top - fallen;
-      dummy.position.set(
-        l.x + Math.sin(t * l.sway + l.phase) * 0.6,
-        y,
-        l.z + Math.cos(t * l.sway * 0.7 + l.phase) * 0.3
-      );
-      dummy.rotation.set(t * l.spin, t * l.spin * 0.6, l.phase);
-      dummy.scale.setScalar(0.11);
-      dummy.updateMatrix();
-      m.setMatrixAt(i, dummy.matrix);
-    });
-    m.instanceMatrix.needsUpdate = true;
-  });
-
-  return (
-    <instancedMesh
-      ref={mesh}
-      args={[undefined, undefined, COUNT]}
-      // instanced meshes are frustum-culled by their base geometry's
-      // bounds at the origin, which culls the whole field on a turn
-      frustumCulled={false}
-    >
-      <planeGeometry args={[1, 0.7]} />
-      <meshToonMaterial side={THREE.DoubleSide} />
-    </instancedMesh>
-  );
-}
+const TREES = [
+  // Seeds chosen for the mix rather than at random: three broad dense
+  // crowns, three open ones and one already bare, so the stand doesn't
+  // read as one kind of tree repeated.
+  { x: -2.6, z: -9.8, scale: 1.3, seed: 1182 },
+  { x: 1.8, z: -10.5, scale: 1.15, seed: 1049 },
+  { x: 6.8, z: -8.6, scale: 1.2, seed: 1084 },
+  { x: 9.2, z: -5.4, scale: 1.05, seed: 1063 },
+  { x: 10.4, z: -9.2, scale: 1.25, seed: 1210 },
+  { x: 10.8, z: -2.4, scale: 0.95, seed: 1238 },
+  { x: 7.6, z: -11.8, scale: 1.1, seed: 1056 },
+];
 
 /* ------------------------------------------------------------------ */
 /*  Graves                                                             */
