@@ -142,6 +142,25 @@ export function makeMoundGeometry(
     }
   }
 
+  /**
+   * A floor under the skirt, closing the shell into a solid.
+   *
+   * Without it the mound is a single open surface: from low down you
+   * see through it where the backface is culled, and anything inside
+   * it — an arm on its way up, most of the time — shows through from
+   * underneath before it has broken the soil.
+   *
+   * It sits below the ground, so it is never seen; it is there to make
+   * the mound opaque from every direction.
+   */
+  const floor = position.length / 3;
+  position.push(0, -0.075, 0);
+  uv.push(0.5, 0);
+  colour.push(1, 0.97, 0.93);
+  for (let i = 0; i < segW; i++) {
+    index.push(floor, i + 1, i);
+  }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
@@ -319,7 +338,16 @@ export function GraveMound({
   return (
     <group onPointerDown={onPointerDown} onClick={(e) => e.stopPropagation()}>
       <mesh geometry={geo} receiveShadow castShadow>
-        <meshToonMaterial map={soil} color="#a98e68" gradientMap={ramp} vertexColors />
+        <meshToonMaterial
+          map={soil}
+          color="#a98e68"
+          gradientMap={ramp}
+          vertexColors
+          // Belt and braces with the floor above: nothing about this
+          // mound should ever be see-through from any angle a viewer
+          // can get to.
+          side={THREE.DoubleSide}
+        />
       </mesh>
       {spill.map((s, i) => (
         <mesh
