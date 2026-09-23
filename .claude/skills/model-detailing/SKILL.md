@@ -38,8 +38,21 @@ expensive round trip through the person you're working with.
 ### The harness
 
 `/dev/model?m=<prop>&a=<angle>&v=<variant>&d=<distance>&y=<eye height>`
-stages one prop on a neutral turntable using the scene's own lighting, so
-what you judge matches what the scene will show.
+`&ox=<x offset>&oy=<y offset>` stages one prop on a neutral turntable using
+the scene's own lighting, so what you judge matches what the scene will
+show.
+
+`ox`/`oy` slide the prop under the camera, which always looks at the
+origin. On something big — a house, a tree — that is how you frame one
+detail: work out where the detail lands after the `a` rotation and offset
+it to the origin. `shoot-model.mjs` takes them as its last two arguments,
+after `<distance> <eye>`.
+
+To watch something animate you need several frames from **one** page load —
+each `goto` restarts the clock, so shooting the same angle twice gives you
+the same frame. Load the page once, then `waitForTimeout` and screenshot
+between waits. Keep the throwaway script inside the repo: a script in
+`/tmp` cannot resolve `@playwright/test`.
 
 Register a new prop in the `MODELS` map in
 `src/app/dev/model/ModelStage.tsx`.
@@ -73,6 +86,27 @@ Check these every time — each one shipped at least once:
 - **Shadow acne on grooved surfaces.** Self-shadowing stipple across ribs.
   Fix with `shadow-bias={-0.0004}` and `shadow-normalBias={0.02}`, and a
   larger `shadow-mapSize`.
+- **Shadow acne on big flat surfaces.** On something house-sized it does not
+  look like stipple at all — it looks like broad diagonal bands of shadow
+  lying across a wall, convincing enough to be mistaken for a cast shadow
+  from geometry that isn't there. The bands run diagonally because they
+  follow the *light's* texel grid, not the world axes. Ruling it out is one
+  render with the light's `castShadow={false}`: if the bands vanish, they
+  were never geometry. A big prop needs roughly `shadow-bias={-0.0012}` and
+  `shadow-normalBias={0.06}`.
+- **A shadow camera that doesn't cover the prop.** The default directional
+  shadow frustum is ±5 units. Set `shadow-camera-left/right/top/bottom/far`
+  to contain the prop — **and** add
+  `onUpdate={(self) => self.shadow.camera.updateProjectionMatrix()}`. R3F
+  assigns those properties but never refreshes the projection matrix, so
+  without it they are silently ignored.
+- **A gradient baked into a repeating tile.** Damp rising up a wall, dirt
+  settling at the foot of a post — put it in the tile and it repeats with
+  the tile, banding the whole surface. Anything that varies across the
+  *object* has to live on the object, not in a texture that wraps.
+- **A pale detail on a lit surface.** A white cobweb over a lit window pane
+  is invisible. Tint it dark and it silhouettes against the light. Give the
+  component a `color` prop rather than baking two textures.
 - **Facing the wrong way.** Anything with a front — a carved face, a sign,
   an epitaph — must be aimed at the room camera at `(0.4, 1.45, 4.4)`.
   `Math.atan2(camX - x, camZ - z)` gives the rotation.
