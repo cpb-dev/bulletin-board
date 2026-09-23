@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  canTouchGlass,
   castFor,
   decayMark,
+  FORM_BUILD,
   FORMS,
   GHOST_GAP_MAX,
   GHOST_GAP_MIN,
@@ -12,6 +14,7 @@ import {
   PASS_MARK,
   PASS_SECONDS,
   pickSighting,
+  SHROUD_HALF,
   type GhostForm,
   type PassKind,
 } from "@/lib/ghost";
@@ -230,19 +233,26 @@ describe("pickSighting", () => {
   });
 
   it("keeps the ones that touch the glass to about a quarter of sightings", () => {
+    /*
+     * Measured across every form, which is what a person actually
+     * sees. Two of the five stand too far back to reach the pane, so
+     * the weights have to carry that before this lands where it
+     * should — adding those forms quietly cut the rate from a quarter
+     * to a sixth, which is the sort of thing nobody notices until the
+     * feature has stopped happening.
+     */
     const counts: Record<string, number> = {};
     const rand = seeded(7);
-    const N = 6000;
+    const N = 8000;
     for (let i = 0; i < N; i++) {
       const { kind } = pickSighting([...FORMS], rand);
       counts[kind] = (counts[kind] ?? 0) + 1;
     }
     for (const kind of PASS_KINDS) expect(counts[kind]).toBeGreaterThan(0);
-    const touching =
-      (counts.press + counts.hands + counts.drag) / N;
+    const touching = (counts.press + counts.hands + counts.drag) / N;
     // rare enough to still be worth waiting for
-    expect(touching).toBeGreaterThan(0.18);
-    expect(touching).toBeLessThan(0.38);
+    expect(touching).toBeGreaterThan(0.19);
+    expect(touching).toBeLessThan(0.32);
     expect(counts.drift).toBeGreaterThan(counts.hands);
     expect(counts.drag).toBeLessThan(counts.hands);
   });
@@ -306,6 +316,104 @@ describe("nextGhostTime", () => {
     // long enough that the slowest pass always finishes first
     for (const kind of PASS_KINDS) {
       expect(GHOST_GAP_MIN).toBeGreaterThan(PASS_SECONDS[kind]);
+    }
+  });
+});
+
+describe("FORM_BUILD", () => {
+  /** The two window sizes the haunted house actually uses. */
+  const PANES = [
+    { w: 0.9, h: 1.1 },
+    { w: 0.8, h: 0.9 },
+  ];
+  /** How the component sizes a figure against its pane. */
+  const NATURAL = 0.52;
+
+  it("describes every form", () => {
+    for (const form of FORMS) {
+      const b = FORM_BUILD[form];
+      expect(b).toBeDefined();
+      expect(b.size).toBeGreaterThan(0.4);
+      expect(b.depth).toBeGreaterThanOrEqual(0);
+      expect(b.depth).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("has some near the glass and some at the back of the room", () => {
+    const near = FORMS.filter(canTouchGlass);
+    const far = FORMS.filter((f) => !canTouchGlass(f));
+    expect(near.length).toBeGreaterThan(1);
+    expect(far.length).toBeGreaterThan(1);
+  });
+
+  it("makes the set-back ones the big ones", () => {
+    // the whole point: something genuinely further away would be
+    // smaller, so a figure only reads as deep *and* large if it is
+    // built large and hazed back
+    const near = FORMS.filter(canTouchGlass).map((f) => FORM_BUILD[f].size);
+    const far = FORMS.filter((f) => !canTouchGlass(f)).map(
+      (f) => FORM_BUILD[f].size
+    );
+    expect(Math.min(...far)).toBeGreaterThan(Math.max(...near));
+  });
+
+  it("stands the set-back ones higher up the pane", () => {
+    for (const form of FORMS) {
+      if (canTouchGlass(form)) continue;
+      expect(FORM_BUILD[form].drop).toBeLessThanOrEqual(0);
+    }
+  });
+
+  it("keeps even the biggest form inside the glass", () => {
+    // sized off the wrong figure, a tall form walks out over the
+    // clapboard, and there is no cheap way to clip it there
+    for (const { w, h } of PANES) {
+      for (const form of FORMS) {
+        const gh = h * NATURAL * FORM_BUILD[form].size;
+        const halfWide = gh * SHROUD_HALF;
+        expect(halfWide * 1.15).toBeLessThan(w / 2);
+        // and tall enough to still be inside the opening
+        expect(gh).toBeLessThan(h);
+      }
+    }
+  });
+});
+
+describe("pickSighting and depth", () => {
+  it("never sends a form at the back of the room to touch the glass", () => {
+    // a handprint appearing while the thing that left it stands six
+    // feet behind the pane unpicks the one effect this all turns on
+    const rand = seeded(11);
+    for (const form of FORMS) {
+      if (canTouchGlass(form)) continue;
+      for (let i = 0; i < 400; i++) {
+        const s = pickSighting([form], rand);
+        expect(s.form).toBe(form);
+        expect(PASS_MARK[s.kind]).toBe("none");
+      }
+    }
+  });
+
+  it("still lets the near ones do everything", () => {
+    const rand = seeded(13);
+    const seen = new Set<string>();
+    for (let i = 0; i < 3000; i++) {
+      seen.add(pickSighting(["gaunt"], rand).kind);
+    }
+    for (const kind of PASS_KINDS) expect(seen).toContain(kind);
+  });
+
+  it("gives a far-only cast a sensible pass every time", () => {
+    const far = FORMS.filter((f) => !canTouchGlass(f));
+    const rand = seeded(17);
+    for (let i = 0; i < 300; i++) {
+      const s = pickSighting(far, rand);
+      expect(PASS_KINDS).toContain(s.kind);
+      expect(PASS_SECONDS[s.kind]).toBeGreaterThan(0);
+    }
+    // including when the generator returns its extremes
+    for (const r of [() => 0, () => 0.999999]) {
+      expect(PASS_MARK[pickSighting(far, r).kind]).toBe("none");
     }
   });
 });

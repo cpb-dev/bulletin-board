@@ -5,12 +5,14 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   castFor,
+  FORM_BUILD,
+  type GhostForm,
   ghostPose,
   nextGhostTime,
   PASS_MARK,
   PASS_SECONDS,
   pickSighting,
-  type GhostForm,
+  SHROUD_HALF,
   type MarkKind,
   type PassKind,
 } from "@/lib/ghost";
@@ -76,23 +78,28 @@ const PROFILE: [number, number][] = [
   [1.0, 0.0],
 ];
 
-/** The widest the shroud gets, as a fraction of its height. */
-export const SHROUD_HALF = 0.3;
 /** Where the face sits: height, and how far out the head bulges. */
 const FACE_AT = 0.885;
 const FACE_OUT = 0.142;
 
-/** How each form differs. Everything else about them is the same. */
-const BUILD: Record<
-  GhostForm,
-  { size: number; drop: number; face: boolean; body: string }
-> = {
-  // a tall dark shape and nothing else you can tell about it
-  shade: { size: 1.06, drop: 0, face: false, body: "#0e1319" },
-  // the same body, with a face the lamp just reaches
-  gaunt: { size: 1, drop: 0, face: true, body: "#121820" },
-  // child-sized, and standing lower than it should be
-  small: { size: 0.62, drop: 0.12, face: true, body: "#101620" },
+/**
+ * What each form is drawn in.
+ *
+ * Near the glass a figure is a silhouette, so it is nearly black.
+ * Further back it is not: haze lifts a distant dark thing towards the
+ * brightness behind it, and a figure at the back of a lamplit room
+ * comes out a warm grey rather than a cut-out. That lift is most of
+ * what makes a big shape read as far away instead of just big.
+ *
+ * Everything else about a form — its size, how high it stands, whether
+ * it has a face, how far back it is — lives in `FORM_BUILD`.
+ */
+const BODY: Record<GhostForm, string> = {
+  shade: "#0e1319",
+  gaunt: "#121820",
+  small: "#101620",
+  looming: "#2f2d26",
+  staring: "#2b2a24",
 };
 
 /** Dev harness only: hold one still part-way through a pass. */
@@ -134,6 +141,9 @@ export function WindowGhost({
   const faceMesh = useRef<THREE.Mesh>(null);
   const rest = useRef<Float32Array | null>(null);
   const mats = useRef<THREE.Material[]>([]);
+  const bodyMats = useRef<THREE.MeshBasicMaterial[]>([]);
+  /** Which form the body is currently painted as. */
+  const painted = useRef<GhostForm | null>(null);
 
   const rand = useMemo(() => mulberry32(seed * 104729), [seed]);
   const cast = useMemo(() => castFor(seed), [seed]);
@@ -141,11 +151,9 @@ export function WindowGhost({
   const nextAt = useRef(seed * 2.2 + rand() * 6);
   const sighting = useRef(pickSighting(cast, rand));
 
-  /** Full height of the tallest form; each build scales off this. */
+  /** Natural figure height; each form scales off this. */
   const gh = h * 0.52;
   const gw = gh * SHROUD_HALF;
-  /** Room left to move without any part crossing the rebate. */
-  const travel = Math.max(0, w / 2 - gw * 1.15);
 
   const geo = useMemo(
     () => ({
@@ -185,7 +193,12 @@ export function WindowGhost({
     }
 
     if (markKind) markKind.current = PASS_MARK[active.kind];
-    if (shadow) shadow.current = pose?.shadow ?? 0;
+    if (shadow) {
+      // something at the back of the room stands across much less of
+      // the lamp than something against the glass
+      shadow.current =
+        (pose?.shadow ?? 0) * (1 - FORM_BUILD[active.form].depth * 0.55);
+    }
     if (mark) mark.current = pose?.press ?? 0;
 
     if (!pose) {
@@ -194,13 +207,34 @@ export function WindowGhost({
     }
     g.visible = true;
 
-    const build = BUILD[active.form];
+    const build = FORM_BUILD[active.form];
+
+    if (painted.current !== active.form) {
+      painted.current = active.form;
+      for (const m of bodyMats.current) m.color.set(BODY[active.form]);
+    }
+
+    /*
+     * Room left to move without any part of it crossing the rebate.
+     *
+     * Measured off *this form's* half-width, not the natural one — a
+     * form half again as tall is half again as wide, and sizing the
+     * travel off the wrong figure walks it out over the clapboard,
+     * which there is no cheap way to clip.
+     *
+     * Set-back forms barely move across at all, which is its own
+     * depth cue: distance costs you angle.
+     */
+    const halfWide = gw * build.size * pose.scale;
+    const travel =
+      Math.max(0, w / 2 - halfWide * 1.15) * (1 - build.depth * 0.55);
     // Set a little low, so the head lands inside a light rather than
     // behind the bar between two of them.
     g.position.set(
       pose.x * travel,
       (pose.y - build.drop) * h - (gh * build.size) / 2 - h * 0.06,
-      pose.z * 0.07
+      // back into the room, and only the near ones come to the glass
+      pose.z * 0.07 - build.depth * gh * 0.1
     );
     g.rotation.y = pose.turn;
     // a slow, uneasy lean as it goes
@@ -208,7 +242,10 @@ export function WindowGhost({
     const s = pose.scale * build.size;
     g.scale.set(s, s, s * SQUASH);
 
-    for (const m of mats.current) m.opacity = pose.opacity;
+    // hazier the further back it is, which is the other half of why a
+    // big one reads as distant rather than merely large
+    const haze = 1 - build.depth * 0.2;
+    for (const m of mats.current) m.opacity = pose.opacity * haze;
     if (faceMesh.current) faceMesh.current.visible = build.face;
 
     /*
@@ -265,15 +302,19 @@ export function WindowGhost({
   const register = (m: THREE.Material | null) => {
     if (m && !mats.current.includes(m)) mats.current.push(m);
   };
+  const registerBody = (m: THREE.MeshBasicMaterial | null) => {
+    register(m);
+    if (m && !bodyMats.current.includes(m)) bodyMats.current.push(m);
+  };
 
-  const shroudColour = BUILD[freeze?.form ?? "gaunt"].body;
+  const shroudColour = BODY[freeze?.form ?? "gaunt"];
 
   return (
     <group ref={group} visible={false}>
       <group ref={body}>
         <mesh geometry={geo.shroud}>
           <meshBasicMaterial
-            ref={register}
+            ref={registerBody}
             color={shroudColour}
             vertexColors
             transparent
@@ -298,7 +339,7 @@ export function WindowGhost({
             >
               <mesh geometry={geo.sleeve} scale={[side, 1, 1]}>
                 <meshBasicMaterial
-                  ref={register}
+                  ref={registerBody}
                   color={shroudColour}
                   vertexColors
                   transparent

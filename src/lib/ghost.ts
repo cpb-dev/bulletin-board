@@ -32,14 +32,65 @@ function mulberry(seed: number): () => number {
 /**
  * What is at the window.
  *
- *  - `shade`  a tall dark silhouette with no face at all. The only
- *             thing you can tell about it is its shape.
- *  - `gaunt`  a drawn, hollow-eyed face over a body lost in the dark.
- *  - `small`  the same, child-sized and low in the pane, which is
- *             worse for reasons nobody can ever quite name.
+ * Three of them stand near the glass, where you can see what they
+ * are, and two stand back in the room, where you cannot:
+ *
+ *  - `shade`    a tall dark silhouette with no face at all. The only
+ *               thing you can tell about it is its shape.
+ *  - `gaunt`    a drawn, hollow-eyed face over a body lost in the dark.
+ *  - `small`    the same, child-sized and low in the pane, which is
+ *               worse for reasons nobody can ever quite name.
+ *  - `looming`  set well back and far too tall for the room it is in.
+ *  - `staring`  back there too, big, with a face you can only half
+ *               make out through the grime.
  */
-export const FORMS = ["shade", "gaunt", "small"] as const;
+export const FORMS = ["shade", "gaunt", "small", "looming", "staring"] as const;
 export type GhostForm = (typeof FORMS)[number];
+
+/** The widest the shroud gets, as a fraction of its height. */
+export const SHROUD_HALF = 0.3;
+
+export interface FormBuild {
+  /** Height, as a multiple of the window's natural figure height. */
+  size: number;
+  /** How far down the pane it stands, in pane heights. Negative lifts. */
+  drop: number;
+  /** Whether it has a face at all. */
+  face: boolean;
+  /**
+   * How far back in the room it is, 0 at the glass and 1 deep in it.
+   *
+   * This is the whole trick behind the big ones. A figure genuinely
+   * further away would be *smaller*, so the only way something reads
+   * as both large and set back is to make it large and then hand the
+   * eye every other depth cue there is: hazed towards the colour of
+   * the room rather than silhouetted black, higher up the pane, barely
+   * moving across it, and blocking much less of the lamp. Which, once
+   * you have it, says the thing at the back of that room is not the
+   * size of a person.
+   */
+  depth: number;
+}
+
+export const FORM_BUILD: Record<GhostForm, FormBuild> = {
+  // a tall dark shape and nothing else you can tell about it
+  shade: { size: 1.06, drop: 0, face: false, depth: 0 },
+  // the same body, with a face the lamp just reaches
+  gaunt: { size: 1, drop: 0, face: true, depth: 0 },
+  // child-sized, and standing lower than it should be
+  small: { size: 0.62, drop: 0.12, face: true, depth: 0 },
+  // head near the top of the pane, from the back of the room
+  looming: { size: 1.42, drop: -0.02, face: false, depth: 0.85 },
+  staring: { size: 1.26, drop: -0.01, face: true, depth: 0.68 },
+};
+
+/** Anything past this is too far back to reach the glass. */
+const REACHES_GLASS = 0.35;
+
+/** Whether this form is close enough to touch the window. */
+export function canTouchGlass(form: GhostForm): boolean {
+  return FORM_BUILD[form].depth <= REACHES_GLASS;
+}
 
 /**
  * What it does.
@@ -75,17 +126,20 @@ export const PASS_SECONDS: Record<PassKind, number> = {
 /**
  * Odds of each kind.
  *
- * The three that touch the glass come to about a quarter between
- * them. They are the ones worth waiting for, and a thing that is
- * frightening every seven seconds is not frightening.
+ * The three that touch the glass are worth waiting for, and a thing
+ * that is frightening every seven seconds is not frightening — but
+ * they also only ever come from the forms near enough to reach the
+ * pane, which is a little over half of them. So these are weighted
+ * high enough that once the set-back forms have taken their share,
+ * about a quarter of all sightings still end up leaving a print.
  */
 const WEIGHTS: Record<PassKind, number> = {
   drift: 0.38,
   linger: 0.18,
   fade: 0.14,
-  press: 0.1,
-  hands: 0.13,
-  drag: 0.07,
+  press: 0.14,
+  hands: 0.18,
+  drag: 0.1,
 };
 
 /** Gap between a window's ghost sightings, in seconds. */
@@ -119,28 +173,6 @@ export function castFor(seed: number): GhostForm[] {
   return pool.slice(0, rand() < 0.45 ? 3 : 2);
 }
 
-export interface Sighting {
-  form: GhostForm;
-  kind: PassKind;
-}
-
-/** The next thing this window does, drawn from its own cast. */
-export function pickSighting(
-  cast: GhostForm[],
-  rand: () => number = Math.random
-): Sighting {
-  const form = cast.length
-    ? cast[Math.min(cast.length - 1, Math.floor(rand() * cast.length))]
-    : "shade";
-  const total = Object.values(WEIGHTS).reduce((a, b) => a + b, 0);
-  let r = rand() * total;
-  for (const kind of PASS_KINDS) {
-    r -= WEIGHTS[kind];
-    if (r <= 0) return { form, kind };
-  }
-  return { form, kind: "drift" };
-}
-
 /** What a pass leaves on the glass, if anything. */
 export type MarkKind = "none" | "palms" | "drag" | "face";
 
@@ -152,6 +184,38 @@ export const PASS_MARK: Record<PassKind, MarkKind> = {
   hands: "palms",
   drag: "drag",
 };
+
+export interface Sighting {
+  form: GhostForm;
+  kind: PassKind;
+}
+
+/**
+ * The next thing this window does, drawn from its own cast.
+ *
+ * A form that stands at the back of the room is never given a pass
+ * that touches the glass — it cannot reach it, and a handprint
+ * appearing while the thing that left it is six feet behind the pane
+ * unpicks the one effect the whole file exists for.
+ */
+export function pickSighting(
+  cast: GhostForm[],
+  rand: () => number = Math.random
+): Sighting {
+  const form = cast.length
+    ? cast[Math.min(cast.length - 1, Math.floor(rand() * cast.length))]
+    : "shade";
+  const allowed: readonly PassKind[] = canTouchGlass(form)
+    ? PASS_KINDS
+    : PASS_KINDS.filter((k) => PASS_MARK[k] === "none");
+  const total = allowed.reduce((a, k) => a + WEIGHTS[k], 0);
+  let r = rand() * total;
+  for (const kind of allowed) {
+    r -= WEIGHTS[kind];
+    if (r <= 0) return { form, kind };
+  }
+  return { form, kind: "drift" };
+}
 
 /** How long a mark takes to fade off the glass once nothing is holding it. */
 export const MARK_FADE_SECONDS = 7;
