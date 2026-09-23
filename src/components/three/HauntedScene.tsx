@@ -5,14 +5,9 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { BoardTheme } from "@/lib/themes";
 import { BOARD } from "@/lib/board-geometry";
-import {
-  GHOST_PASS_DURATION,
-  ghostPass,
-  nextGhostTime,
-  ZOMBIE_HAND_DURATION,
-  zombieHandPose,
-} from "@/lib/haunted";
+import { ZOMBIE_HAND_DURATION, zombieHandPose } from "@/lib/haunted";
 import { makeToonGradient, mulberry32 } from "./textures";
+import { HauntedHouse } from "./props/HauntedHouse";
 import { Pumpkin } from "./props/Pumpkin";
 import { Headstone, type HeadstoneKind } from "./props/Headstone";
 
@@ -48,15 +43,24 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
         intensity={1.35}
         color="#ffe6b8"
         castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={7}
-        shadow-camera-bottom={-3}
+        shadow-mapSize={[2048, 2048]}
+        // The house is ten metres tall and stands off to the left, so
+        // the frustum has to reach it. The biases keep its big flat
+        // walls from striping themselves with shadow acne.
+        shadow-camera-left={-14}
+        shadow-camera-right={10}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-4}
+        shadow-camera-far={40}
+        shadow-bias={-0.0012}
+        shadow-normalBias={0.06}
+        onUpdate={(self) => self.shadow.camera.updateProjectionMatrix()}
       />
       <hemisphereLight args={["#c9b79b", "#6b5436", 0.55]} />
 
-      <HauntedHouse gradient={gradient} />
+      <group position={[HOUSE_X, 0, HOUSE_Z]} rotation={[0, HOUSE_TURN, 0]}>
+        <HauntedHouse />
+      </group>
       <AutumnTrees gradient={gradient} />
       <FallingLeaves />
 
@@ -119,289 +123,6 @@ function SkyDome() {
       <meshBasicMaterial map={texture} side={THREE.BackSide} fog={false} />
     </mesh>
   );
-}
-
-/* ------------------------------------------------------------------ */
-/*  The house                                                          */
-/* ------------------------------------------------------------------ */
-
-/** Window positions on the house face, in local coordinates. */
-const WINDOWS: { x: number; y: number; w: number; h: number }[] = [
-  { x: -1.9, y: 2.0, w: 0.9, h: 1.1 },
-  { x: 0.1, y: 2.0, w: 0.9, h: 1.1 },
-  { x: 2.1, y: 2.0, w: 0.9, h: 1.1 },
-  { x: -1.0, y: 4.1, w: 0.8, h: 0.9 },
-  { x: 1.2, y: 4.1, w: 0.8, h: 0.9 },
-];
-
-function HauntedHouse({ gradient }: { gradient: THREE.Texture }) {
-  const wall = "#4a3f4d";
-  const roof = "#2f2733";
-
-  return (
-    <group position={[HOUSE_X, 0, HOUSE_Z]} rotation={[0, HOUSE_TURN, 0]}>
-      {/* main block */}
-      <mesh position={[0, 2.6, 0]} castShadow receiveShadow>
-        <boxGeometry args={[6.4, 5.2, 4]} />
-        <meshToonMaterial color={wall} gradientMap={gradient} />
-      </mesh>
-      {/* sagging roof — a squat pyramid, rolled a touch so it reads crooked */}
-      <mesh position={[0, 5.9, 0]} rotation={[0, Math.PI / 4, 0.035]} castShadow>
-        <coneGeometry args={[5.1, 2.3, 4]} />
-        <meshToonMaterial color={roof} gradientMap={gradient} />
-      </mesh>
-      {/* tower on one side, for a lopsided silhouette */}
-      <mesh position={[-3.5, 3.4, 0.4]} castShadow>
-        <boxGeometry args={[1.9, 6.8, 1.9]} />
-        <meshToonMaterial color="#443a47" gradientMap={gradient} />
-      </mesh>
-      <mesh position={[-3.5, 7.5, 0.4]} rotation={[0, Math.PI / 4, -0.05]}>
-        <coneGeometry args={[1.7, 2.1, 4]} />
-        <meshToonMaterial color={roof} gradientMap={gradient} />
-      </mesh>
-      {/* chimney */}
-      <mesh position={[2.3, 6.6, -0.6]} castShadow>
-        <boxGeometry args={[0.7, 2.1, 0.7]} />
-        <meshToonMaterial color="#3b3340" gradientMap={gradient} />
-      </mesh>
-
-      {/* door */}
-      <mesh position={[0.1, 0.85, 2.01]}>
-        <planeGeometry args={[1.1, 1.7]} />
-        <meshToonMaterial color="#2a2028" gradientMap={gradient} />
-      </mesh>
-
-      {WINDOWS.map((w, i) => (
-        <Window key={i} {...w} seed={i + 1} gradient={gradient} />
-      ))}
-    </group>
-  );
-}
-
-/**
- * One lit window. A ghost drifts behind the glass on its own random
- * schedule, so sightings never line up across windows.
- */
-function Window({
-  x,
-  y,
-  w,
-  h,
-  seed,
-  gradient,
-}: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  seed: number;
-  gradient: THREE.Texture;
-}) {
-  return (
-    <group position={[x, y, 2.02]}>
-      {/* the lit pane */}
-      <mesh>
-        <planeGeometry args={[w, h]} />
-        <meshBasicMaterial color="#d9b25c" />
-      </mesh>
-
-      {/* the ghost lives between the pane and the glazing bars, so it
-          genuinely reads as being behind the glass */}
-      <WindowGhost w={w} h={h} seed={seed} />
-
-      {/* glazing bars, in front of the ghost */}
-      <mesh position={[0, 0, 0.02]}>
-        <boxGeometry args={[w * 0.06, h, 0.02]} />
-        <meshToonMaterial color="#2a2028" gradientMap={gradient} />
-      </mesh>
-      <mesh position={[0, 0, 0.02]}>
-        <boxGeometry args={[w, h * 0.06, 0.02]} />
-        <meshToonMaterial color="#2a2028" gradientMap={gradient} />
-      </mesh>
-      {/* Frame, as four bars around the edge. This was one solid box
-          spanning the whole window, which sat in front of the pane and
-          hid the ghost completely. */}
-      {[
-        { p: [0, h / 2, 0.015], a: [w * 1.12, h * 0.07, 0.012] },
-        { p: [0, -h / 2, 0.015], a: [w * 1.12, h * 0.07, 0.012] },
-        { p: [-w / 2, 0, 0.015], a: [w * 0.09, h * 1.1, 0.012] },
-        { p: [w / 2, 0, 0.015], a: [w * 0.09, h * 1.1, 0.012] },
-      ].map((bar, i) => (
-        <mesh key={i} position={bar.p as [number, number, number]}>
-          <boxGeometry args={bar.a as [number, number, number]} />
-          <meshToonMaterial color="#241c22" gradientMap={gradient} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/**
- * A ghost drifting behind a window. The figure is drawn to a canvas so
- * it can carry real detail — hollow sockets, a wailing mouth, a ragged
- * hem — and the mesh it sits on is a segmented plane whose lower rows
- * are warped every frame, so the shroud actually billows rather than
- * sliding past as a rigid cut-out.
- */
-function WindowGhost({ w, h, seed }: { w: number; h: number; seed: number }) {
-  const group = useRef<THREE.Group>(null);
-  const mat = useRef<THREE.MeshBasicMaterial>(null);
-  const geo = useRef<THREE.PlaneGeometry>(null);
-  const base = useRef<Float32Array | null>(null);
-  const rand = useMemo(() => mulberry32(seed * 104729), [seed]);
-  // Stagger the first sighting so they don't all arrive at once.
-  const nextAt = useRef(seed * 2.2 + rand() * 6);
-
-  const texture = useMemo(() => makeGhostTexture(seed), [seed]);
-  useEffect(() => () => texture.dispose(), [texture]);
-
-  const gw = w * 0.42;
-  const gh = h * 0.8;
-
-  useFrame((state) => {
-    const g = group.current;
-    const m = mat.current;
-    const geometry = geo.current;
-    if (!g || !m || !geometry) return;
-    const t = state.clock.elapsedTime;
-
-    const p = (t - nextAt.current) / GHOST_PASS_DURATION;
-    const pose = ghostPass(p);
-    if (!pose) {
-      g.visible = false;
-      // Once the pass is over, book the next one.
-      if (p > 1) nextAt.current = nextGhostTime(t, rand);
-      return;
-    }
-    g.visible = true;
-    // Scaled so the figure's full width stays inside the pane at both
-    // ends of the drift — there's no cheap way to clip to the glass, so
-    // it must never wander onto the wall.
-    g.position.x = pose.x * w * 0.45;
-    g.position.y = pose.bob;
-    m.opacity = pose.opacity * 0.9;
-    // a slow, uneasy lean as it passes
-    g.rotation.z = Math.sin(t * 0.9 + seed) * 0.05;
-
-    const pos = geometry.attributes.position;
-    if (!base.current) {
-      base.current = Float32Array.from(pos.array as ArrayLike<number>);
-    }
-    const b = base.current;
-    for (let i = 0; i < pos.count; i++) {
-      const bx = b[i * 3];
-      const by = b[i * 3 + 1];
-      // 0 at the head, 1 at the hem — the head barely moves, the
-      // shroud below it swings.
-      const d = Math.max(0, 0.5 - by / gh);
-      const fall = d * d;
-      pos.setXYZ(
-        i,
-        bx + Math.sin(t * 2.4 + by * 9 + seed) * gw * 0.18 * fall,
-        by + Math.sin(t * 3.1 + bx * 7 + seed) * gh * 0.04 * fall,
-        Math.sin(t * 1.9 + by * 6) * 0.015 * fall
-      );
-    }
-    pos.needsUpdate = true;
-  });
-
-  return (
-    <group ref={group} position={[0, 0, 0.01]} visible={false}>
-      <mesh>
-        <planeGeometry ref={geo} args={[gw, gh, 10, 14]} />
-        <meshBasicMaterial
-          ref={mat}
-          map={texture}
-          transparent
-          opacity={0}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-/**
- * Draws one hollow-eyed figure in a shroud: a head, sunken angled
- * sockets, a long wailing mouth and a torn hem. `seed` shifts the
- * features so the five windows aren't haunted by identical twins.
- */
-function makeGhostTexture(seed: number): THREE.CanvasTexture {
-  const W = 256;
-  const H = 384;
-  const c = document.createElement("canvas");
-  c.width = W;
-  c.height = H;
-  const ctx = c.getContext("2d")!;
-  ctx.clearRect(0, 0, W, H);
-
-  const rand = mulberry32(seed * 7717);
-  const lean = (rand() - 0.5) * 14; // a little asymmetry per ghost
-
-  // ---- shroud silhouette ----
-  ctx.beginPath();
-  ctx.moveTo(66, 112);
-  ctx.arc(128, 112, 62, Math.PI, 0, true); // over the top of the head
-  ctx.bezierCurveTo(206, 162, 212 + lean, 232, 208, 302);
-  // torn hem, right to left
-  ctx.quadraticCurveTo(190, 352, 170, 308);
-  ctx.quadraticCurveTo(150, 356, 130, 306);
-  ctx.quadraticCurveTo(110, 350, 90, 308);
-  ctx.quadraticCurveTo(68, 354, 48, 302);
-  ctx.bezierCurveTo(44 + lean, 232, 50, 162, 66, 112);
-  ctx.closePath();
-
-  const body = ctx.createLinearGradient(0, 40, 0, 356);
-  body.addColorStop(0, "rgba(247, 250, 255, 0.97)");
-  body.addColorStop(0.55, "rgba(222, 232, 248, 0.86)");
-  body.addColorStop(1, "rgba(186, 204, 232, 0.35)"); // wisps away at the hem
-  ctx.fillStyle = body;
-  ctx.shadowColor = "rgba(226, 238, 255, 0.85)";
-  ctx.shadowBlur = 26;
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // ---- shading, so it reads as a form rather than a flat cut-out ----
-  const shade = ctx.createRadialGradient(112, 130, 20, 128, 200, 170);
-  shade.addColorStop(0, "rgba(255, 255, 255, 0)");
-  shade.addColorStop(1, "rgba(120, 140, 175, 0.35)");
-  ctx.fillStyle = shade;
-  ctx.fill();
-
-  // ---- sunken sockets, angled inward so it glares ----
-  const socket = (cx: number, tilt: number) => {
-    ctx.save();
-    ctx.translate(cx, 106);
-    ctx.rotate(tilt);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 14, 21, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(18, 16, 28, 0.88)";
-    ctx.fill();
-    // a faint rim of light at the top of the socket
-    ctx.beginPath();
-    ctx.ellipse(0, -4, 14, 21, 0, Math.PI, Math.PI * 2);
-    ctx.strokeStyle = "rgba(210, 226, 255, 0.45)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-  };
-  socket(102, 0.26);
-  socket(154, -0.26);
-
-  // ---- open, wailing mouth ----
-  ctx.beginPath();
-  ctx.ellipse(128, 170, 17, 27, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(14, 12, 22, 0.8)";
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(128, 164, 11, 17, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(30, 26, 44, 0.55)";
-  ctx.fill();
-
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
 }
 
 /* ------------------------------------------------------------------ */

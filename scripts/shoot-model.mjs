@@ -4,12 +4,26 @@
  * scene. Requires `npm run dev` to be running.
  *
  *   node scripts/shoot-model.mjs pumpkin out/ 0,45,90
+ *   node scripts/shoot-model.mjs house out/ 0,35 0 22 4
  */
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
-const [model = "pumpkin", outDir = "shots", angles = "0,40,90", variant = "0"] =
-  process.argv.slice(2);
+const [
+  model = "pumpkin",
+  outDir = "shots",
+  angles = "0,40,90",
+  variant = "0",
+  // Big props (the house) need the camera pulled back and raised.
+  dist = "",
+  eye = "",
+  // Slides the prop, to frame a detail on something big.
+  ox = "",
+  oy = "",
+] = process.argv.slice(2);
+const extra =
+  `${dist ? `&d=${dist}` : ""}${eye ? `&y=${eye}` : ""}` +
+  `${ox ? `&ox=${ox}` : ""}${oy ? `&oy=${oy}` : ""}`;
 const base = process.env.HARNESS_URL ?? "http://localhost:3000";
 const exe = process.env.CHROME_PATH; // set when the bundled build is missing
 
@@ -20,7 +34,7 @@ const problems = [];
 page.on("pageerror", (e) => problems.push(`ERR ${e}`));
 
 for (const a of angles.split(",")) {
-  const url = `${base}/dev/model?m=${model}&a=${a}&v=${variant}`;
+  const url = `${base}/dev/model?m=${model}&a=${a}&v=${variant}${extra}`;
   await page.goto(url, { waitUntil: "networkidle" });
   await page
     .waitForSelector("canvas[data-ready='1']", { timeout: 20000 })
