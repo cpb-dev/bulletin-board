@@ -26,16 +26,22 @@ const RADIUS = 0.62;
 export function makeMoundGeometry(
   seed = 3,
   age = 0.5,
-  segW = 30,
-  segH = 16
+  segW = 40,
+  segH = 22
 ): THREE.BufferGeometry {
   const rand = mulberry32(seed * 7717 + 1);
-  // A handful of lumps, each pushing the surface out where it sits.
-  const clods = Array.from({ length: 11 }, () => ({
+  // Lumps, each pushing the surface out where it sits.
+  const clods = Array.from({ length: 16 }, () => ({
     a: rand() * Math.PI * 2,
-    r: rand() * 0.85,
+    r: rand() * 0.9,
     size: 0.16 + rand() * 0.3,
-    h: 0.02 + rand() * 0.055,
+    h: 0.016 + rand() * 0.034,
+  }));
+  // Broken spoil heaped around the lip of the hole.
+  const rim = Array.from({ length: 7 }, () => ({
+    a: rand() * Math.PI * 2,
+    size: 0.12 + rand() * 0.16,
+    h: 0.018 + rand() * 0.03,
   }));
   const wob = Array.from({ length: 5 }, () => ({
     k: 2 + Math.floor(rand() * 6),
@@ -45,7 +51,9 @@ export function makeMoundGeometry(
 
   const position: number[] = [];
   const uv: number[] = [];
+  const colour: number[] = [];
   const index: number[] = [];
+  const BOWL = RADIUS * 0.36;
 
   for (let j = 0; j <= segH; j++) {
     // v 0 at the rim, 1 at the crown
@@ -53,24 +61,16 @@ export function makeMoundGeometry(
     for (let i = 0; i <= segW; i++) {
       const u = i / segW;
       const a = u * Math.PI * 2;
-      // the rim wanders, so the patch is never a clean disc
+      // the edge wanders, so the patch is never a clean disc
       let edge = RADIUS;
       for (const w of wob) edge += Math.sin(a * w.k + w.ph) * w.amp;
       const r = edge * (1 - v);
-
       const px = Math.cos(a) * r;
       const pz = Math.sin(a) * r;
 
       // A fresh grave is heaped; an old one has settled into a dip.
       const dome = Math.pow(Math.max(0, 1 - Math.pow(1 - v, 2)), 0.7);
-      const heap = 0.2 * (1 - age * 0.55);
-      const dip = age * 0.11 * Math.pow(v, 1.4);
-      let y = dome * heap - dip;
-      // Broken open at the crown: this is not the first time something
-      // has come up through it, and an arm that rises out of unbroken
-      // soil reads as an arm passing through a wall.
-      const crater = Math.max(0, 1 - Math.hypot(px, pz) / (RADIUS * 0.34));
-      y -= Math.pow(crater, 1.6) * 0.1;
+      let y = dome * 0.19 * (1 - age * 0.45) - age * 0.06 * Math.pow(v, 1.4);
 
       for (const c of clods) {
         const cx = Math.cos(c.a) * c.r * RADIUS;
@@ -78,9 +78,31 @@ export function makeMoundGeometry(
         const d = Math.hypot(px - cx, pz - cz) / (c.size * RADIUS);
         if (d < 1) y += Math.cos(d * Math.PI * 0.5) * c.h;
       }
-      // never below the ground it sits on
-      position.push(px, Math.max(-0.1, y), pz);
+      for (const c of rim) {
+        const cx = Math.cos(c.a) * BOWL;
+        const cz = Math.sin(c.a) * BOWL;
+        const d = Math.hypot(px - cx, pz - cz) / (c.size * RADIUS);
+        if (d < 1) y += Math.cos(d * Math.PI * 0.5) * c.h;
+      }
+
+      /**
+       * The hole something came up through: a bowl scooped out of the
+       * crown.
+       *
+       * It scales the height down rather than subtracting from it, so
+       * the floor of the bowl can never go under the ground it sits on.
+       * The version before this dug to -0.1 and filled the gap with an
+       * unlit cone, which from eye level read as a black hole punched
+       * clean through the world.
+       */
+      const bowl = Math.pow(Math.max(0, 1 - Math.hypot(px, pz) / BOWL), 1.4);
+      y = y * (1 - bowl * 0.62) + 0.004;
+
+      position.push(px, Math.max(0.003, y), pz);
       uv.push(u * 2, v);
+      // Dark down in the hole, where no light reaches.
+      const shade = 1 - bowl * 0.55;
+      colour.push(shade, shade * 0.97, shade * 0.93);
     }
   }
 
@@ -95,6 +117,7 @@ export function makeMoundGeometry(
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colour, 3));
   geo.setIndex(index);
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
@@ -230,7 +253,7 @@ export function GraveMound({
   /** Spoil that never made it back into the hole. */
   const spill = useMemo(() => {
     const rand = mulberry32(seed * 911 + 3);
-    return Array.from({ length: 9 }, () => {
+    return Array.from({ length: 14 }, () => {
       const a = rand() * Math.PI * 2;
       const r = RADIUS * (0.86 + rand() * 0.42);
       const s = 0.028 + rand() * 0.042;
@@ -268,13 +291,7 @@ export function GraveMound({
   return (
     <group onPointerDown={onPointerDown} onClick={(e) => e.stopPropagation()}>
       <mesh geometry={geo} receiveShadow castShadow>
-        <meshToonMaterial map={soil} color="#a98e68" gradientMap={ramp} />
-      </mesh>
-      {/* The dark inside the break. Set just under the crown so the
-          crater has depth rather than being a dimple. */}
-      <mesh position={[0, -0.03, 0]} rotation={[Math.PI, 0, 0]}>
-        <coneGeometry args={[RADIUS * 0.3, 0.2, 14, 1, true]} />
-        <meshBasicMaterial color="#160f0a" side={THREE.BackSide} />
+        <meshToonMaterial map={soil} color="#a98e68" gradientMap={ramp} vertexColors />
       </mesh>
       {spill.map((s, i) => (
         <mesh

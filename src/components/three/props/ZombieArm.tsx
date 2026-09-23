@@ -181,8 +181,11 @@ export function makePalmGeometry(
         const y = v * h;
         // the cup: the palm side hollows, the back domes
         const across = 1 - Math.pow(Math.abs(u - 0.5) * 2, 2);
-        const along = Math.sin(v * Math.PI);
-        const thick = (d / 2) * (0.45 + 0.55 * across * along);
+        // Never allowed to thin out at the knuckle edge: the fingers
+        // are carried there, and a palm thinner than the fingers on it
+        // leaves each one apparently stuck to a sheet of card.
+        const along = 0.72 + 0.28 * Math.sin(v * Math.PI);
+        const thick = (d / 2) * (0.5 + 0.5 * across) * along;
         const cup = side < 0 ? -0.42 * across * along * d : 0;
         position.push(x, y, side * thick + cup);
         uv.push(u, v);
@@ -451,14 +454,17 @@ export function ZombieArm({
         ],
         build.finger * (1 - i * 0.16),
         build.finger * (1 - (i + 1) * 0.16),
-        build.finger * 0.34,
+        build.finger * 0.2,
         0.78,
         5,
         7
       )
     );
     const nail = new THREE.SphereGeometry(build.finger * 0.95, 8, 6);
-    return { forearm, palm, bones, nail };
+    // Unit blob, scaled per joint. Knuckles and the wrist are what stop
+    // a thin finger meeting a thick palm at a visible step.
+    const joint = new THREE.SphereGeometry(1, 10, 8);
+    return { forearm, palm, bones, nail, joint };
   }, [build]);
 
   useEffect(
@@ -469,6 +475,7 @@ export function ZombieArm({
       geo.palm.dispose();
       geo.bones.forEach((b) => b.dispose());
       geo.nail.dispose();
+      geo.joint.dispose();
     },
     [ramp, flesh, geo]
   );
@@ -511,9 +518,48 @@ export function ZombieArm({
         {skin}
       </mesh>
 
+      {/* Wrist: bridges the round forearm into the flat palm. Without
+          it the two meet at a step you can see from across the yard. */}
+      <mesh
+        geometry={geo.joint}
+        position={[0, 0.005, 0]}
+        scale={[
+          build.palm[0] * 0.34,
+          build.forearm[1] * 1.05,
+          build.palm[2] * 0.6,
+        ]}
+        castShadow
+      >
+        {skin}
+      </mesh>
+
       <mesh geometry={geo.palm} position={[0, 0.01, 0]} castShadow receiveShadow>
         {skin}
       </mesh>
+
+      {/* Knuckles. They belong to the palm, not the finger, so the
+          joint stays covered however far the finger curls — which is
+          what the fingers were missing: at any curl past a few degrees
+          the bone swung clear of the palm edge and left a gap. */}
+      {FINGERS.map((f, i) => (
+        <mesh
+          key={`k${i}`}
+          geometry={geo.joint}
+          position={[
+            f.x * build.palm[0],
+            build.palm[1] * f.y,
+            build.palm[2] * 0.06,
+          ]}
+          scale={[
+            build.finger * 1.2,
+            build.finger * 1.05,
+            build.finger * 1.15,
+          ]}
+          castShadow
+        >
+          {skin}
+        </mesh>
+      ))}
 
       {FINGERS.map((f, i) => (
         <Finger
@@ -522,7 +568,11 @@ export function ZombieArm({
           build={build}
           ramp={ramp}
           skin={skin}
-          at={[f.x * build.palm[0], build.palm[1] * f.y, 0]}
+          at={[
+            f.x * build.palm[0],
+            build.palm[1] * f.y - build.finger * 0.5,
+            build.palm[2] * 0.06,
+          ]}
           splay={f.splay}
           scale={f.scale}
           register={register}
@@ -534,19 +584,28 @@ export function ZombieArm({
       <group
         // On the palm side and tucked in. Splayed further out than this
         // it reads as a separate thing floating beside the hand.
+        // Up beside the index knuckle and turned across the palm. Set
+        // any lower and it reads as growing out of the wrist.
         position={[
-          -build.palm[0] * 0.42,
-          build.palm[1] * 0.46,
-          -build.palm[2] * 0.75,
+          -build.palm[0] * 0.4,
+          build.palm[1] * 0.58,
+          -build.palm[2] * 0.6,
         ]}
-        rotation={[-0.45, 0.55, 0.62]}
+        rotation={[-0.4, 0.45, 0.48]}
       >
+        <mesh
+          geometry={geo.joint}
+          scale={[build.finger * 1.3, build.finger * 1.2, build.finger * 1.25]}
+          castShadow
+        >
+          {skin}
+        </mesh>
         <Finger
           geo={geo}
           build={build}
           ramp={ramp}
           skin={skin}
-          at={[0, 0, 0]}
+          at={[0, -build.finger * 0.4, 0]}
           splay={0}
           scale={0.92}
           register={register}
