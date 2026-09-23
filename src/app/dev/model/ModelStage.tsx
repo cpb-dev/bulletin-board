@@ -10,6 +10,8 @@ import {
   Headstone,
   type HeadstoneKind,
 } from "@/components/three/props/Headstone";
+import { Ground } from "@/components/three/props/Ground";
+import { Sky } from "@/components/three/props/Sky";
 
 const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
 
@@ -30,6 +32,35 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
     { x: 0, z: -1.2, scale: 1.05, seed: 1049 },
     { x: 3.6, z: 0.3, scale: 1.15, seed: 1084 },
   ]} />,
+  /**
+   * The ground and sky can only be judged against the scenery they
+   * have to sit under, so this one stages a corner of the scene rather
+   * than a prop on a turntable. It brings its own world — see
+   * BRINGS_OWN_WORLD.
+   */
+  hollow: () => (
+    <>
+      <Sky />
+      <Ground color="#6b5a3c" />
+      <AutumnGrove
+        trees={[
+          { x: -7.5, z: -9, scale: 1.25, seed: 1182 },
+          { x: 2, z: -11, scale: 1.1, seed: 1049 },
+          { x: 7.5, z: -7.5, scale: 1.2, seed: 1084 },
+          { x: 11, z: -12, scale: 1.05, seed: 1210 },
+        ]}
+      />
+      <group position={[3.2, 0, -2.2]} rotation={[0, -0.3, 0]}>
+        <Headstone kind="gabled" seed={2} size={0.95} lean={0.05} age={0.7} />
+      </group>
+      <group position={[5.4, 0, -3.6]} rotation={[0, 0.25, 0]}>
+        <Headstone kind="cross" seed={5} size={1} lean={0.03} age={1} />
+      </group>
+      <group position={[1.4, 0, 0.4]}>
+        <Pumpkin size={0.42} face={1} />
+      </group>
+    </>
+  ),
   headstone: (v, age) => (
     <Headstone
       kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}
@@ -41,6 +72,9 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
     />
   ),
 };
+
+/** Models that render their own ground and sky, so the stage hides its own. */
+const BRINGS_OWN_WORLD = new Set(["hollow"]);
 
 function Stage() {
   const params = useSearchParams();
@@ -64,7 +98,15 @@ function Stage() {
     <div className="fixed inset-0" style={{ background: "#8d8377" }}>
       <Canvas
         shadows
-        camera={{ fov: 32, position: [0, eye, dist], near: 0.1, far: 50 }}
+        camera={{
+          fov: 32,
+          position: [0, eye, dist],
+          near: 0.1,
+          // The app uses 120. At 50 the sky dome (radius 60) is entirely
+          // behind the far plane and never draws, so the harness showed
+          // the clear colour and nothing else.
+          far: 200,
+        }}
         dpr={[1, 2]}
         onCreated={({ gl, camera }) => {
           camera.lookAt(0, ty, 0);
@@ -73,12 +115,13 @@ function Stage() {
         }}
       >
         {/* Matches the Haunted Hollow key/fill so what we judge here is
-            what the scene will show. */}
-        <ambientLight intensity={0.95} color="#f3e2c8" />
+            what the scene will show — including its dreary overcast,
+            which is flat and cool rather than dark. */}
+        <ambientLight intensity={1.0} color="#d9d6d1" />
         <directionalLight
           position={[-4, 7, 4]}
-          intensity={1.35}
-          color="#ffe6b8"
+          intensity={0.72}
+          color="#e7e3d8"
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-bias={-0.0012}
@@ -95,7 +138,7 @@ function Stage() {
           // ignored and a big prop gets striped with shadow acne.
           onUpdate={(self) => self.shadow.camera.updateProjectionMatrix()}
         />
-        <hemisphereLight args={["#c9b79b", "#6b5436", 0.55]} />
+        <hemisphereLight args={["#a6a6ac", "#4c4232", 0.62]} />
 
         <group position={[ox, oy, 0]}>
           <group rotation={[0, angle, 0]}>
@@ -103,11 +146,14 @@ function Stage() {
           </group>
         </group>
 
-        {/* ground, so contact and shadow shape are visible */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[20, 20]} />
-          <meshStandardMaterial color="#6b5a3c" />
-        </mesh>
+        {/* Ground, so contact and shadow shape are visible. Skipped for
+            models that bring their own. */}
+        {!BRINGS_OWN_WORLD.has(name) && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[20, 20]} />
+            <meshStandardMaterial color="#6b5a3c" />
+          </mesh>
+        )}
       </Canvas>
     </div>
   );
