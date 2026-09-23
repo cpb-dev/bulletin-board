@@ -5,11 +5,19 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { BoardTheme } from "@/lib/themes";
 import { BOARD } from "@/lib/board-geometry";
-import { ZOMBIE_HAND_DURATION, zombieHandPose } from "@/lib/haunted";
+import {
+  ARM_BURIED_Y,
+  armPose,
+  pickRise,
+  RISE_SECONDS,
+  type RiseKind,
+} from "@/lib/zombie";
 import { makeToonGradient, mulberry32 } from "./textures";
 import { AutumnGrove } from "./props/AutumnTree";
+import { GraveMound } from "./props/GraveMound";
 import { Ground } from "./props/Ground";
 import { Sky } from "./props/Sky";
+import { ZombieArm, type ArmKind } from "./props/ZombieArm";
 import { HauntedHouse } from "./props/HauntedHouse";
 import { Pumpkin } from "./props/Pumpkin";
 import { Headstone, type HeadstoneKind } from "./props/Headstone";
@@ -72,7 +80,7 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
       <Ground color={theme.room.floor} />
 
       <BoardPosts gradient={gradient} />
-      <Graves gradient={gradient} />
+      <Graves />
       <Pumpkins accent={theme.room.accent} />
       <DeadBranch gradient={gradient} />
     </group>
@@ -105,18 +113,19 @@ const TREES = [
 /*  Graves                                                             */
 /* ------------------------------------------------------------------ */
 
-function Graves({ gradient }: { gradient: THREE.Texture }) {
+function Graves() {
   const graves = useMemo(
     () => [
       // The graveyard proper: off to the right among the trees, spread
       // out rather than huddled, and well back from the camera at z 4.4.
       // A spread of ages, so the yard looks like it filled up over
-      // decades rather than all at once.
-      { x: 2.8, z: -1.5, rot: 0.12, kind: "round" as const, size: 0.92, age: 0.9 },
-      { x: 5.4, z: -0.8, rot: -0.2, kind: "gabled" as const, size: 0.86, age: 0.4 },
-      { x: 5.0, z: -2.6, rot: 0.3, kind: "cross" as const, size: 1.0, age: 1 },
-      { x: 3.6, z: -4.4, rot: -0.08, kind: "round" as const, size: 0.8, age: 0.72 },
-      { x: 6.6, z: -4.0, rot: 0.18, kind: "gabled" as const, size: 0.95, age: 0.2 },
+      // decades rather than all at once — and a different body under
+      // each, roughly matched to how long the stone has stood.
+      { x: 2.8, z: -1.5, rot: 0.12, kind: "round" as const, size: 0.92, age: 0.9, arm: "skeletal" as const },
+      { x: 5.4, z: -0.8, rot: -0.2, kind: "gabled" as const, size: 0.86, age: 0.4, arm: "bloated" as const },
+      { x: 5.0, z: -2.6, rot: 0.3, kind: "cross" as const, size: 1.0, age: 1, arm: "skeletal" as const },
+      { x: 3.6, z: -4.4, rot: -0.08, kind: "round" as const, size: 0.8, age: 0.72, arm: "gaunt" as const },
+      { x: 6.6, z: -4.0, rot: 0.18, kind: "gabled" as const, size: 0.95, age: 0.2, arm: "bloated" as const },
       // The one that isn't part of the cluster: just off the board's
       // left edge, turned to face the camera so the carving reads.
       {
@@ -128,6 +137,7 @@ function Graves({ gradient }: { gradient: THREE.Texture }) {
         // kept lightly weathered so the carving stays readable
         age: 0.35,
         epitaph: "SPOOKY\nSEASON",
+        arm: "gaunt" as const,
       },
     ],
     []
@@ -135,19 +145,21 @@ function Graves({ gradient }: { gradient: THREE.Texture }) {
   return (
     <>
       {graves.map((g, i) => (
-        <Grave key={i} gradient={gradient} seed={i + 1} {...g} />
+        <Grave key={i} seed={i + 1} {...g} />
       ))}
     </>
   );
 }
 
 /**
- * A headstone and its mound of soil. Tapping either brings a hand up
- * out of the ground; taps while it's already up are ignored so the
- * animation always plays through (same rule as the beach crabs).
+ * A headstone, its patch of turned soil, and whatever is under it.
+ *
+ * Tapping either brings an arm up. Which of the four rises you get is
+ * picked at random each time, so the same grave doesn't do the same
+ * thing twice running; taps while one is playing are ignored so it
+ * always finishes (same rule as the beach crabs).
  */
 function Grave({
-  gradient,
   x,
   z,
   rot,
@@ -156,8 +168,8 @@ function Grave({
   seed,
   age,
   epitaph,
+  arm,
 }: {
-  gradient: THREE.Texture;
   x: number;
   z: number;
   rot: number;
@@ -167,46 +179,35 @@ function Grave({
   age: number;
   /** Carved into the headstone's face, newline-separated. */
   epitaph?: string;
+  /** Which body is buried here. */
+  arm: ArmKind;
 }) {
-  const hand = useRef<THREE.Group>(null);
-  const fingers = useRef<THREE.Group>(null);
   const now = useRef(0);
   const start = useRef(-99);
-  const [rising, setRising] = useState(false);
+  const buried = useRef<THREE.Group>(null);
+  // The pose lives in a ref and is read by the arm's own frame loop.
+  // Through state it would re-render the whole arm every frame.
+  const pose = useRef(armPose("burst", 0));
+  const [rise, setRise] = useState<RiseKind | null>(null);
 
   function disturb(e: ThreeEvent<PointerEvent>) {
     e.stopPropagation();
-    if (rising) return; // let it finish clawing before it goes again
+    if (rise) return; // let it finish clawing before it goes again
     start.current = now.current;
-    setRising(true);
+    setRise(pickRise());
   }
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     now.current = t;
-    const h = hand.current;
-    if (!h) return;
+    if (!rise) return;
 
-    if (!rising) {
-      h.visible = false;
-      return;
+    const p = (t - start.current) / RISE_SECONDS[rise];
+    pose.current = armPose(rise, Math.min(1, p));
+    if (buried.current) {
+      buried.current.visible = pose.current.y > ARM_BURIED_Y + 0.02;
     }
-
-    const p = (t - start.current) / ZOMBIE_HAND_DURATION;
-    if (p >= 1) {
-      setRising(false);
-      h.visible = false;
-      return;
-    }
-
-    const pose = zombieHandPose(p);
-    h.visible = pose.y > -0.4;
-    h.position.y = pose.y;
-    h.rotation.z = pose.lean;
-    h.rotation.y = pose.lean * 0.6;
-    if (fingers.current) {
-      fingers.current.rotation.x = -pose.grasp;
-    }
+    if (p >= 1) setRise(null);
   });
 
   return (
@@ -223,49 +224,17 @@ function Grave({
         />
       </group>
 
-      {/* mound of loose soil — the tap target that reads as "the grave" */}
-      <mesh
-        position={[0, 0.05, 0.12]}
-        scale={[1, 0.34, 1]}
-        receiveShadow
-        onPointerDown={disturb}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <sphereGeometry args={[0.55, 14, 10]} />
-        <meshToonMaterial color="#4a3a2a" gradientMap={gradient} />
-      </mesh>
+      {/* The turned soil — and the tap target that reads as "the grave".
+          Older graves have settled further; the age that weathers the
+          stone sinks the earth in front of it. */}
+      <group position={[0, 0, 0.12]}>
+        <GraveMound seed={seed} age={age} onPointerDown={disturb} />
+      </group>
 
-      {/* the hand, buried until disturbed */}
-      <group ref={hand} position={[0, -0.45, 0.12]} visible={false}>
-        {/* forearm */}
-        <mesh position={[0, -0.22, 0]} castShadow>
-          <cylinderGeometry args={[0.07, 0.08, 0.5, 8]} />
-          <meshToonMaterial color="#8fa07d" gradientMap={gradient} />
-        </mesh>
-        {/* palm */}
-        <mesh position={[0, 0.06, 0]} castShadow>
-          <boxGeometry args={[0.17, 0.2, 0.09]} />
-          <meshToonMaterial color="#9aab86" gradientMap={gradient} />
-        </mesh>
-        {/* fingers, curling as it gropes */}
-        <group ref={fingers} position={[0, 0.16, 0]}>
-          {[-0.055, -0.018, 0.018, 0.055].map((fx, i) => (
-            <mesh
-              key={i}
-              position={[fx, 0.07, 0]}
-              rotation={[0, 0, (i - 1.5) * 0.06]}
-              castShadow
-            >
-              <capsuleGeometry args={[0.018, 0.12, 3, 6]} />
-              <meshToonMaterial color="#9aab86" gradientMap={gradient} />
-            </mesh>
-          ))}
-        </group>
-        {/* thumb */}
-        <mesh position={[-0.1, 0.11, 0]} rotation={[0, 0, 0.7]} castShadow>
-          <capsuleGeometry args={[0.018, 0.08, 3, 6]} />
-          <meshToonMaterial color="#9aab86" gradientMap={gradient} />
-        </mesh>
+      {/* Whatever is under it, buried until disturbed. Kept mounted so
+          a tap doesn't pay for building the geometry. */}
+      <group ref={buried} position={[0, 0, 0.12]} visible={false}>
+        <ZombieArm kind={arm} pose={pose} seed={seed} />
       </group>
     </group>
   );

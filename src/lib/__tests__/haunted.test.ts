@@ -10,8 +10,6 @@ import {
   spiderPoint,
   spiderProgress,
   spiderWaypoint,
-  zombieHandPose,
-  ZOMBIE_HAND_DURATION,
 } from "../haunted";
 
 describe("nextGhostTime", () => {
@@ -46,37 +44,6 @@ describe("ghostPass", () => {
     expect(ghostPass(0)!.opacity).toBeCloseTo(0, 5);
     expect(ghostPass(1)!.opacity).toBeCloseTo(0, 5);
     expect(ghostPass(0.5)!.opacity).toBeGreaterThan(0.9);
-  });
-});
-
-describe("zombieHandPose", () => {
-  it("stays buried before and after the animation", () => {
-    expect(zombieHandPose(0).y).toBeLessThan(0);
-    expect(zombieHandPose(1).y).toBeLessThan(0);
-    expect(zombieHandPose(0).grasp).toBe(0);
-    expect(zombieHandPose(1).grasp).toBe(0);
-  });
-
-  it("bursts up, hovers, then sinks back", () => {
-    const burst = zombieHandPose(0.1).y;
-    const up = zombieHandPose(0.5).y;
-    const sinking = zombieHandPose(0.9).y;
-    expect(burst).toBeGreaterThan(zombieHandPose(0).y);
-    expect(up).toBeGreaterThan(0);
-    expect(sinking).toBeLessThan(up);
-  });
-
-  it("ends where it started, so repeat clicks look identical", () => {
-    expect(zombieHandPose(1).y).toBeCloseTo(zombieHandPose(0).y, 5);
-  });
-
-  it("only gropes while it's above ground", () => {
-    expect(zombieHandPose(0.5).grasp).toBeGreaterThan(0);
-    expect(zombieHandPose(0.05).grasp).toBe(0);
-  });
-
-  it("has a duration long enough to read as an animation", () => {
-    expect(ZOMBIE_HAND_DURATION).toBeGreaterThan(1);
   });
 });
 

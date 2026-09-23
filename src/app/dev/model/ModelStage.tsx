@@ -12,8 +12,18 @@ import {
 } from "@/components/three/props/Headstone";
 import { Ground } from "@/components/three/props/Ground";
 import { Sky } from "@/components/three/props/Sky";
+import { GraveMound } from "@/components/three/props/GraveMound";
+import {
+  ARM_KINDS,
+  ZombieArm,
+} from "@/components/three/props/ZombieArm";
+import { armPose, RISE_KINDS } from "@/lib/zombie";
+import type { ArmPose } from "@/lib/zombie";
 
 const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
+
+/** The arm reads its pose from a ref; the harness holds it still. */
+const frozen = (pose: ArmPose): React.RefObject<ArmPose> => ({ current: pose });
 
 /** Props the harness can stage, by `?m=` name. */
 const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> = {
@@ -61,6 +71,31 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
       </group>
     </>
   ),
+  /**
+   * `v` picks the arm, `g` is how far through a rise to freeze it —
+   * so a still can be taken at any point of the animation.
+   */
+  arm: (v, g) => (
+    <group position={[0, 0.45, 0]}>
+      <ZombieArm
+        kind={ARM_KINDS[v % ARM_KINDS.length]}
+        pose={frozen(armPose(RISE_KINDS[0], g))}
+        seed={v + 1}
+      />
+    </group>
+  ),
+  /** `v` picks the rise, `g` freezes it part-way through. */
+  rise: (v, g) => (
+    <>
+      <GraveMound seed={2} age={0.4} />
+      <ZombieArm
+        kind="gaunt"
+        pose={frozen(armPose(RISE_KINDS[v % RISE_KINDS.length], g))}
+        seed={3}
+      />
+    </>
+  ),
+  mound: (v, age) => <GraveMound seed={v + 1} age={age} />,
   headstone: (v, age) => (
     <Headstone
       kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}
