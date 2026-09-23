@@ -17,7 +17,7 @@ import { Cobwebs } from "@/components/three/props/Cobweb";
 import { HouseWindow } from "@/components/three/props/HouseWindow";
 import { makeToonRamp } from "@/components/three/textures";
 import { makeCobwebTexture } from "@/components/three/props/HauntedHouse";
-import { PASS_KINDS } from "@/lib/ghost";
+import { FORMS, PASS_KINDS } from "@/lib/ghost";
 import { GraveMound } from "@/components/three/props/GraveMound";
 import {
   ARM_KINDS,
@@ -45,7 +45,17 @@ const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
  * happens in the browser. A `MODELS` entry is evaluated while the
  * element tree is built, which also happens on the server.
  */
-function HarnessWindow({ seed, p }: { seed: number; p: number }) {
+function HarnessWindow({
+  seed,
+  p,
+  pass,
+  form,
+}: {
+  seed: number;
+  p: number;
+  pass: number;
+  form: number;
+}) {
   const ramp = useMemo(() => makeToonRamp([58, 100, 146, 192, 234, 255]), []);
   const web = useMemo(() => makeCobwebTexture(3), []);
   return (
@@ -82,7 +92,11 @@ function HarnessWindow({ seed, p }: { seed: number; p: number }) {
         frontZ={0}
         ramp={ramp}
         web={web}
-        freeze={{ kind: PASS_KINDS[seed % PASS_KINDS.length], p }}
+        freeze={{
+          form: FORMS[form % FORMS.length],
+          kind: PASS_KINDS[pass % PASS_KINDS.length],
+          p,
+        }}
       />
     </group>
   );
@@ -92,7 +106,18 @@ function HarnessWindow({ seed, p }: { seed: number; p: number }) {
 const frozen = (pose: ArmPose): React.RefObject<ArmPose> => ({ current: pose });
 
 /** Props the harness can stage, by `?m=` name. */
-const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> = {
+/** Extra dials only some models read. */
+interface Dials {
+  /** Which ghost pass to stage, by `?k=`. */
+  pass: number;
+  /** Which ghost form to stage, by `?f=`. */
+  form: number;
+}
+
+const MODELS: Record<
+  string,
+  (variant: number, age: number, extra: Dials) => React.ReactNode
+> = {
   pumpkin: (v) => <Pumpkin size={0.9} face={v} />,
   house: () => <HauntedHouse />,
   // `v` picks the seed, so the harness can compare one tree against the
@@ -166,9 +191,17 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
    * `v` picks the window's seed, so the glass, its grid of lights and
    * whether one of them is broken all change with it. `g` freezes a
    * ghost part-way through a pass — waiting 7 to 17 seconds for a
-   * sighting is no way to judge one.
+   * sighting is no way to judge one — and `k` and `f` pick which pass
+   * and which form to freeze.
    */
-  window: (v, g) => <HarnessWindow seed={Math.max(1, v)} p={g} />,
+  window: (v, g, extra) => (
+    <HarnessWindow
+      seed={Math.max(1, v)}
+      p={g}
+      pass={extra.pass}
+      form={extra.form}
+    />
+  ),
   /** Spiders crawling on a flat panel, as they do on the board. */
   spider: (v) => {
     const bounds = { x: 0.55, y: 0.4 };
@@ -240,6 +273,8 @@ function Stage() {
   const angle = Number(params.get("a") ?? 0) * (Math.PI / 180);
   const variant = Number(params.get("v") ?? 0);
   const age = Number(params.get("g") ?? 0.5);
+  const pass = Number(params.get("k") ?? 0);
+  const form = Number(params.get("f") ?? 0);
   const dist = Number(params.get("d") ?? 6.2);
   const eye = Number(params.get("y") ?? 1.15);
   // Slide the prop under the camera, so a detail on a big model can be
@@ -300,7 +335,7 @@ function Stage() {
 
         <group position={[ox, oy, 0]}>
           <group rotation={[0, angle, 0]}>
-            {render ? render(variant, age) : null}
+            {render ? render(variant, age, { pass, form }) : null}
           </group>
         </group>
 

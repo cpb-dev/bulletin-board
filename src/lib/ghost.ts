@@ -1,48 +1,91 @@
 /**
- * What the ghosts behind the windows do.
+ * What the ghosts behind the windows are, and what they do.
  *
- * Every ghost used to do exactly one thing: cross its pane left to
- * right at a constant speed, fading in and out. Five windows doing the
- * same trick on a timer stops being a "did you just see that?" and
- * becomes wallpaper, which is the failure this file exists to avoid.
+ * The first pass at this made one kind of ghost — a pale shrouded
+ * figure — and had it cross the pane. Pale reads as a bedsheet at a
+ * school disco. What is actually frightening at a window is a shape
+ * you can only half resolve, and the moment it touches the glass: a
+ * gaunt face half behind a curtain, a silhouette with both palms flat
+ * against the pane, a handprint dragged down through the condensation
+ * and still there after whatever made it has gone.
  *
- * The glass they drift behind is `window-pane.ts`.
+ * So a sighting is two choices — a *form* (what it looks like) and a
+ * *pass* (what it does) — and each window draws from its own small
+ * cast, so the five of them never feel like one ghost on a loop.
  *
  * Pure, so the pacing and the poses can be checked without a renderer.
- * The mesh reads a pose and does what it is told.
+ * The glass they press against is `window-pane.ts`.
  */
 
+/** Local PRNG — keeps this file free of component imports. */
+function mulberry(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
- * The four things a ghost does.
+ * What is at the window.
  *
- *  - `drift`   crosses the pane and is gone. The common one.
- *  - `linger`  crosses half way, stops, turns to look out, moves on.
- *  - `press`   comes to the glass, faces you, holds, and is gone. The
- *              rare one, and the only one that looks back.
- *  - `fade`    starts across and dissolves part way, so a pass does not
- *              always resolve.
+ *  - `shade`  a tall dark silhouette with no face at all. The only
+ *             thing you can tell about it is its shape.
+ *  - `gaunt`  a drawn, hollow-eyed face over a body lost in the dark.
+ *  - `small`  the same, child-sized and low in the pane, which is
+ *             worse for reasons nobody can ever quite name.
  */
-export const PASS_KINDS = ["drift", "linger", "press", "fade"] as const;
+export const FORMS = ["shade", "gaunt", "small"] as const;
+export type GhostForm = (typeof FORMS)[number];
+
+/**
+ * What it does.
+ *
+ *  - `drift`   across the pane and gone. The common one.
+ *  - `linger`  half way, stops, turns to look out, moves on.
+ *  - `fade`    sets off and dissolves, so a pass need not resolve.
+ *  - `press`   comes up to the glass, faces you, holds, and is gone.
+ *  - `hands`   both palms flat on the glass, and they stay printed on
+ *              it after it goes.
+ *  - `drag`    one hand on the glass, pulled slowly down.
+ */
+export const PASS_KINDS = [
+  "drift",
+  "linger",
+  "fade",
+  "press",
+  "hands",
+  "drag",
+] as const;
 export type PassKind = (typeof PASS_KINDS)[number];
 
 /** How long each kind takes, in seconds. */
 export const PASS_SECONDS: Record<PassKind, number> = {
   drift: 2.8,
   linger: 5.4,
-  press: 4.6,
   fade: 2.2,
+  press: 4.6,
+  hands: 5.2,
+  drag: 6,
 };
 
 /**
- * Odds of each kind. `press` is deliberately rare: a face at the
- * window is frightening roughly once, and then only if you had given
- * up expecting it.
+ * Odds of each kind.
+ *
+ * The three that touch the glass come to about a quarter between
+ * them. They are the ones worth waiting for, and a thing that is
+ * frightening every seven seconds is not frightening.
  */
 const WEIGHTS: Record<PassKind, number> = {
-  drift: 0.5,
-  linger: 0.24,
-  press: 0.08,
-  fade: 0.18,
+  drift: 0.38,
+  linger: 0.18,
+  fade: 0.14,
+  press: 0.1,
+  hands: 0.13,
+  drag: 0.07,
 };
 
 /** Gap between a window's ghost sightings, in seconds. */
@@ -57,14 +100,72 @@ export function nextGhostTime(now: number, rand: () => number = Math.random) {
   return now + GHOST_GAP_MIN + rand() * (GHOST_GAP_MAX - GHOST_GAP_MIN);
 }
 
-/** Which pass happens next. */
-export function pickPass(rand: () => number = Math.random): PassKind {
-  let r = rand() * Object.values(WEIGHTS).reduce((a, b) => a + b, 0);
+/**
+ * The two or three forms this window ever shows.
+ *
+ * A cast rather than a free pick each time: a window that shows
+ * anything at all is a lucky dip, where one that shows the same two
+ * or three starts to feel like a particular room with a particular
+ * thing in it.
+ */
+export function castFor(seed: number): GhostForm[] {
+  const rand = mulberry(seed * 2246822519 + 13);
+  const pool = [...FORMS];
+  // Fisher-Yates, then take the first two or three
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, rand() < 0.45 ? 3 : 2);
+}
+
+export interface Sighting {
+  form: GhostForm;
+  kind: PassKind;
+}
+
+/** The next thing this window does, drawn from its own cast. */
+export function pickSighting(
+  cast: GhostForm[],
+  rand: () => number = Math.random
+): Sighting {
+  const form = cast.length
+    ? cast[Math.min(cast.length - 1, Math.floor(rand() * cast.length))]
+    : "shade";
+  const total = Object.values(WEIGHTS).reduce((a, b) => a + b, 0);
+  let r = rand() * total;
   for (const kind of PASS_KINDS) {
     r -= WEIGHTS[kind];
-    if (r <= 0) return kind;
+    if (r <= 0) return { form, kind };
   }
-  return "drift";
+  return { form, kind: "drift" };
+}
+
+/** What a pass leaves on the glass, if anything. */
+export type MarkKind = "none" | "palms" | "drag" | "face";
+
+export const PASS_MARK: Record<PassKind, MarkKind> = {
+  drift: "none",
+  linger: "none",
+  fade: "none",
+  press: "face",
+  hands: "palms",
+  drag: "drag",
+};
+
+/** How long a mark takes to fade off the glass once nothing is holding it. */
+export const MARK_FADE_SECONDS = 7;
+
+/**
+ * A mark left on the glass, one frame on.
+ *
+ * It outlives the thing that made it — that is the entire point of a
+ * handprint — so the window keeps its own value and lets it decay,
+ * taking whatever the ghost is pressing right now as a floor.
+ */
+export function decayMark(current: number, pressing: number, delta: number) {
+  const faded = current - delta / MARK_FADE_SECONDS;
+  return Math.max(0, Math.min(1, Math.max(faded, pressing)));
 }
 
 export interface GhostPose {
@@ -80,7 +181,7 @@ export interface GhostPose {
   x: number;
   /** Up and down, in pane heights. */
   y: number;
-  /** Towards the glass, in pane widths. 0 is its resting depth. */
+  /** Towards the glass, 0 at its resting depth and 1 against it. */
   z: number;
   /** Which way it is facing: 0 square to the glass, +/- turned away. */
   turn: number;
@@ -94,6 +195,12 @@ export interface GhostPose {
    * the light changing as much as in the figure itself.
    */
   shadow: number;
+  /** Arms: 0 hanging at its sides, 1 palms flat on the glass. */
+  reach: number;
+  /** How hard it is pressing on the glass right now, 0 to 1. */
+  press: number;
+  /** How far down the glass a dragged hand has got, 0 to 1. */
+  drag: number;
 }
 
 /** Smooth 0..1 ramp — no easing library for one curve. */
@@ -107,6 +214,16 @@ function bell(p: number, power = 1.5): number {
   return Math.sin(Math.max(0, Math.min(1, p)) * Math.PI) ** power;
 }
 
+const REST = {
+  y: 0,
+  z: 0,
+  turn: 0,
+  scale: 1,
+  reach: 0,
+  press: 0,
+  drag: 0,
+};
+
 /**
  * A ghost's pose `p` of the way through its pass.
  *
@@ -119,28 +236,26 @@ export function ghostPose(kind: PassKind, p: number): GhostPose | null {
 
   if (kind === "drift") {
     return {
+      ...REST,
       x: -1 + p * 2,
       y: Math.sin(p * Math.PI * 3) * 0.05,
-      z: 0,
       // turned slightly the way it is walking, as anything crossing is
       turn: 0.32,
       opacity: bell(p),
-      scale: 1,
       shadow: bell(p, 1) * 0.55,
     };
   }
 
   if (kind === "fade") {
-    // sets off across the pane and simply dissolves
+    const fade = smooth(p * 4) * (1 - smooth((p - 0.35) / 0.65));
     return {
+      ...REST,
       x: -1 + p * 1.25,
       y: Math.sin(p * Math.PI * 2) * 0.04,
-      z: 0,
       turn: 0.32,
       // up quickly, then away to nothing rather than back out the side
-      opacity: smooth(p * 4) * (1 - smooth((p - 0.35) / 0.65)),
-      scale: 1,
-      shadow: smooth(p * 4) * (1 - smooth((p - 0.35) / 0.65)) * 0.5,
+      opacity: fade,
+      shadow: fade * 0.5,
     };
   }
 
@@ -163,44 +278,157 @@ export function ghostPose(kind: PassKind, p: number): GhostPose | null {
       turn = 0.32;
     }
     return {
+      ...REST,
       x,
       y: Math.sin(p * Math.PI * 2) * 0.03,
-      z: 0,
       turn,
       opacity: bell(p, 1.1),
-      scale: 1,
       shadow: bell(p, 0.8) * 0.6,
     };
   }
 
-  // press: up to the glass, facing out, held, then gone between frames
-  const UP = 0.3;
-  const GONE = 0.86;
+  if (kind === "press") {
+    // up to the glass, facing out, held, then gone between frames
+    const UP = 0.3;
+    const GONE = 0.86;
+    if (p < UP) {
+      const t = smooth(p / UP);
+      return {
+        ...REST,
+        x: -0.55 + t * 0.55,
+        // meets the held phase exactly, or it snaps back off the
+        // glass by six per cent the moment it arrives
+        z: t * 0.94,
+        turn: 0.38 * (1 - t),
+        opacity: t * 0.9,
+        scale: 1 + t * 0.22,
+        shadow: t * 0.75,
+        press: t * 0.45,
+      };
+    }
+    if (p < GONE) {
+      const h = (p - UP) / (GONE - UP);
+      return {
+        ...REST,
+        x: 0,
+        /*
+         * Held against the glass. It does not drift, it does not bob
+         * — it leans in and eases off, and never past 1, because the
+         * clearance to the glazing bars is measured off exactly that.
+         */
+        z: 0.94 + Math.sin(h * Math.PI) * 0.06,
+        opacity: 0.94,
+        scale: 1.22,
+        shadow: 0.82,
+        press: 0.55,
+      };
+    }
+    // Gone. Not faded — a blink of nothing, which is worse.
+    return null;
+  }
+
+  if (kind === "hands") {
+    /*
+     * Comes to the glass, puts both palms flat on it, holds, and goes.
+     * The prints stay: the window keeps its own mark and lets it fade
+     * long after this returns null.
+     */
+    const UP = 0.26;
+    const SET = 0.4;
+    const HOLD = 0.78;
+    if (p < UP) {
+      const t = smooth(p / UP);
+      return {
+        ...REST,
+        x: (-0.45 + t * 0.45) * 0.6,
+        z: t,
+        turn: 0.3 * (1 - t),
+        opacity: t * 0.88,
+        shadow: t * 0.7,
+      };
+    }
+    if (p < SET) {
+      // the hands come up and go flat
+      const t = smooth((p - UP) / (SET - UP));
+      return {
+        ...REST,
+        x: 0,
+        z: 1,
+        opacity: 0.9,
+        shadow: 0.72 + t * 0.1,
+        reach: t,
+        press: t,
+      };
+    }
+    if (p < HOLD) {
+      return {
+        ...REST,
+        x: 0,
+        z: 1,
+        opacity: 0.92,
+        shadow: 0.84,
+        reach: 1,
+        press: 1,
+      };
+    }
+    // lets go and backs away into the dark
+    const t = smooth((p - HOLD) / (1 - HOLD));
+    return {
+      ...REST,
+      x: 0,
+      z: 1 - t,
+      opacity: 0.92 * (1 - t),
+      shadow: 0.84 * (1 - t),
+      reach: 1 - t,
+      press: Math.max(0, 1 - t * 3),
+    };
+  }
+
+  /*
+   * drag: one hand on the glass, pulled slowly down.
+   *
+   * The slowest pass, because the whole thing is the waiting. The
+   * streak it leaves is what is still there afterwards.
+   */
+  const UP = 0.2;
+  const PULL = 0.72;
   if (p < UP) {
     const t = smooth(p / UP);
     return {
-      x: -0.55 + t * 0.55,
-      y: 0,
-      z: t * 0.42,
-      turn: 0.38 * (1 - t),
-      opacity: t * 0.9,
-      scale: 1 + t * 0.22,
-      shadow: t * 0.75,
+      ...REST,
+      x: -0.3 * (1 - t),
+      z: t,
+      turn: 0.25 * (1 - t),
+      opacity: t * 0.85,
+      shadow: t * 0.6,
+      reach: t * 0.85,
     };
   }
-  if (p < GONE) {
-    // held against the glass. It does not drift, it does not bob.
-    const h = (p - UP) / (GONE - UP);
+  if (p < PULL) {
+    const t = (p - UP) / (PULL - UP);
     return {
+      ...REST,
       x: 0,
-      y: 0,
-      z: 0.42 + Math.sin(h * Math.PI) * 0.03,
-      turn: 0,
-      opacity: 0.94,
-      scale: 1.22,
-      shadow: 0.82,
+      // it sinks as the hand comes down
+      y: -t * 0.1,
+      z: 1,
+      opacity: 0.88,
+      shadow: 0.7,
+      reach: 0.85 - t * 0.72,
+      press: 1,
+      drag: t,
     };
   }
-  // Gone. Not faded — a blink of nothing, which is worse.
-  return null;
+  const t = smooth((p - PULL) / (1 - PULL));
+  return {
+    ...REST,
+    x: 0,
+    y: -0.1,
+    z: 1 - t,
+    opacity: 0.88 * (1 - t),
+    shadow: 0.7 * (1 - t),
+    reach: 0.13 * (1 - t),
+    press: Math.max(0, 1 - t * 3),
+    drag: 1,
+  };
 }

@@ -85,6 +85,19 @@ export function brokenLight(seed: number, grid: PaneGrid): number | null {
 }
 
 /**
+ * Whether this window's glass has misted over.
+ *
+ * Not every one: a row of identically fogged windows reads as a
+ * filter laid over the whole house. On the ones that have, a figure
+ * behind the glass is softer and a handprint on it is sharper, which
+ * is the contrast the whole thing turns on.
+ */
+export function misted(seed: number): boolean {
+  const rand = mulberry(seed * 668265263 + 97);
+  return rand() < 0.45;
+}
+
+/**
  * How bright the lamp behind a pane is at time `t`, as a multiplier.
  *
  * Three waves that never line up, plus an occasional guttering dip. A

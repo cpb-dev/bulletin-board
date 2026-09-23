@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  castFor,
+  decayMark,
+  FORMS,
   GHOST_GAP_MAX,
   GHOST_GAP_MIN,
   ghostPose,
+  MARK_FADE_SECONDS,
   nextGhostTime,
   PASS_KINDS,
+  PASS_MARK,
   PASS_SECONDS,
-  pickPass,
+  pickSighting,
+  type GhostForm,
   type PassKind,
 } from "@/lib/ghost";
 
@@ -15,12 +21,21 @@ function frames(kind: PassKind, steps = 200) {
   return Array.from({ length: steps + 1 }, (_, i) => ghostPose(kind, i / steps));
 }
 
+/** A cheap deterministic generator, for the weighted picks. */
+function seeded(start = 1) {
+  let s = start;
+  return () => {
+    s = (s * 1103515245 + 12345) % 2147483648;
+    return s / 2147483648;
+  };
+}
+
 describe("ghostPose", () => {
   it("renders nothing outside the pass", () => {
     for (const kind of PASS_KINDS) {
       expect(ghostPose(kind, -0.01)).toBeNull();
       expect(ghostPose(kind, 1.01)).toBeNull();
-      // a window that has never been haunted starts at -Infinity
+      // a window that has never been haunted starts far in the past
       expect(ghostPose(kind, NaN)).toBeNull();
     }
   });
@@ -32,19 +47,26 @@ describe("ghostPose", () => {
       for (const pose of frames(kind)) {
         if (!pose) continue;
         expect(Math.abs(pose.x)).toBeLessThanOrEqual(1);
-        expect(Math.abs(pose.y)).toBeLessThanOrEqual(0.1);
+        expect(Math.abs(pose.y)).toBeLessThanOrEqual(0.12);
       }
     }
   });
 
-  it("starts and ends invisible, so nothing pops in", () => {
+  it("starts invisible, so nothing pops in", () => {
     for (const kind of PASS_KINDS) {
       expect(ghostPose(kind, 0)!.opacity).toBeCloseTo(0, 2);
     }
-    // ...except the one that is meant to vanish between frames
-    for (const kind of ["drift", "linger", "fade"] as const) {
+  });
+
+  it("ends invisible too, except the one meant to vanish mid-frame", () => {
+    for (const kind of PASS_KINDS) {
       const last = frames(kind).filter(Boolean).at(-1)!;
-      expect(last.opacity).toBeLessThan(0.05);
+      if (kind === "press") {
+        // gone between frames, which is worse than fading
+        expect(ghostPose("press", 1)).toBeNull();
+      } else {
+        expect(last.opacity).toBeLessThan(0.06);
+      }
     }
   });
 
@@ -52,13 +74,19 @@ describe("ghostPose", () => {
     for (const kind of PASS_KINDS) {
       for (const pose of frames(kind)) {
         if (!pose) continue;
-        expect(pose.opacity).toBeGreaterThanOrEqual(0);
-        expect(pose.opacity).toBeLessThanOrEqual(1);
-        expect(pose.shadow).toBeGreaterThanOrEqual(0);
-        expect(pose.shadow).toBeLessThanOrEqual(1);
+        for (const v of [
+          pose.opacity,
+          pose.shadow,
+          pose.reach,
+          pose.press,
+          pose.drag,
+          pose.z,
+        ]) {
+          expect(v).toBeGreaterThanOrEqual(0);
+          expect(v).toBeLessThanOrEqual(1);
+        }
         expect(pose.scale).toBeGreaterThan(0.5);
         expect(pose.scale).toBeLessThan(2);
-        expect(pose.z).toBeGreaterThanOrEqual(0);
       }
     }
   });
@@ -74,9 +102,10 @@ describe("ghostPose", () => {
         // press ends on a deliberate cut to nothing
         if (!a || !b) continue;
         expect(Math.abs(b.x - a.x)).toBeLessThan(0.03);
-        expect(Math.abs(b.z - a.z)).toBeLessThan(0.02);
+        expect(Math.abs(b.z - a.z)).toBeLessThan(0.03);
         expect(Math.abs(b.opacity - a.opacity)).toBeLessThan(0.05);
         expect(Math.abs(b.turn - a.turn)).toBeLessThan(0.05);
+        expect(Math.abs(b.reach - a.reach)).toBeLessThan(0.06);
       }
     }
   });
@@ -92,71 +121,181 @@ describe("ghostPose", () => {
     expect(mid.x).toBeCloseTo(0, 6);
     // square to the glass at the halfway point, turned away either side
     expect(Math.abs(mid.turn)).toBeLessThan(0.05);
-    expect(ghostPose("linger", 0.2)!.turn).toBeGreaterThan(0.3);
-    expect(ghostPose("linger", 0.8)!.turn).toBeGreaterThan(0.3);
+    expect(ghostPose("linger", 0.2)!.turn).toBeGreaterThan(0.2);
+    expect(ghostPose("linger", 0.8)!.turn).toBeGreaterThan(0.2);
   });
 
-  it("dissolves part way across on a fade, rather than reaching the far side", () => {
+  it("dissolves part way across on a fade", () => {
     const poses = frames("fade").filter(Boolean);
     expect(poses.at(-1)!.x).toBeLessThan(0.35);
-    // brightest early, gone by the end
-    const peak = Math.max(...poses.map((p) => p!.opacity));
-    expect(peak).toBeGreaterThan(0.6);
+    expect(Math.max(...poses.map((p) => p!.opacity))).toBeGreaterThan(0.6);
     expect(poses.at(-1)!.opacity).toBeLessThan(0.05);
   });
 
   it("presses up to the glass, faces out, then cuts to nothing", () => {
     const held = ghostPose("press", 0.6)!;
-    expect(held.z).toBeGreaterThan(0.4);
+    expect(held.z).toBeGreaterThan(0.9);
     expect(held.turn).toBe(0);
     expect(held.scale).toBeGreaterThan(1.2);
     expect(held.opacity).toBeGreaterThan(0.9);
-    // no fade out: it is simply not there any more
     expect(ghostPose("press", 0.9)).toBeNull();
-    expect(ghostPose("press", 0.86)).toBeNull();
+  });
+
+  it("only reaches on the passes that touch the glass", () => {
+    for (const kind of PASS_KINDS) {
+      const peak = Math.max(
+        ...frames(kind).map((p) => (p ? p.reach : 0))
+      );
+      if (kind === "hands" || kind === "drag") {
+        expect(peak).toBeGreaterThan(0.5);
+      } else {
+        expect(peak).toBe(0);
+      }
+    }
+  });
+
+  it("puts both palms flat and holds them there", () => {
+    const set = ghostPose("hands", 0.55)!;
+    expect(set.reach).toBe(1);
+    expect(set.press).toBe(1);
+    expect(set.z).toBe(1);
+    // and lets go before it goes
+    expect(ghostPose("hands", 0.97)!.press).toBeLessThan(0.2);
+  });
+
+  it("pulls a dragging hand down the glass, and sinks with it", () => {
+    const early = ghostPose("drag", 0.25)!;
+    const late = ghostPose("drag", 0.68)!;
+    expect(late.drag).toBeGreaterThan(early.drag);
+    expect(late.reach).toBeLessThan(early.reach);
+    expect(late.y).toBeLessThan(early.y);
+    expect(late.press).toBe(1);
   });
 
   it("dims the lamp most when it is closest to the glass", () => {
-    const press = frames("press").filter(Boolean);
-    const drift = frames("drift").filter(Boolean);
-    expect(Math.max(...press.map((p) => p!.shadow))).toBeGreaterThan(
-      Math.max(...drift.map((p) => p!.shadow))
+    const close = Math.max(
+      ...frames("press").map((p) => p?.shadow ?? 0),
+      ...frames("hands").map((p) => p?.shadow ?? 0)
     );
+    const crossing = Math.max(...frames("drift").map((p) => p?.shadow ?? 0));
+    expect(close).toBeGreaterThan(crossing);
     // and never blacks the window out entirely
-    expect(Math.max(...press.map((p) => p!.shadow))).toBeLessThan(0.9);
+    expect(close).toBeLessThan(0.9);
   });
 });
 
-describe("pickPass", () => {
-  it("only ever returns a kind that has a duration", () => {
-    for (let i = 0; i < 500; i++) {
-      const kind = pickPass(() => i / 500);
-      expect(PASS_KINDS).toContain(kind);
-      expect(PASS_SECONDS[kind]).toBeGreaterThan(0);
+describe("castFor", () => {
+  it("gives every window two or three forms to draw from", () => {
+    for (let seed = 1; seed < 60; seed++) {
+      const cast = castFor(seed);
+      expect(cast.length).toBeGreaterThanOrEqual(2);
+      expect(cast.length).toBeLessThanOrEqual(FORMS.length);
+      expect(new Set(cast).size).toBe(cast.length);
+      for (const form of cast) expect(FORMS).toContain(form);
     }
   });
 
-  it("keeps the face at the window rare, and drifting common", () => {
-    const counts: Record<string, number> = {};
-    let seed = 1;
-    const rand = () => {
-      seed = (seed * 1103515245 + 12345) % 2147483648;
-      return seed / 2147483648;
-    };
-    for (let i = 0; i < 4000; i++) {
-      const kind = pickPass(rand);
-      counts[kind] = (counts[kind] ?? 0) + 1;
+  it("does not give every window the same cast", () => {
+    const casts = new Set(
+      Array.from({ length: 40 }, (_, i) => castFor(i + 1).join(","))
+    );
+    expect(casts.size).toBeGreaterThan(2);
+  });
+
+  it("is stable for a seed, so a window keeps its own ghosts", () => {
+    expect(castFor(4)).toEqual(castFor(4));
+  });
+});
+
+describe("pickSighting", () => {
+  it("only ever picks from this window's cast", () => {
+    const cast: GhostForm[] = ["shade", "small"];
+    const rand = seeded();
+    for (let i = 0; i < 400; i++) {
+      const s = pickSighting(cast, rand);
+      expect(cast).toContain(s.form);
+      expect(PASS_KINDS).toContain(s.kind);
+      expect(PASS_SECONDS[s.kind]).toBeGreaterThan(0);
     }
-    // every kind shows up
-    for (const kind of PASS_KINDS) expect(counts[kind]).toBeGreaterThan(0);
-    expect(counts.drift).toBeGreaterThan(counts.linger);
-    expect(counts.press).toBeLessThan(counts.fade);
-    expect(counts.press / 4000).toBeLessThan(0.12);
   });
 
   it("copes with a generator that returns its extremes", () => {
-    expect(PASS_KINDS).toContain(pickPass(() => 0));
-    expect(PASS_KINDS).toContain(pickPass(() => 0.999999));
+    for (const r of [() => 0, () => 0.999999]) {
+      const s = pickSighting([...FORMS], r);
+      expect(FORMS).toContain(s.form);
+      expect(PASS_KINDS).toContain(s.kind);
+    }
+    // and with a window that somehow has no cast at all
+    expect(FORMS).toContain(pickSighting([], seeded()).form);
+  });
+
+  it("keeps the ones that touch the glass to about a quarter of sightings", () => {
+    const counts: Record<string, number> = {};
+    const rand = seeded(7);
+    const N = 6000;
+    for (let i = 0; i < N; i++) {
+      const { kind } = pickSighting([...FORMS], rand);
+      counts[kind] = (counts[kind] ?? 0) + 1;
+    }
+    for (const kind of PASS_KINDS) expect(counts[kind]).toBeGreaterThan(0);
+    const touching =
+      (counts.press + counts.hands + counts.drag) / N;
+    // rare enough to still be worth waiting for
+    expect(touching).toBeGreaterThan(0.18);
+    expect(touching).toBeLessThan(0.38);
+    expect(counts.drift).toBeGreaterThan(counts.hands);
+    expect(counts.drag).toBeLessThan(counts.hands);
+  });
+});
+
+describe("PASS_MARK", () => {
+  it("names a mark for every pass, and only the touching ones leave one", () => {
+    for (const kind of PASS_KINDS) {
+      expect(PASS_MARK[kind]).toBeDefined();
+    }
+    expect(PASS_MARK.hands).toBe("palms");
+    expect(PASS_MARK.drag).toBe("drag");
+    expect(PASS_MARK.press).toBe("face");
+    for (const kind of ["drift", "linger", "fade"] as const) {
+      expect(PASS_MARK[kind]).toBe("none");
+    }
+  });
+
+  it("only leaves a mark where the pose actually presses", () => {
+    for (const kind of PASS_KINDS) {
+      const pressed = Math.max(...frames(kind).map((p) => p?.press ?? 0));
+      if (PASS_MARK[kind] === "none") expect(pressed).toBe(0);
+      else expect(pressed).toBeGreaterThan(0.4);
+    }
+  });
+});
+
+describe("decayMark", () => {
+  it("holds at whatever is pressing right now", () => {
+    expect(decayMark(0, 1, 1 / 60)).toBe(1);
+    expect(decayMark(0.3, 0.8, 1 / 60)).toBe(0.8);
+  });
+
+  it("fades off the glass once nothing is holding it", () => {
+    let m = 1;
+    for (let t = 0; t < MARK_FADE_SECONDS - 0.5; t += 1 / 60) {
+      m = decayMark(m, 0, 1 / 60);
+      expect(m).toBeGreaterThan(0);
+    }
+    // gone a touch after its own fade time, and not before
+    for (let t = 0; t < 1; t += 1 / 60) m = decayMark(m, 0, 1 / 60);
+    expect(m).toBe(0);
+  });
+
+  it("outlives the pass that made it", () => {
+    expect(MARK_FADE_SECONDS).toBeGreaterThan(PASS_SECONDS.hands);
+  });
+
+  it("stays in range whatever it is handed", () => {
+    expect(decayMark(0, 0, 10)).toBe(0);
+    expect(decayMark(5, 0, 0)).toBe(1);
+    expect(decayMark(-2, 0, 0)).toBe(0);
+    expect(decayMark(0.5, 2, 0)).toBe(1);
   });
 });
 
@@ -164,6 +303,9 @@ describe("nextGhostTime", () => {
   it("books the next sighting a good while off", () => {
     expect(nextGhostTime(100, () => 0)).toBe(100 + GHOST_GAP_MIN);
     expect(nextGhostTime(100, () => 1)).toBe(100 + GHOST_GAP_MAX);
-    expect(GHOST_GAP_MIN).toBeGreaterThan(PASS_SECONDS.linger);
+    // long enough that the slowest pass always finishes first
+    for (const kind of PASS_KINDS) {
+      expect(GHOST_GAP_MIN).toBeGreaterThan(PASS_SECONDS[kind]);
+    }
   });
 });

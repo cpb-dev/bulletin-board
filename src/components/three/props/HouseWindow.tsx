@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   brokenLight,
   candleFlicker,
   lightRect,
+  misted,
   paneGrid,
   type PaneGrid,
 } from "@/lib/window-pane";
+import { decayMark, type MarkKind } from "@/lib/ghost";
 import { mulberry32 } from "../textures";
 import { CornerWeb } from "./CornerWeb";
+import { GlassMark, makeMarkTexture } from "./GlassMark";
 import { WindowGhost, type GhostFreeze } from "./WindowGhost";
 
 /**
@@ -45,6 +48,7 @@ const BAR = 0.042;
  */
 const GLASS_Z = 0.02;
 const GHOST_Z = 0.05;
+const MARK_Z = 0.14;
 const SASH_Z = 0.18;
 const WEB_Z = 0.21;
 
@@ -81,7 +85,7 @@ export function HouseWindow({
   const broken = useMemo(() => brokenLight(seed, grid), [seed, grid]);
 
   const pane = useMemo(
-    () => makePaneTexture(seed, grid, broken),
+    () => makePaneTexture(seed, grid, broken, misted(seed)),
     [seed, grid, broken]
   );
   const spill = useMemo(
@@ -97,10 +101,31 @@ export function HouseWindow({
 
   const paneMat = useRef<THREE.MeshBasicMaterial>(null);
   const spillMat = useRef<THREE.MeshBasicMaterial>(null);
-  /** The ghost writes how much of the lamp it is blocking here. */
+  const markMat = useRef<THREE.MeshBasicMaterial>(null);
+  /** The ghost writes what it is doing to this window here. */
   const shadow = useRef(0);
+  const pressing = useRef(0);
+  const markKind = useRef<MarkKind>("none");
+  /** How much of a print is currently on the glass. */
+  const marked = useRef(0);
+  const [shownMark, setShownMark] = useState<MarkKind>("none");
 
-  useFrame((state) => {
+  const marks = useMemo(
+    () => ({
+      palms: makeMarkTexture("palms", seed),
+      drag: makeMarkTexture("drag", seed),
+      face: makeMarkTexture("face", seed),
+    }),
+    [seed]
+  );
+  useEffect(() => {
+    const held = marks;
+    return () => {
+      for (const t of Object.values(held)) t.dispose();
+    };
+  }, [marks]);
+
+  useFrame((state, rawDelta) => {
     const f = candleFlicker(state.clock.elapsedTime, seed);
     // A basic material's colour multiplies its map, so a grey dims the
     // whole pane without touching the warmth the texture carries.
@@ -108,6 +133,26 @@ export function HouseWindow({
     paneMat.current?.color.setScalar(lit);
     // the light thrown onto the boards follows the lamp, a touch softer
     if (spillMat.current) spillMat.current.opacity = 0.3 * (0.45 + lit * 0.55);
+
+    /*
+     * The print on the glass. It outlives whatever made it — that is
+     * the whole point of a handprint — so this decays on its own and
+     * takes what the ghost is pressing right now as a floor.
+     */
+    const kind = markKind.current;
+    if (kind !== "none" && pressing.current > 0 && shownMark !== kind) {
+      setShownMark(kind);
+    }
+    marked.current = decayMark(
+      marked.current,
+      kind === "none" ? 0 : pressing.current,
+      Math.min(rawDelta, 1 / 20)
+    );
+    if (markMat.current) {
+      // brighter while the lamp is up, since it is the lamp coming
+      // through the glass the hand wiped clean
+      markMat.current.opacity = marked.current * 0.85 * (0.5 + lit * 0.5);
+    }
   });
 
   const bar = Math.min(w, h) * BAR;
@@ -128,9 +173,20 @@ export function HouseWindow({
           h={h}
           seed={seed}
           shadow={shadow}
+          mark={pressing}
+          markKind={markKind}
           freeze={freeze}
         />
       </group>
+
+      {/* What it left behind, sitting in the grime on the glass. */}
+      <GlassMark
+        w={w}
+        h={h}
+        z={inner + MARK_Z}
+        texture={shownMark === "none" ? null : marks[shownMark]}
+        material={markMat}
+      />
 
       {/* Glazing bars on the grid the glass was painted from, so a bar
           always lands on the join between two lights. */}
@@ -251,7 +307,8 @@ function Muntins({
 function makePaneTexture(
   seed: number,
   grid: PaneGrid,
-  broken: number | null
+  broken: number | null,
+  fogged: boolean
 ): THREE.CanvasTexture {
   const W = 256;
   const H = 332;
@@ -384,6 +441,37 @@ function makePaneTexture(
     ctx.beginPath();
     ctx.arc(rand() * W, rand() * H, 0.4 + rand() * 1.1, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  /*
+   * Condensation, on the windows that have it: a bloom across the
+   * middle of each light where the warm side meets the cold, with a
+   * few tracks run down out of it.
+   */
+  if (fogged) {
+    for (let i = 0; i < grid.cols * grid.rows; i++) {
+      const r = lightRect(grid, i);
+      const mx = px((r.x0 + r.x1) / 2);
+      const my = py((r.y0 + r.y1) / 2 - 0.02);
+      const rad = px(r.x1 - r.x0) * 0.72;
+      const g = ctx.createRadialGradient(mx, my, 0, mx, my, rad);
+      g.addColorStop(0, "rgba(236, 226, 206, 0.2)");
+      g.addColorStop(0.6, "rgba(236, 226, 206, 0.1)");
+      g.addColorStop(1, "rgba(236, 226, 206, 0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(mx - rad, my - rad, rad * 2, rad * 2);
+
+      for (let n = 0; n < 3; n++) {
+        const tx = px(r.x0) + rand() * px(r.x1 - r.x0);
+        const from = my + rand() * 10;
+        const to = py(r.y0);
+        const tg = ctx.createLinearGradient(0, from, 0, to);
+        tg.addColorStop(0, "rgba(246, 238, 218, 0)");
+        tg.addColorStop(1, `rgba(246, 238, 218, ${0.1 + rand() * 0.12})`);
+        ctx.fillStyle = tg;
+        ctx.fillRect(tx, from, 1 + rand() * 2, to - from);
+      }
+    }
   }
 
   // a crack or two, catching the light along their length

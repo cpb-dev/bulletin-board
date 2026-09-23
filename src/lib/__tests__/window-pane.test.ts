@@ -3,6 +3,7 @@ import {
   brokenLight,
   candleFlicker,
   lightRect,
+  misted,
   paneGrid,
 } from "@/lib/window-pane";
 
@@ -136,5 +137,31 @@ describe("candleFlicker", () => {
         Math.abs(candleFlicker(t + 1 / 60, 2) - candleFlicker(t, 2))
       ).toBeLessThan(0.1);
     }
+  });
+});
+
+describe("misted", () => {
+  it("fogs some windows and not others", () => {
+    const fogged = Array.from({ length: 200 }, (_, i) => misted(i + 1));
+    const n = fogged.filter(Boolean).length;
+    // a row of identically fogged windows reads as a filter laid over
+    // the whole house
+    expect(n).toBeGreaterThan(30);
+    expect(n / fogged.length).toBeLessThan(0.65);
+  });
+
+  it("is stable for a seed", () => {
+    expect(misted(6)).toBe(misted(6));
+  });
+
+  it("does not simply follow whether the window is broken", () => {
+    const grid = paneGrid(0.9, 1.1);
+    let same = 0;
+    for (let seed = 1; seed <= 120; seed++) {
+      if (misted(seed) === (brokenLight(seed, grid) !== null)) same++;
+    }
+    // two dice, not one
+    expect(same).toBeGreaterThan(20);
+    expect(same).toBeLessThan(100);
   });
 });
