@@ -5,7 +5,8 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { doorSwing } from "@/lib/haunted";
 import { makeToonRamp, mulberry32 } from "../textures";
-import { WindowGhost } from "./WindowGhost";
+import { CornerWeb } from "./CornerWeb";
+import { HouseWindow } from "./HouseWindow";
 
 /**
  * The house at the edge of Haunted Hollow.
@@ -532,146 +533,6 @@ export function makeCobwebTexture(seed = 5): THREE.CanvasTexture {
 /*  Parts                                                              */
 /* ------------------------------------------------------------------ */
 
-type Corner = "tl" | "tr" | "bl" | "br";
-
-/** Rotation that moves the texture's hub to the requested corner. */
-const CORNER_SPIN: Record<Corner, number> = {
-  tl: 0,
-  tr: -Math.PI / 2,
-  br: Math.PI,
-  bl: Math.PI / 2,
-};
-/** Which way the plane's centre sits from that corner, per half-size. */
-const CORNER_SHIFT: Record<Corner, [number, number]> = {
-  tl: [1, -1],
-  tr: [-1, -1],
-  br: [-1, 1],
-  bl: [1, 1],
-};
-
-/**
- * A web strung across one corner of an opening. `x, y` is the corner
- * itself; the plane is placed and spun so the web's hub lands on it.
- */
-function Cobweb({
-  texture,
-  x,
-  y,
-  z,
-  size,
-  corner,
-  opacity = 0.85,
-  color = "#ffffff",
-}: {
-  texture: THREE.Texture;
-  x: number;
-  y: number;
-  z: number;
-  size: number;
-  corner: Corner;
-  opacity?: number;
-  /** Tints the strands. A web over a lit pane has to read dark. */
-  color?: string;
-}) {
-  const [sx, sy] = CORNER_SHIFT[corner];
-  return (
-    <mesh
-      position={[x + (sx * size) / 2, y + (sy * size) / 2, z]}
-      rotation={[0, 0, CORNER_SPIN[corner]]}
-    >
-      <planeGeometry args={[size, size]} />
-      <meshBasicMaterial
-        map={texture}
-        color={color}
-        transparent
-        opacity={opacity}
-        depthWrite={false}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  );
-}
-
-/**
- * One lit window, recessed into its reveal. A ghost drifts behind the
- * glass on its own random schedule, so sightings never line up across
- * windows.
- */
-function Window({
-  x,
-  y,
-  w,
-  h,
-  seed,
-  ramp,
-  web,
-}: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  seed: number;
-  ramp: THREE.Texture;
-  web: THREE.Texture;
-}) {
-  const inner = FRONT_Z - WALL_T; // the back of the reveal
-  return (
-    <group position={[x, y, 0]}>
-      {/* the lit pane, sitting at the back of the reveal */}
-      <mesh position={[0, 0, inner + 0.02]}>
-        <planeGeometry args={[w, h]} />
-        <meshBasicMaterial color="#d9b25c" />
-      </mesh>
-
-      {/* the ghost lives between the pane and the glazing bars, so it
-          genuinely reads as being behind the glass */}
-      <group position={[0, 0, inner + 0.06]}>
-        <WindowGhost w={w} h={h} seed={seed} />
-      </group>
-
-      {/* glazing bars, in front of the ghost */}
-      <mesh position={[0, 0, inner + 0.15]}>
-        <boxGeometry args={[w * 0.05, h, 0.03]} />
-        <meshToonMaterial color="#241c22" gradientMap={ramp} />
-      </mesh>
-      <mesh position={[0, 0, inner + 0.15]}>
-        <boxGeometry args={[w, h * 0.05, 0.03]} />
-        <meshToonMaterial color="#241c22" gradientMap={ramp} />
-      </mesh>
-
-      {/* sill, proud of the facade and rotted at the ends */}
-      <mesh position={[0, -h / 2 - 0.05, FRONT_Z + 0.04]} castShadow>
-        <boxGeometry args={[w * 1.2, 0.09, 0.22]} />
-        <meshToonMaterial color="#3a3140" gradientMap={ramp} />
-      </mesh>
-
-      {/* Webs across the top corners of the opening, in front of the
-          glazing bars. Tinted dark: a pale web on a lit pane is
-          invisible, a dark one silhouettes against it. */}
-      <Cobweb
-        texture={web}
-        x={-w / 2}
-        y={h / 2}
-        z={inner + 0.19}
-        size={w * 0.5}
-        corner="tl"
-        opacity={0.85}
-        color="#2b2430"
-      />
-      <Cobweb
-        texture={web}
-        x={w / 2}
-        y={h / 2}
-        z={inner + 0.19}
-        size={w * 0.4}
-        corner="tr"
-        opacity={0.7}
-        color="#2b2430"
-      />
-    </group>
-  );
-}
-
 /**
  * The front door, hung on the face of the wall so it never swings
  * through it. `doorSwing` turns the wind into an angle; the door only
@@ -733,7 +594,7 @@ function FrontDoor({
           </mesh>
         ))}
         {/* a web in the hinge corner, stretched by the swing */}
-        <Cobweb
+        <CornerWeb
           texture={web}
           x={0.02}
           y={LEAF_H - 0.02}
@@ -745,7 +606,7 @@ function FrontDoor({
       </group>
 
       {/* webs across the top of the doorway itself */}
-      <Cobweb
+      <CornerWeb
         texture={web}
         x={DOOR.x - DOOR.w / 2 - 0.12}
         y={DOOR.h + 0.02}
@@ -753,7 +614,7 @@ function FrontDoor({
         size={0.62}
         corner="tl"
       />
-      <Cobweb
+      <CornerWeb
         texture={web}
         x={DOOR.x + DOOR.w / 2 + 0.12}
         y={DOOR.h + 0.02}
@@ -997,10 +858,12 @@ export function HauntedHouse() {
       <FrontDoor ramp={ramp} texture={doorMap} web={webs[0]} />
       <BoardedWindow ramp={ramp} />
       {WINDOWS.map((w, i) => (
-        <Window
+        <HouseWindow
           key={i}
           {...w}
           seed={i + 1}
+          inner={FRONT_Z - WALL_T}
+          frontZ={FRONT_Z}
           ramp={ramp}
           web={webs[i % webs.length]}
         />
@@ -1018,7 +881,7 @@ export function HauntedHouse() {
 
       {/* small webs tucked under the eaves — these were a metre across
           and read as sheeting hung over the front of the house */}
-      <Cobweb
+      <CornerWeb
         texture={webs[1]}
         x={BLOCK_W / 2 - 0.06}
         y={BLOCK_H - 0.06}
@@ -1027,7 +890,7 @@ export function HauntedHouse() {
         corner="tr"
         opacity={0.5}
       />
-      <Cobweb
+      <CornerWeb
         texture={webs[2]}
         x={-BLOCK_W / 2 + 0.06}
         y={BLOCK_H - 0.06}

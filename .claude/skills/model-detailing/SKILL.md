@@ -158,6 +158,30 @@ Check these every time — each one shipped at least once:
   the fog's near plane it reads as a hard line with sky behind it. Widen the
   ground until its edge is well into the fog — but keep it inside the sky
   dome's radius, or it will cut through and leave a seam.
+- **Judging a detail while craning up at it.** The harness camera sits at
+  `y = <eye>` and looks at `(0, ty, 0)`, so leaving `y` at 0 and raising `ty`
+  to frame something high on a prop tilts the view steeply upward. Anything
+  standing slightly proud of a surface — a face plane on a head, a decal, a
+  web over a frame — then shifts up the screen by its offset times the sine
+  of that angle, and looks misplaced when it is exactly where it should be.
+  Chasing that cost three passes on the window ghost. Frame a detail with
+  `y` and `ty` set to roughly the same height, and only tilt on purpose.
+- **An additive overlay sitting over the thing you are judging.** A glow
+  plane in front of a window lights the boards around it beautifully and
+  also adds its warmth back over the glass, the glazing bars and everything
+  behind them — which reads as "the texture came out too bright" and sends
+  you off to fix the texture. If an overlay is meant to light what is
+  *around* an opening, punch the opening out of it, and feather that hole
+  *inwards*: feathering outwards erases the glow exactly where it should be
+  strongest and leaves a dark halo hugging the opening, which reads as a
+  shadow cast by nothing.
+- **A figure that has to stay behind something in a shallow recess.** A
+  solid of revolution is as deep as it is wide, so a body modelled to look
+  right head-on will push its chest through a window's glazing bars and
+  stand in front of them. Squash it on the axis it is never seen along.
+- **Vertex colours are read as linear.** Bake shading into a colour
+  attribute and a value of 0.6 leaves the screen at about 0.8, so a careful
+  falloff comes out as one flat marshmallow. Square it on the way in.
 - **Too close to the camera.** Room view sits at `z = 4.4`. Props at
   `z > 2` are in the viewer's lap. Note also that the board casts a wide
   occlusion shadow — anything directly behind it is hidden.
