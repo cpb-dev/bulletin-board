@@ -21,7 +21,13 @@ import {
 } from "@/components/three/props/ZombieArm";
 import { armPose, RISE_KINDS } from "@/lib/zombie";
 import { scatterStarts } from "@/lib/spider";
-import { BOARD, BOARD_SURFACE_Z } from "@/lib/board-geometry";
+import {
+  BOARD,
+  BOARD_SURFACE_Z,
+  ITEM_Z,
+  NOTE_BASE,
+} from "@/lib/board-geometry";
+import { Pin } from "@/components/three/Pin";
 import type { ArmPose } from "@/lib/zombie";
 
 const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
@@ -131,6 +137,22 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
         <planeGeometry args={[BOARD.width, BOARD.height]} />
         <meshStandardMaterial color="#8a6f4a" roughness={1} />
       </mesh>
+      {/* Stand-in notes out at the edges, where the webs are. A web
+          that draws under a note is the thing to look for here. */}
+      {[
+        [-2.0, 1.05],
+        [2.0, 1.05],
+        [-2.0, -1.05],
+        [0.4, 1.05],
+      ].map(([nx, ny], i) => (
+        <group key={i} position={[nx, BOARD.centerY + ny, ITEM_Z]}>
+          <mesh>
+            <planeGeometry args={[NOTE_BASE, NOTE_BASE]} />
+            <meshStandardMaterial color="#f2e2a8" roughness={0.9} />
+          </mesh>
+          <Pin color="#c2454b" position={[0, NOTE_BASE / 2 - 0.05, 0.012]} />
+        </group>
+      ))}
       <Cobwebs />
     </group>
   ),

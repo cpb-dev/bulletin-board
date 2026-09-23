@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { BOARD_SURFACE_Z, ITEM_Z } from "@/lib/board-geometry";
 import {
   EDGE_SWEEP,
+  ITEM_LIFT,
+  PIN_HEIGHT,
+  SPIDER_LIFT,
+  WEB_LIFT,
   WEB_VARIANTS,
   webLayout,
   webPattern,
@@ -176,5 +181,31 @@ describe("webPattern", () => {
   it("is stable for a seed", () => {
     expect(webPattern(4, "edge")).toEqual(webPattern(4, "edge"));
     expect(webPattern(4, "edge")).not.toEqual(webPattern(5, "edge"));
+  });
+});
+
+describe("where the webs hang", () => {
+  const item = ITEM_Z - BOARD_SURFACE_Z;
+
+  it("draws the webs over the notes, not under them", () => {
+    // the whole point: a note pinned in a corner used to cover the web
+    // it was pinned across
+    expect(WEB_LIFT).toBeGreaterThan(item);
+    expect(WEB_LIFT).toBeGreaterThan(item + ITEM_LIFT);
+  });
+
+  it("clears the pin standing proud of a resting note", () => {
+    expect(WEB_LIFT).toBeGreaterThan(item + PIN_HEIGHT);
+  });
+
+  it("walks the spiders over the webs, and so over the notes", () => {
+    expect(SPIDER_LIFT).toBeGreaterThan(WEB_LIFT);
+  });
+
+  it("keeps the webs close enough to the cork to still look stuck to it", () => {
+    // they are anchored to the frame band, which sits 0.13 behind the
+    // cork; float them much further and they slide off it as you pan
+    expect(WEB_LIFT).toBeLessThan(0.15);
+    expect(SPIDER_LIFT).toBeLessThan(0.15);
   });
 });

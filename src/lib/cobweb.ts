@@ -33,6 +33,32 @@ function mulberry(seed: number): () => number {
 }
 
 /**
+ * How far the tallest thing pinned to the board stands proud of an
+ * item's own plane: the pin's head, 0.012 out to its base, 0.035 up
+ * its needle and 0.032 more for the ball on top.
+ */
+export const PIN_HEIGHT = 0.012 + 0.035 + 0.032;
+
+/** How much an item rises off the cork while it is being dragged. */
+export const ITEM_LIFT = 0.07;
+
+/**
+ * Where the webs hang, in front of the cork.
+ *
+ * Clear of the whole pinned stack, because a web has to draw *over*
+ * the notes: at the old 0.04 a note pinned in a corner covered the web
+ * it was pinned across, which is backwards — the web was there first.
+ *
+ * Depth testing stays on rather than drawing the webs over everything
+ * regardless, which would paint them across an item held up in front
+ * of the camera, where it fills most of the screen.
+ */
+export const WEB_LIFT = 0.105;
+
+/** Spiders walk over the webs, and so over the notes as well. */
+export const SPIDER_LIFT = WEB_LIFT + 0.015;
+
+/**
  * A web anchored into a corner spans a quarter turn; one slung along a
  * straight edge spans a half turn and hangs off the rail.
  */

@@ -5,6 +5,8 @@ import * as THREE from "three";
 import { BOARD, BOARD_SURFACE_Z } from "@/lib/board-geometry";
 import {
   EDGE_SWEEP,
+  SPIDER_LIFT,
+  WEB_LIFT,
   webLayout,
   webPattern,
   WEB_VARIANTS,
@@ -31,12 +33,12 @@ import { Spider } from "./Spider";
  * haunted-hollow alone.
  */
 
-/** How far the webs float in front of the cork. */
-const WEB_Z = BOARD_SURFACE_Z + 0.04;
-/** Spiders walk just in front of their webs. */
-const SPIDER_Z = BOARD_SURFACE_Z + 0.055;
 /** Spiders on the board. */
 const SPIDERS = 6;
+
+/** Both measured off the cork; see `src/lib/cobweb.ts` for why. */
+const WEB_Z = BOARD_SURFACE_Z + WEB_LIFT;
+const SPIDER_Z = BOARD_SURFACE_Z + SPIDER_LIFT;
 
 /** A thread's slight wander — nothing a spider spins is straight. */
 function thread(
