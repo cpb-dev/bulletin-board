@@ -122,6 +122,25 @@ Check these every time — each one shipped at least once:
   the seam, and on a repeating surface that shows as a hard ring every tile.
   Use a sum of sines over the tile's height instead — periodic by
   construction, so it joins.
+- **A sky dome behind the far plane.** The harness camera's `far` has to
+  clear the dome's radius or the sky never draws at all and you see the
+  clear colour, which looks exactly like a sky that came out flat. The app
+  uses 120 for a dome of 60.
+- **Half a sky texture is underground.** A sphere's V runs pole to pole, so
+  the horizon is at the *middle* of the texture, not the bottom. Spread a
+  sky gradient over the full canvas height and the entire sky sits above
+  the band you can see from a 1.45m eye. Put the zenith at the top, the
+  skyline at the halfway line, and weight the cloud towards the skyline.
+- **Flat-filled shapes where you meant soft ones.** Cloud, smoke, mist:
+  overlapping solid ellipses read as a heap of discs no matter how many you
+  stack. Each lobe needs a radial gradient falling to zero alpha.
+- **A ground plane without anisotropy.** Seen at a grazing angle from eye
+  level, every bit of grass and grit blurs into flat mud a few metres out.
+  `texture.anisotropy = 8` is the whole fix.
+- **A base colour with no headroom for its map.** A colour chosen when a
+  surface was untextured is usually too dark once it is multiplied by a
+  map: the detail is all there and all invisible. Lift the level, keep the
+  hue.
 - **Instances that are all one size.** Ragged geometry is not enough: if
   every cluster is scaled the same, the eye reads the repeat anyway. Vary
   the bulk per instance as well as the shape.

@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useMemo, useRef, useState } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { BoardTheme } from "@/lib/themes";
 import { BOARD } from "@/lib/board-geometry";
 import { ZOMBIE_HAND_DURATION, zombieHandPose } from "@/lib/haunted";
 import { makeToonGradient, mulberry32 } from "./textures";
 import { AutumnGrove } from "./props/AutumnTree";
+import { Ground } from "./props/Ground";
+import { Sky } from "./props/Sky";
 import { HauntedHouse } from "./props/HauntedHouse";
 import { Pumpkin } from "./props/Pumpkin";
 import { Headstone, type HeadstoneKind } from "./props/Headstone";
@@ -33,16 +35,19 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
 
   return (
     <group>
-      <SkyBackground />
+      <Sky />
 
-      {/* Overcast autumn afternoon: soft and amber rather than dark —
-          the ticket asks for daytime, so the dread comes from the
-          scenery, not from turning the lights off. */}
-      <ambientLight intensity={0.95} color="#f3e2c8" />
+      {/* A dreary overcast, not a dark one — the ticket asks for
+          daytime, so the dread comes from the scenery. Overcast means
+          flat rather than black: a strong cool ambient with a weak sun
+          behind the cloud, which leaves shadows soft and faint and
+          gives the pumpkins and the lit windows something cold to glow
+          against. */}
+      <ambientLight intensity={1.0} color="#d9d6d1" />
       <directionalLight
         position={[-4, 7, 4]}
-        intensity={1.35}
-        color="#ffe6b8"
+        intensity={0.72}
+        color="#e7e3d8"
         castShadow
         shadow-mapSize={[2048, 2048]}
         // The house is ten metres tall and stands off to the left, so
@@ -57,73 +62,20 @@ export function HauntedScene({ theme }: { theme: BoardTheme }) {
         shadow-normalBias={0.06}
         onUpdate={(self) => self.shadow.camera.updateProjectionMatrix()}
       />
-      <hemisphereLight args={["#c9b79b", "#6b5436", 0.55]} />
+      <hemisphereLight args={["#a6a6ac", "#4c4232", 0.62]} />
 
       <group position={[HOUSE_X, 0, HOUSE_Z]} rotation={[0, HOUSE_TURN, 0]}>
         <HauntedHouse />
       </group>
       <AutumnGrove trees={TREES} />
 
-      {/* Ground. Wide enough to run under everything and out into the
-          fog — at 40x24 it stopped at z -10.5, which left the tree at
-          z -11.8 standing on nothing. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 1.5]} receiveShadow>
-        <planeGeometry args={[80, 64]} />
-        <meshToonMaterial color={theme.room.floor} gradientMap={gradient} />
-      </mesh>
+      <Ground color={theme.room.floor} />
 
       <BoardPosts gradient={gradient} />
       <Graves gradient={gradient} />
       <Pumpkins accent={theme.room.accent} />
       <DeadBranch gradient={gradient} />
     </group>
-  );
-}
-
-/**
- * Sets the scene's clear colour and fog directly — a nested
- * `<color attach="background">` would attach to the group, not the
- * scene. Restores both on unmount so switching themes stays clean.
- */
-function SkyBackground() {
-  const scene = useThree((s) => s.scene);
-  useEffect(() => {
-    const prevBg = scene.background;
-    const prevFog = scene.fog;
-    scene.background = new THREE.Color("#c7a789");
-    scene.fog = new THREE.Fog("#d8bb9a", 22, 70);
-    return () => {
-      scene.background = prevBg;
-      scene.fog = prevFog;
-    };
-  }, [scene]);
-  return <SkyDome />;
-}
-
-/** A big inverted sphere with a heavy amber-to-grey autumn gradient. */
-function SkyDome() {
-  const texture = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = 2;
-    c.height = 128;
-    const ctx = c.getContext("2d")!;
-    const g = ctx.createLinearGradient(0, 0, 0, 128);
-    g.addColorStop(0, "#8f7f7a"); // bruised grey overhead
-    g.addColorStop(0.55, "#c9a184");
-    g.addColorStop(1, "#e8c79d"); // hazy amber at the horizon
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 2, 128);
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  }, []);
-  useEffect(() => () => texture.dispose(), [texture]);
-
-  return (
-    <mesh scale={[-1, 1, 1]}>
-      <sphereGeometry args={[60, 24, 16]} />
-      <meshBasicMaterial map={texture} side={THREE.BackSide} fog={false} />
-    </mesh>
   );
 }
 
