@@ -5,6 +5,9 @@
  *
  *   node scripts/shoot-model.mjs pumpkin out/ 0,45,90
  *   node scripts/shoot-model.mjs house out/ 0,35 0 22 4
+ *
+ * Trailing args, in order:
+ *   <model> <outDir> <angles> <variant> <dist> <eye> <ox> <oy> <ty> <g> <k> <f>
  */
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
@@ -24,13 +27,17 @@ const [
   // use this rather than `oy`, which slides the prop through the floor.
   ty = "",
   // The harness's second dial (`?g=`): weathering on a headstone, how
-  // far through a rise to freeze an arm.
+  // far through a rise to freeze an arm, how far through a pass to
+  // freeze a ghost.
   g = "",
+  // Ghosts only: which pass (`?k=`) and which form (`?f=`).
+  k = "",
+  f = "",
 ] = process.argv.slice(2);
 const extra =
   `${dist ? `&d=${dist}` : ""}${eye ? `&y=${eye}` : ""}` +
   `${ox ? `&ox=${ox}` : ""}${oy ? `&oy=${oy}` : ""}${ty ? `&ty=${ty}` : ""}` +
-  `${g ? `&g=${g}` : ""}`;
+  `${g ? `&g=${g}` : ""}${k ? `&k=${k}` : ""}${f ? `&f=${f}` : ""}`;
 const base = process.env.HARNESS_URL ?? "http://localhost:3000";
 const exe = process.env.CHROME_PATH; // set when the bundled build is missing
 

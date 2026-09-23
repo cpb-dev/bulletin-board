@@ -1,44 +1,11 @@
 /**
- * Timing and motion for the Haunted Hollow scene.
+ * The front door of the haunted house, and the wind that works it.
  *
- * Pure so the picker, the schedules and the easing can be unit-tested;
- * the meshes themselves live in HauntedScene / Board. Same split as
- * crab.ts does for the Beach Hut.
+ * Pure so the easing can be unit-tested; the mesh lives in
+ * `props/HauntedHouse.tsx`. Same split as crab.ts does for the Beach
+ * Hut. The spiders moved to `spider.ts` and the ghosts to `ghost.ts`
+ * as each grew past a couple of functions; this is what is left.
  */
-
-/** How long one ghost takes to drift across a window, in seconds. */
-export const GHOST_PASS_DURATION = 2.8;
-
-/** Gap between a window's ghost sightings, in seconds. */
-export const GHOST_GAP_MIN = 7;
-export const GHOST_GAP_MAX = 17;
-
-/**
- * When this window should next be haunted. Deliberately a wide random
- * gap: a ghost on a timer stops being a "did you just see that?" and
- * becomes wallpaper.
- */
-export function nextGhostTime(now: number, rand: () => number = Math.random) {
-  return now + GHOST_GAP_MIN + rand() * (GHOST_GAP_MAX - GHOST_GAP_MIN);
-}
-
-/**
- * A ghost's pose `p` of the way through its pass (0..1), as an offset
- * across the window in window-widths and an opacity. Returns null
- * outside the pass so callers can skip rendering entirely.
- */
-export function ghostPass(
-  p: number
-): { x: number; opacity: number; bob: number } | null {
-  if (p < 0 || p > 1) return null;
-  return {
-    // drifts from just off one edge to just off the other
-    x: -0.6 + p * 1.2,
-    // fades up and back down so it never pops in or out
-    opacity: Math.sin(p * Math.PI) ** 1.5,
-    bob: Math.sin(p * Math.PI * 3) * 0.05,
-  };
-}
 
 /** How far the front door can swing open, in radians (~75°). */
 export const DOOR_MAX_SWING = 1.3;

@@ -1,47 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DOOR_MAX_SWING,
-  doorSwing,
-  GHOST_GAP_MAX,
-  GHOST_GAP_MIN,
-  ghostPass,
-  nextGhostTime,
-} from "../haunted";
-
-describe("nextGhostTime", () => {
-  it("always lands inside the gap window, ahead of now", () => {
-    for (const r of [0, 0.25, 0.5, 0.99]) {
-      const at = nextGhostTime(100, () => r);
-      expect(at).toBeGreaterThanOrEqual(100 + GHOST_GAP_MIN);
-      expect(at).toBeLessThanOrEqual(100 + GHOST_GAP_MAX);
-    }
-  });
-
-  it("spreads sightings out rather than firing on a fixed beat", () => {
-    expect(nextGhostTime(0, () => 0)).not.toBe(nextGhostTime(0, () => 1));
-  });
-});
-
-describe("ghostPass", () => {
-  it("renders nothing outside the pass", () => {
-    expect(ghostPass(-0.01)).toBeNull();
-    expect(ghostPass(1.01)).toBeNull();
-  });
-
-  it("drifts steadily across the window", () => {
-    const a = ghostPass(0.1)!;
-    const b = ghostPass(0.5)!;
-    const c = ghostPass(0.9)!;
-    expect(a.x).toBeLessThan(b.x);
-    expect(b.x).toBeLessThan(c.x);
-  });
-
-  it("fades in and out so it never pops", () => {
-    expect(ghostPass(0)!.opacity).toBeCloseTo(0, 5);
-    expect(ghostPass(1)!.opacity).toBeCloseTo(0, 5);
-    expect(ghostPass(0.5)!.opacity).toBeGreaterThan(0.9);
-  });
-});
+import { DOOR_MAX_SWING, doorSwing } from "../haunted";
 
 describe("doorSwing", () => {
   it("never swings through the wall or past its stop", () => {
