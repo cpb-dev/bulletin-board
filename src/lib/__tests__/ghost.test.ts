@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { BAR_DEPTH, FIGURE_HEIGHT, SASH_Z } from "@/lib/window-pane";
 import {
   canTouchGlass,
   castFor,
   decayMark,
+  figureFront,
   FORM_BUILD,
   FORMS,
   GHOST_GAP_MAX,
   GHOST_GAP_MIN,
   ghostPose,
   MARK_FADE_SECONDS,
+  MAX_POSE_SCALE,
   nextGhostTime,
   PASS_KINDS,
   PASS_MARK,
@@ -43,9 +46,9 @@ describe("ghostPose", () => {
     }
   });
 
-  it("never lets a ghost wander onto the wall", () => {
-    // there is no cheap way to clip a figure to the glass, so the
-    // pose itself has to keep it inside the pane
+  it("keeps a ghost within a pane's width of the opening", () => {
+    // it may be part way out at either end, where the reveal hides
+    // it, but never so far that it is somewhere else entirely
     for (const kind of PASS_KINDS) {
       for (const pose of frames(kind)) {
         if (!pose) continue;
@@ -139,7 +142,10 @@ describe("ghostPose", () => {
     const held = ghostPose("press", 0.6)!;
     expect(held.z).toBeGreaterThan(0.9);
     expect(held.turn).toBe(0);
-    expect(held.scale).toBeGreaterThan(1.2);
+    // swells as it comes, but only a little: the clearance to the
+    // glazing bars is measured off exactly this
+    expect(held.scale).toBeGreaterThan(1);
+    expect(held.scale).toBeLessThanOrEqual(MAX_POSE_SCALE);
     expect(held.opacity).toBeGreaterThan(0.9);
     expect(ghostPose("press", 0.9)).toBeNull();
   });
@@ -327,7 +333,7 @@ describe("FORM_BUILD", () => {
     { w: 0.8, h: 0.9 },
   ];
   /** How the component sizes a figure against its pane. */
-  const NATURAL = 0.52;
+  const NATURAL = FIGURE_HEIGHT;
 
   it("describes every form", () => {
     for (const form of FORMS) {
@@ -357,23 +363,73 @@ describe("FORM_BUILD", () => {
     expect(Math.min(...far)).toBeGreaterThan(Math.max(...near));
   });
 
-  it("stands the set-back ones higher up the pane", () => {
-    for (const form of FORMS) {
-      if (canTouchGlass(form)) continue;
-      expect(FORM_BUILD[form].drop).toBeLessThanOrEqual(0);
+  it("stands the set-back ones' heads higher up the pane", () => {
+    // a thing further off sits nearer the horizon, which for a figure
+    // this big means its head is the highest thing in the window
+    const top = (form: (typeof FORMS)[number], h: number) => {
+      const b = FORM_BUILD[form];
+      const tall = h * NATURAL * b.size;
+      return (-b.drop - 0.06) * h - tall / 2 + tall;
+    };
+    for (const { h } of PANES) {
+      const near = Math.max(
+        ...FORMS.filter(canTouchGlass).map((f) => top(f, h))
+      );
+      const far = Math.min(
+        ...FORMS.filter((f) => !canTouchGlass(f)).map((f) => top(f, h))
+      );
+      expect(far).toBeGreaterThan(near);
+      // and still inside the opening
+      expect(far).toBeLessThan(h / 2);
     }
   });
 
-  it("keeps even the biggest form inside the glass", () => {
-    // sized off the wrong figure, a tall form walks out over the
-    // clapboard, and there is no cheap way to clip it there
+  it("makes the ones at the glass big enough for the pane to crop", () => {
+    /*
+     * Somebody standing right at a window fills it. Sized to fit
+     * inside the opening with daylight all round, they read as dolls
+     * on a shelf rather than as a person who has come to look at you.
+     *
+     * The component centres a figure and drops it 0.06 of a pane, so
+     * this works out where its hem actually lands.
+     */
+    for (const { h } of PANES) {
+      for (const form of ["shade", "gaunt", "small"] as const) {
+        const b = FORM_BUILD[form];
+        const tall = h * NATURAL * b.size;
+        const base = (-b.drop - 0.06) * h - tall / 2;
+        const top = base + tall;
+        // hem runs off below the sill
+        expect(base).toBeLessThan(-h / 2);
+        // and the head is still inside the opening
+        expect(top).toBeLessThan(h / 2);
+        expect(top).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("keeps every form clear of the glazing bars", () => {
+    /*
+     * The clearance that has quietly broken every time these figures
+     * have grown. A chest through the bars reads as a ghost standing
+     * in the street, and no render of a still frame shows it unless
+     * the pose happens to be the forward one.
+     */
+    const backOfSash = SASH_Z - BAR_DEPTH / 2;
+    for (const { h } of PANES) {
+      for (const form of FORMS) {
+        expect(figureFront(form, h * NATURAL)).toBeLessThan(backOfSash);
+      }
+    }
+  });
+
+  it("keeps the widest form narrow enough to be clipped by the reveal", () => {
+    // it may run past the edge of the opening — the wall hides it —
+    // but not so far that it is wider than the wall can cover
     for (const { w, h } of PANES) {
       for (const form of FORMS) {
-        const gh = h * NATURAL * FORM_BUILD[form].size;
-        const halfWide = gh * SHROUD_HALF;
-        expect(halfWide * 1.15).toBeLessThan(w / 2);
-        // and tall enough to still be inside the opening
-        expect(gh).toBeLessThan(h);
+        const halfWide = h * NATURAL * FORM_BUILD[form].size * SHROUD_HALF;
+        expect(halfWide).toBeLessThan(w);
       }
     }
   });

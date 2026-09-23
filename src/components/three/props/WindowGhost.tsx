@@ -10,12 +10,15 @@ import {
   ghostPose,
   nextGhostTime,
   PASS_MARK,
+  GHOST_APPROACH,
+  GHOST_SQUASH,
   PASS_SECONDS,
   pickSighting,
   SHROUD_HALF,
   type MarkKind,
   type PassKind,
 } from "@/lib/ghost";
+import { FIGURE_HEIGHT } from "@/lib/window-pane";
 import { mulberry32 } from "../textures";
 
 /**
@@ -40,16 +43,6 @@ import { mulberry32 } from "../textures";
 
 /** Segments round the shroud. Enough to turn without faceting. */
 const RADIAL = 18;
-
-/**
- * How much the figure is flattened front to back.
- *
- * A reveal is only as deep as the wall, and a solid of revolution as
- * wide as this one is deep enough to push its chest through the
- * glazing bars and stand in front of them. Squashed, it stays in the
- * room, and turning it still changes the silhouette.
- */
-const SQUASH = 0.55;
 
 /**
  * The profile the shroud is turned from: [height, radius], both as
@@ -152,7 +145,7 @@ export function WindowGhost({
   const sighting = useRef(pickSighting(cast, rand));
 
   /** Natural figure height; each form scales off this. */
-  const gh = h * 0.52;
+  const gh = h * FIGURE_HEIGHT;
   const gw = gh * SHROUD_HALF;
 
   const geo = useMemo(
@@ -215,32 +208,30 @@ export function WindowGhost({
     }
 
     /*
-     * Room left to move without any part of it crossing the rebate.
+     * How far across it may go.
      *
-     * Measured off *this form's* half-width, not the natural one — a
-     * form half again as tall is half again as wide, and sizing the
-     * travel off the wrong figure walks it out over the clapboard,
-     * which there is no cheap way to clip.
+     * Out to the edge of the opening, not stopping short of it: the
+     * wall's own reveal clips a figure that goes past, so one can
+     * walk in from behind the jamb and out the other side instead of
+     * fading in and out in mid-pane.
      *
-     * Set-back forms barely move across at all, which is its own
-     * depth cue: distance costs you angle.
+     * Set-back forms barely move at all, which is its own depth cue:
+     * distance costs you angle.
      */
-    const halfWide = gw * build.size * pose.scale;
-    const travel =
-      Math.max(0, w / 2 - halfWide * 1.15) * (1 - build.depth * 0.55);
+    const travel = (w / 2) * (1 - build.depth * 0.55);
     // Set a little low, so the head lands inside a light rather than
     // behind the bar between two of them.
     g.position.set(
       pose.x * travel,
       (pose.y - build.drop) * h - (gh * build.size) / 2 - h * 0.06,
       // back into the room, and only the near ones come to the glass
-      pose.z * 0.07 - build.depth * gh * 0.1
+      pose.z * GHOST_APPROACH - build.depth * gh * 0.1
     );
     g.rotation.y = pose.turn;
     // a slow, uneasy lean as it goes
     g.rotation.z = Math.sin(t * 0.9 + seed) * 0.04;
     const s = pose.scale * build.size;
-    g.scale.set(s, s, s * SQUASH);
+    g.scale.set(s, s, s * GHOST_SQUASH);
 
     // hazier the further back it is, which is the other half of why a
     // big one reads as distant rather than merely large

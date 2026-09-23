@@ -6,9 +6,13 @@ import * as THREE from "three";
 import {
   brokenLight,
   candleFlicker,
+  GHOST_Z,
+  GLASS_Z,
   lightRect,
+  MARK_Z,
   misted,
   paneGrid,
+  SASH_Z,
   type PaneGrid,
 } from "@/lib/window-pane";
 import { decayMark, type MarkKind } from "@/lib/ghost";
@@ -36,21 +40,8 @@ import { WindowGhost, type GhostFreeze } from "./WindowGhost";
 /** Width of a glazing bar, as a fraction of the pane's smaller side. */
 const BAR = 0.042;
 
-/*
- * Where the parts of the window sit in the reveal, measured from the
- * back of it.
- *
- * The sash sits near the outside face of the wall, not half way down
- * the reveal. That is where a sash actually is, and it also leaves the
- * ghost room to come up to the glass without its shoulders pushing
- * through the glazing bars — which is what the first attempt did, and
- * it read as a ghost standing in the street.
- */
-const GLASS_Z = 0.02;
-const GHOST_Z = 0.05;
-const MARK_Z = 0.14;
-const SASH_Z = 0.18;
-const WEB_Z = 0.21;
+/** Webs go in front of the sash, which is the outermost of the rest. */
+const WEB_Z = SASH_Z + 0.03;
 
 /** How far the thrown light reaches past the opening, in openings. */
 const SPILL_W = 2.6;

@@ -17,6 +17,8 @@
  * The glass they press against is `window-pane.ts`.
  */
 
+import { GHOST_Z } from "./window-pane";
+
 /** Local PRNG — keeps this file free of component imports. */
 function mulberry(seed: number): () => number {
   let a = seed >>> 0;
@@ -50,6 +52,47 @@ export type GhostForm = (typeof FORMS)[number];
 /** The widest the shroud gets, as a fraction of its height. */
 export const SHROUD_HALF = 0.3;
 
+/**
+ * How much the figure is flattened front to back.
+ *
+ * A reveal is only as deep as the wall. A solid of revolution as wide
+ * as this one is deep enough to push its chest through the glazing
+ * bars and stand in front of them, and the bigger the forms got the
+ * worse that became — so it is squashed on the axis it is never seen
+ * along. Turning it still narrows the silhouette, which was the whole
+ * reason for modelling one rather than drawing it.
+ */
+export const GHOST_SQUASH = 0.28;
+
+/** How far towards the glass a ghost may come, in world units. */
+export const GHOST_APPROACH = 0.025;
+
+/** The largest a pose ever scales a figure. */
+export const MAX_POSE_SCALE = 1.1;
+
+/**
+ * How far into the reveal a form's widest part ever comes, measured
+ * from the back of it, at the most forward pose that form can strike.
+ *
+ * Pinned by a test against the sash, because every time these figures
+ * have grown, the clearance between them and the glazing bars is the
+ * thing that has quietly broken — and a ghost in front of the bars
+ * reads as a ghost standing in the street. No still frame shows it
+ * unless the pose you happened to render was the forward one.
+ */
+export function figureFront(form: GhostForm, height: number): number {
+  const b = FORM_BUILD[form];
+  // only the ones that can reach the glass ever approach it or swell
+  const near = canTouchGlass(form);
+  const origin = GHOST_Z - b.depth * height * 0.1;
+  const scale = near ? MAX_POSE_SCALE : 1;
+  return (
+    origin +
+    (near ? GHOST_APPROACH : 0) +
+    SHROUD_HALF * height * b.size * scale * GHOST_SQUASH
+  );
+}
+
 export interface FormBuild {
   /** Height, as a multiple of the window's natural figure height. */
   size: number;
@@ -72,16 +115,30 @@ export interface FormBuild {
   depth: number;
 }
 
+/*
+ * The ones near the glass are big enough that the pane crops them.
+ *
+ * That is the point of them. Somebody standing right at a window
+ * fills it — you get head and shoulders and the rest runs off below
+ * the sill. Sized to fit inside the opening instead, with daylight
+ * all round, they read as dolls on a shelf rather than as a person
+ * who has come to look at you.
+ *
+ * They are free to be this big because the wall's own reveal clips
+ * them: the glass sits 0.17 behind the facade, so a figure that
+ * wanders past the edge of the opening goes behind the wall rather
+ * than out over the clapboard.
+ */
 export const FORM_BUILD: Record<GhostForm, FormBuild> = {
   // a tall dark shape and nothing else you can tell about it
-  shade: { size: 1.06, drop: 0, face: false, depth: 0 },
+  shade: { size: 1.8, drop: 0, face: false, depth: 0 },
   // the same body, with a face the lamp just reaches
-  gaunt: { size: 1, drop: 0, face: true, depth: 0 },
-  // child-sized, and standing lower than it should be
-  small: { size: 0.62, drop: 0.12, face: true, depth: 0 },
+  gaunt: { size: 1.72, drop: 0, face: true, depth: 0 },
+  // child-sized, so its head barely clears the middle of the pane
+  small: { size: 1.15, drop: 0.16, face: true, depth: 0 },
   // head near the top of the pane, from the back of the room
-  looming: { size: 1.42, drop: -0.02, face: false, depth: 0.85 },
-  staring: { size: 1.26, drop: -0.01, face: true, depth: 0.68 },
+  looming: { size: 2.15, drop: 0.06, face: false, depth: 0.85 },
+  staring: { size: 1.95, drop: 0.02, face: true, depth: 0.68 },
 };
 
 /** Anything past this is too far back to reach the glass. */
@@ -234,13 +291,16 @@ export function decayMark(current: number, pressing: number, delta: number) {
 
 export interface GhostPose {
   /**
-   * Across the pane, as a fraction of the room the figure actually
-   * has: -1 is hard against one edge of the glass, +1 the other.
+   * Across the pane: -1 at one edge of the opening, +1 at the other.
    *
-   * Expressed this way because how far a ghost may travel depends on
-   * how wide the ghost is, which this file has no business knowing —
-   * and getting it wrong sends a figure out over the clapboard, which
-   * there is no cheap way to clip.
+   * A figure is free to be part way out at either end. The glass sits
+   * 0.17 behind the face of the wall, so the reveal clips anything
+   * that goes past the jamb — which is what lets a big one walk in
+   * from behind the wall instead of fading up in mid-pane.
+   *
+   * Expressed as a fraction rather than in world units because how
+   * far that is depends on the pane, which this file has no business
+   * knowing.
    */
   x: number;
   /** Up and down, in pane heights. */
@@ -365,7 +425,7 @@ export function ghostPose(kind: PassKind, p: number): GhostPose | null {
         z: t * 0.94,
         turn: 0.38 * (1 - t),
         opacity: t * 0.9,
-        scale: 1 + t * 0.22,
+        scale: 1 + t * 0.1,
         shadow: t * 0.75,
         press: t * 0.45,
       };
@@ -382,7 +442,7 @@ export function ghostPose(kind: PassKind, p: number): GhostPose | null {
          */
         z: 0.94 + Math.sin(h * Math.PI) * 0.06,
         opacity: 0.94,
-        scale: 1.22,
+        scale: MAX_POSE_SCALE,
         shadow: 0.82,
         press: 0.55,
       };

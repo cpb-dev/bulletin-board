@@ -26,6 +26,26 @@ function mulberry(seed: number): () => number {
   };
 }
 
+/*
+ * Where the parts of a window sit in its reveal, measured from the
+ * back of it. The wall is 0.22 deep, so everything here lives inside
+ * that.
+ *
+ * The sash sits near the outside face, not half way down the reveal.
+ * That is where a sash actually is, and it is also what gives a
+ * figure room to come up to the glass without its shoulders pushing
+ * through the glazing bars.
+ */
+export const GLASS_Z = 0.02;
+export const GHOST_Z = 0.05;
+export const MARK_Z = 0.14;
+export const SASH_Z = 0.2;
+/** Thickness of a glazing bar, so its back face is SASH_Z - half. */
+export const BAR_DEPTH = 0.03;
+
+/** How tall a figure is in a pane `h` high, before its form scales it. */
+export const FIGURE_HEIGHT = 0.52;
+
 export interface PaneGrid {
   cols: number;
   rows: number;
