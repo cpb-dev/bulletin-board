@@ -131,6 +131,14 @@ Check these every time — each one shipped at least once:
 - **Sub-parts rotating about their own centres.** Parts that must stay flush
   (a stone and the text carved into it) belong in one group with a shared
   transform, not positioned separately with matching rotations.
+- **Standing off the end of the world.** A prop that looks like it is
+  floating is often fine — it is the *ground* that ran out. Check the scene's
+  floor plane covers where you put it: a `planeGeometry` is centred on its
+  mesh position, so `args={[40, 24]}` at `z = 1.5` stops at `z = -10.5`, and
+  anything further back has nothing under it. If the edge also falls inside
+  the fog's near plane it reads as a hard line with sky behind it. Widen the
+  ground until its edge is well into the fog — but keep it inside the sky
+  dome's radius, or it will cut through and leave a seam.
 - **Too close to the camera.** Room view sits at `z = 4.4`. Props at
   `z > 2` are in the viewer's lap. Note also that the board casts a wide
   occlusion shadow — anything directly behind it is hidden.
