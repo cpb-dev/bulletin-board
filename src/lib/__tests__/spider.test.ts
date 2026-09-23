@@ -9,6 +9,7 @@ import {
   LEGS,
   legPose,
   reflect,
+  scatterStarts,
   STRIDE,
   wanderTurn,
 } from "../spider";
@@ -218,6 +219,91 @@ describe("reflect", () => {
       h = r.heading;
       expect(Math.abs(x)).toBeLessThanOrEqual(bounds.x + 1e-9);
       expect(Math.abs(y)).toBeLessThanOrEqual(bounds.y + 1e-9);
+    }
+  });
+});
+
+describe("scatterStarts", () => {
+  const bounds = { x: 2.05, y: 1.1 };
+
+  it("gives one start per spider", () => {
+    expect(scatterStarts(6, bounds)).toHaveLength(6);
+    expect(scatterStarts(1, bounds)).toHaveLength(1);
+    expect(scatterStarts(0, bounds)).toEqual([]);
+    expect(scatterStarts(-3, bounds)).toEqual([]);
+  });
+
+  it("starts every spider on the board", () => {
+    for (const start of scatterStarts(6, bounds)) {
+      expect(Math.abs(start.x)).toBeLessThanOrEqual(bounds.x);
+      expect(Math.abs(start.y)).toBeLessThanOrEqual(bounds.y);
+    }
+  });
+
+  it("spreads them across the board rather than round the middle", () => {
+    // the bug this replaced: a hash scaled to half a unit put all six
+    // within 40cm of the centre of a board 4.6 wide
+    const starts = scatterStarts(6, bounds);
+    const left = starts.filter((s) => s.x < -bounds.x / 3);
+    const right = starts.filter((s) => s.x > bounds.x / 3);
+    expect(left.length).toBeGreaterThan(0);
+    expect(right.length).toBeGreaterThan(0);
+    const spread = Math.max(...starts.map((s) => s.x)) -
+      Math.min(...starts.map((s) => s.x));
+    expect(spread).toBeGreaterThan(bounds.x);
+  });
+
+  it("never lets two start on top of each other, on any seed", () => {
+    for (let seed = 1; seed < 60; seed++) {
+      const starts = scatterStarts(6, bounds, seed);
+      for (let i = 0; i < starts.length; i++) {
+        for (let j = i + 1; j < starts.length; j++) {
+          const d = Math.hypot(
+            starts[i].x - starts[j].x,
+            starts[i].y - starts[j].y
+          );
+          // a body is 0.055 across; anything closer reads as a huddle
+          expect(d).toBeGreaterThan(0.3);
+        }
+      }
+    }
+  });
+
+  it("points them in different directions", () => {
+    const headings = scatterStarts(6, bounds).map((s) => s.heading);
+    for (const h of headings) {
+      expect(h).toBeGreaterThanOrEqual(-Math.PI);
+      expect(h).toBeLessThanOrEqual(Math.PI);
+    }
+    expect(new Set(headings.map((h) => h.toFixed(3))).size).toBe(6);
+  });
+
+  it("covers the board whatever the count", () => {
+    for (const count of [2, 3, 4, 6, 9, 12]) {
+      const starts = scatterStarts(count, bounds, 5);
+      expect(starts).toHaveLength(count);
+      for (const s of starts) {
+        expect(Math.abs(s.x)).toBeLessThanOrEqual(bounds.x);
+        expect(Math.abs(s.y)).toBeLessThanOrEqual(bounds.y);
+      }
+    }
+  });
+
+  it("is stable for a seed and different between seeds", () => {
+    expect(scatterStarts(6, bounds, 3)).toEqual(scatterStarts(6, bounds, 3));
+    expect(scatterStarts(6, bounds, 3)).not.toEqual(
+      scatterStarts(6, bounds, 4)
+    );
+  });
+
+  it("starts a spider somewhere reflect will keep it", () => {
+    for (let seed = 1; seed < 30; seed++) {
+      for (const s of scatterStarts(6, bounds, seed)) {
+        const r = reflect(s.x, s.y, s.heading, bounds);
+        expect(r.x).toBeCloseTo(s.x, 10);
+        expect(r.y).toBeCloseTo(s.y, 10);
+        expect(r.heading).toBeCloseTo(s.heading, 10);
+      }
     }
   });
 });

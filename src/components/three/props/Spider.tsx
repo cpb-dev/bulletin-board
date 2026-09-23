@@ -10,6 +10,7 @@ import {
   legPose,
   reflect,
   wanderTurn,
+  type StartPose,
 } from "@/lib/spider";
 
 /**
@@ -63,11 +64,14 @@ const SOCKETS = Array.from({ length: LEGS }, (_, i) => {
 
 export function Spider({
   seed,
+  /** Where it begins. Callers scatter these with `scatterStarts`. */
+  start,
   /** Half-extents it is kept within, in board units. */
   bounds,
   z,
 }: {
   seed: number;
+  start: StartPose;
   bounds: { x: number; y: number };
   z: number;
 }) {
@@ -75,12 +79,18 @@ export function Spider({
   const knees = useRef<(THREE.Group | null)[]>([]);
   const shins = useRef<(THREE.Group | null)[]>([]);
 
-  /** Everything that changes per frame, kept off React. */
+  /**
+   * Everything that changes per frame, kept off React.
+   *
+   * Seeded from `start` once. Re-reading the prop each frame would
+   * teleport it back the moment anything above re-renders.
+   */
   const state = useRef({
-    x: (seed * 0.37) % 1 - 0.5,
-    y: (seed * 0.61) % 1 - 0.5,
-    heading: seed * 1.1,
-    travelled: 0,
+    x: start.x,
+    y: start.y,
+    heading: start.heading,
+    // so six spiders starting together are not all mid-stride in step
+    travelled: seed * 0.031,
     touchedAt: -99,
     now: 0,
   });

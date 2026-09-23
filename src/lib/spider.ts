@@ -12,6 +12,18 @@
  * here.
  */
 
+/** Local PRNG — keeps this file free of component imports. */
+function mulberry(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** Legs, four a side. */
 export const LEGS = 8;
 
@@ -139,4 +151,62 @@ export function reflect(
   // keep it in -PI..PI so the component's lerps never take the long way
   h = Math.atan2(Math.sin(h), Math.cos(h));
   return { x: nx, y: ny, heading: h };
+}
+
+export interface StartPose {
+  x: number;
+  y: number;
+  heading: number;
+}
+
+/**
+ * Where a group of spiders begins, spread across the whole board.
+ *
+ * They used to start from a hash of their own seed scaled to half a
+ * unit, which put all six of them within 40cm of the middle of a board
+ * 4.6 wide — a huddle, and the first thing you saw on opening the
+ * board.
+ *
+ * Stratified rather than merely random: the board is cut into a grid
+ * with at least one cell per spider and each takes its own cell,
+ * jittering inside it. Plain random positions clump often enough that
+ * you notice, and the point of scattering them is that you shouldn't.
+ *
+ * The cells are shuffled, so which spider gets which cell varies with
+ * the seed even though the coverage never does.
+ */
+export function scatterStarts(
+  count: number,
+  bounds: Bounds,
+  seed = 1
+): StartPose[] {
+  if (count <= 0) return [];
+  const rand = mulberry(seed * 2246822519 + 77);
+
+  // cells roughly square on a board that is wider than it is tall
+  const aspect = bounds.x / Math.max(bounds.y, 1e-6);
+  const cols = Math.max(1, Math.round(Math.sqrt(count * aspect)));
+  const rows = Math.ceil(count / cols);
+
+  const cells: number[] = [];
+  for (let i = 0; i < cols * rows; i++) cells.push(i);
+  // Fisher-Yates, so the seed decides who stands where
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [cells[i], cells[j]] = [cells[j], cells[i]];
+  }
+
+  return cells.slice(0, count).map((cell) => {
+    const cx = cell % cols;
+    const cy = Math.floor(cell / cols);
+    // middle 80% of the cell, so nobody starts on a cell boundary or
+    // hard against the edge of the board
+    const u = (cx + 0.1 + rand() * 0.8) / cols;
+    const v = (cy + 0.1 + rand() * 0.8) / rows;
+    return {
+      x: -bounds.x + u * bounds.x * 2,
+      y: -bounds.y + v * bounds.y * 2,
+      heading: rand() * Math.PI * 2 - Math.PI,
+    };
+  });
 }
