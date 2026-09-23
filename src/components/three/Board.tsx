@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent } from "@react-three/fiber";
 import {
   BOARD,
   BOARD_SURFACE_Z,
@@ -11,10 +11,10 @@ import {
   usableHalfExtents,
   worldToNorm,
 } from "@/lib/board-geometry";
-import { spiderPoint } from "@/lib/haunted";
 import { useBoardStore } from "@/lib/store";
 import type { BoardTheme } from "@/lib/themes";
 import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
+import { Cobwebs } from "./props/Cobweb";
 
 /**
  * The bulletin board itself: chunky frame, speckled cork, a string of
@@ -595,180 +595,4 @@ function FairyLights({ color }: { color: string }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Haunted Hollow: cobwebs in the corners, spiders skittering on them */
-/* ------------------------------------------------------------------ */
 
-/**
- * Draws a corner web — spokes fanning out from the corner, joined by
- * sagging spiral threads. Transparent everywhere else, so it drapes
- * over the frame rather than sitting on a visible panel.
- */
-function makeWebTexture(): THREE.CanvasTexture {
-  const size = 256;
-  const c = document.createElement("canvas");
-  c.width = size;
-  c.height = size;
-  const ctx = c.getContext("2d")!;
-  ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = "rgba(233, 233, 240, 0.85)";
-  ctx.lineWidth = 1.6;
-  ctx.lineCap = "round";
-
-  const SPOKES = 8;
-  const RINGS = 7;
-  const R = size * 0.96;
-  // anchored at the top-left corner of the texture
-  const angles = Array.from(
-    { length: SPOKES },
-    (_, i) => (i / (SPOKES - 1)) * (Math.PI / 2)
-  );
-
-  for (const a of angles) {
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R);
-    ctx.stroke();
-  }
-
-  for (let ring = 1; ring <= RINGS; ring++) {
-    const r = (ring / RINGS) * R;
-    ctx.beginPath();
-    for (let i = 0; i < angles.length - 1; i++) {
-      const a1 = angles[i];
-      const a2 = angles[i + 1];
-      const x1 = Math.cos(a1) * r;
-      const y1 = Math.sin(a1) * r;
-      const x2 = Math.cos(a2) * r;
-      const y2 = Math.sin(a2) * r;
-      // sag the thread inward between spokes
-      const mid = (a1 + a2) / 2;
-      const cx = Math.cos(mid) * r * 0.86;
-      const cy = Math.sin(mid) * r * 0.86;
-      if (i === 0) ctx.moveTo(x1, y1);
-      ctx.quadraticCurveTo(cx, cy, x2, y2);
-    }
-    ctx.stroke();
-  }
-
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-/** Cobwebs tucked into each corner of the frame, with spiders on them. */
-function Cobwebs() {
-  const web = useMemo(() => makeWebTexture(), []);
-  useEffect(() => () => web.dispose(), [web]);
-
-  // Sized and placed off the frame's own extents so the webs sit inside
-  // the board rather than hanging off its edges.
-  const halfW = (BOARD.width + 0.24) / 2;
-  const halfH = (BOARD.height + 0.24) / 2;
-  const size = 0.8;
-  const z = BOARD_SURFACE_Z + 0.04;
-  const inset = size / 2;
-
-  // The texture's web is anchored at the canvas's top-left, which maps
-  // to the plane's top-left corner. Each rotation swings that anchor to
-  // a different corner, so the web always fans inward from the frame:
-  //   0    → anchor top-left      π/2  → anchor bottom-left
-  //  -π/2  → anchor top-right     π    → anchor bottom-right
-  const corners: { pos: [number, number, number]; rot: number }[] = [
-    { pos: [-halfW + inset, BOARD.centerY + halfH - inset, z], rot: 0 },
-    {
-      pos: [halfW - inset, BOARD.centerY + halfH - inset, z],
-      rot: -Math.PI / 2,
-    },
-    { pos: [halfW - inset, BOARD.centerY - halfH + inset, z], rot: Math.PI },
-    {
-      pos: [-halfW + inset, BOARD.centerY - halfH + inset, z],
-      rot: Math.PI / 2,
-    },
-  ];
-
-  return (
-    <group>
-      {corners.map((c, i) => (
-        <mesh key={i} position={c.pos} rotation={[0, 0, c.rot]}>
-          <planeGeometry args={[size, size]} />
-          <meshBasicMaterial
-            map={web}
-            transparent
-            opacity={0.5}
-            depthWrite={false}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      ))}
-
-      <Spider seed={1} cycle={2.3} />
-      <Spider seed={2} cycle={3.1} />
-      <Spider seed={3} cycle={2.7} />
-    </group>
-  );
-}
-
-/**
- * A spider roaming the board: it picks a spot, scurries to it, freezes,
- * then picks another. Both axes move on the same cycle, so each dart is
- * one diagonal scuttle rather than two independent slides.
- */
-function Spider({ seed, cycle }: { seed: number; cycle: number }) {
-  const group = useRef<THREE.Group>(null);
-  const prev = useRef({ x: 0.5, y: 0.5 });
-
-  // Kept inside the frame, with a margin so no leg pokes over the edge.
-  const spanX = BOARD.width - 0.5;
-  const spanY = BOARD.height - 0.5;
-
-  useFrame((state) => {
-    const g = group.current;
-    if (!g) return;
-    const t = state.clock.elapsedTime;
-    const p = spiderPoint(t, seed, cycle);
-
-    g.position.x = -spanX / 2 + p.x * spanX;
-    g.position.y = BOARD.centerY - spanY / 2 + p.y * spanY;
-
-    // Point the way it's travelling; while it's parked, hold the last
-    // heading rather than snapping back to zero.
-    const dx = p.x - prev.current.x;
-    const dy = p.y - prev.current.y;
-    if (Math.hypot(dx, dy) > 0.0004) {
-      g.rotation.z = Math.atan2(dy * spanY, dx * spanX);
-    }
-    prev.current = p;
-
-    // legs working, never quite still
-    g.position.z = BOARD_SURFACE_Z + 0.06 + Math.sin(t * 18 + seed) * 0.002;
-  });
-
-  return (
-    <group ref={group} position={[0, BOARD.centerY, BOARD_SURFACE_Z + 0.06]}>
-      {/* body */}
-      <mesh>
-        <sphereGeometry args={[0.035, 10, 8]} />
-        <meshBasicMaterial color="#1b1720" />
-      </mesh>
-      {/* head */}
-      <mesh position={[0.035, 0, 0]}>
-        <sphereGeometry args={[0.021, 8, 8]} />
-        <meshBasicMaterial color="#241f29" />
-      </mesh>
-      {/* legs — three a side, splayed */}
-      {[-1, 1].map((side) =>
-        [-0.5, 0, 0.5].map((tilt, i) => (
-          <mesh
-            key={`${side}-${i}`}
-            position={[tilt * 0.03, side * 0.03, 0]}
-            rotation={[0, 0, side * (0.7 + tilt)]}
-          >
-            <boxGeometry args={[0.055, 0.006, 0.006]} />
-            <meshBasicMaterial color="#1b1720" />
-          </mesh>
-        ))
-      )}
-    </group>
-  );
-}

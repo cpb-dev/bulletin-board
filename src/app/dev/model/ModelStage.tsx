@@ -12,12 +12,22 @@ import {
 } from "@/components/three/props/Headstone";
 import { Ground } from "@/components/three/props/Ground";
 import { Sky } from "@/components/three/props/Sky";
+import { Spider } from "@/components/three/props/Spider";
+import { Cobwebs } from "@/components/three/props/Cobweb";
 import { GraveMound } from "@/components/three/props/GraveMound";
 import {
   ARM_KINDS,
   ZombieArm,
 } from "@/components/three/props/ZombieArm";
 import { armPose, RISE_KINDS } from "@/lib/zombie";
+import { scatterStarts } from "@/lib/spider";
+import {
+  BOARD,
+  BOARD_SURFACE_Z,
+  ITEM_Z,
+  NOTE_BASE,
+} from "@/lib/board-geometry";
+import { Pin } from "@/components/three/Pin";
 import type { ArmPose } from "@/lib/zombie";
 
 const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
@@ -96,6 +106,56 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
     </>
   ),
   mound: (v, age) => <GraveMound seed={v + 1} age={age} />,
+  /** Spiders crawling on a flat panel, as they do on the board. */
+  spider: (v) => {
+    const bounds = { x: 0.55, y: 0.4 };
+    return (
+      <group position={[0, 0.5, 0]}>
+        <mesh position={[0, 0, -0.01]}>
+          <planeGeometry args={[1.2, 0.9]} />
+          <meshBasicMaterial color="#7a6a4e" />
+        </mesh>
+        {scatterStarts(Math.max(1, v), bounds, 3).map((start, i) => (
+          <Spider key={i} seed={i + 1} start={start} bounds={bounds} z={0.01} />
+        ))}
+      </group>
+    );
+  },
+  /**
+   * The webs can only be judged against the frame they hug and the
+   * cork they hang over, so this stages the real board — frame, cork
+   * and all — with the board centre brought down to the origin.
+   * Brings its own world, since the board hangs on a wall.
+   */
+  webs: () => (
+    <group position={[0, -BOARD.centerY, 0]}>
+      <mesh position={[0, BOARD.centerY, BOARD_SURFACE_Z - 0.13]}>
+        <boxGeometry args={[BOARD.width + 0.24, BOARD.height + 0.24, 0.12]} />
+        <meshStandardMaterial color="#4a3b2f" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, BOARD.centerY, BOARD_SURFACE_Z]}>
+        <planeGeometry args={[BOARD.width, BOARD.height]} />
+        <meshStandardMaterial color="#8a6f4a" roughness={1} />
+      </mesh>
+      {/* Stand-in notes out at the edges, where the webs are. A web
+          that draws under a note is the thing to look for here. */}
+      {[
+        [-2.0, 1.05],
+        [2.0, 1.05],
+        [-2.0, -1.05],
+        [0.4, 1.05],
+      ].map(([nx, ny], i) => (
+        <group key={i} position={[nx, BOARD.centerY + ny, ITEM_Z]}>
+          <mesh>
+            <planeGeometry args={[NOTE_BASE, NOTE_BASE]} />
+            <meshStandardMaterial color="#f2e2a8" roughness={0.9} />
+          </mesh>
+          <Pin color="#c2454b" position={[0, NOTE_BASE / 2 - 0.05, 0.012]} />
+        </group>
+      ))}
+      <Cobwebs />
+    </group>
+  ),
   headstone: (v, age) => (
     <Headstone
       kind={HEADSTONE_KINDS[v % HEADSTONE_KINDS.length]}
@@ -109,7 +169,7 @@ const MODELS: Record<string, (variant: number, age: number) => React.ReactNode> 
 };
 
 /** Models that render their own ground and sky, so the stage hides its own. */
-const BRINGS_OWN_WORLD = new Set(["hollow"]);
+const BRINGS_OWN_WORLD = new Set(["hollow", "webs"]);
 
 function Stage() {
   const params = useSearchParams();
