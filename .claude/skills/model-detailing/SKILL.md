@@ -179,6 +179,25 @@ Check these every time — each one shipped at least once:
   solid of revolution is as deep as it is wide, so a body modelled to look
   right head-on will push its chest through a window's glazing bars and
   stand in front of them. Squash it on the axis it is never seen along.
+- **Raising an arm partly from its Z rotation.** Euler order is `XYZ`,
+  which means the Z swing is applied *innermost* — it fans the arm out
+  sideways before the raise ever gets to it, and the figure comes out as a
+  scarecrow. Drive a raise almost entirely from X, in the plane the limb
+  already hangs in, and keep Z for a few degrees of elbow.
+- **A hand, or anything with fingers, built from radial smears.** Each blob
+  reads as its own glowing bead and the whole thing comes out as a firework.
+  Draw it small — palm ellipse, finger strokes with a pad on the end — onto
+  its own little canvas and `drawImage` it up to size. The upscale is what
+  softens it, the pads stay joined to the palm, and it needs no filter
+  support.
+- **A face over-shadowed long before it looks gaunt.** Sockets, temples,
+  cheek hollows, nose shadow and jaw shadow each look reasonable alone and
+  together blanket the face into a dark smudge. Gaunt is not "more shadow":
+  it is brow, cheekbone and jaw *catching light* out of small deep hollows.
+  Two big round sockets with a rim of light in them is a pumpkin.
+- **A mouth curve bowed the wrong way.** A quadratic whose control point
+  sits below its endpoints draws a smile. On anything meant to be grim, put
+  the corners below the middle — a smiling gaunt face is a party mask.
 - **Vertex colours are read as linear.** Bake shading into a colour
   attribute and a value of 0.6 leaves the screen at about 0.8, so a careful
   falloff comes out as one flat marshmallow. Square it on the way in.
@@ -211,6 +230,21 @@ In rough order of payoff:
 6. **Animate the mesh, not just the transform.** Warping the vertices of a
    segmented plane each frame makes a ghost's shroud billow, where moving
    the whole plane reads as a sliding cut-out.
+
+## Some things only the tests catch
+
+The renders are for how it looks. A couple of classes of bug are invisible
+in a still and obvious in a unit test, so pin them there:
+
+- **A pose that oversteps the clearance it was sized against.** If a figure
+  is allowed to come "up to the glass" at `z = 1`, and the gap to whatever
+  is in front of it was measured off exactly that, then a lean that takes
+  `z` to 1.06 puts it through. Assert the range.
+- **Two phases of an animation that do not meet.** An approach that ends at
+  one value and a hold that starts at another snaps by the difference on a
+  single frame, which no still will ever show. Walk the whole pass at a few
+  hundred steps and assert nothing moves more than a frame's worth between
+  adjacent samples.
 
 ## Keep the behaviour testable
 
