@@ -40,48 +40,6 @@ export function ghostPass(
   };
 }
 
-/** How long the zombie hand takes to rise, grasp and sink back. */
-export const ZOMBIE_HAND_DURATION = 2.6;
-
-/**
- * The hand's pose `p` of the way through its animation (0..1):
- * bursts up out of the soil, gropes around, then sinks back.
- *
- * `y` is metres above the grave (negative = still buried), `grasp`
- * drives the finger curl, `lean` is a slow sway while it's up.
- */
-export function zombieHandPose(p: number): {
-  y: number;
-  grasp: number;
-  lean: number;
-} {
-  if (p <= 0 || p >= 1) return { y: -0.45, grasp: 0, lean: 0 };
-
-  const BURST_END = 0.22;
-  const SINK_START = 0.72;
-
-  let y: number;
-  if (p < BURST_END) {
-    // fast punch up out of the ground, easing out at the top
-    const e = p / BURST_END;
-    y = -0.45 + (1 - (1 - e) * (1 - e)) * 0.85;
-  } else if (p < SINK_START) {
-    // hovering, with a small unsettled drift
-    y = 0.4 + Math.sin((p - BURST_END) * 9) * 0.04;
-  } else {
-    // slow, reluctant retreat
-    const e = (p - SINK_START) / (1 - SINK_START);
-    y = 0.4 - e * e * 0.85;
-  }
-
-  const up = p > BURST_END && p < SINK_START;
-  return {
-    y,
-    grasp: up ? (Math.sin((p - BURST_END) * 11) * 0.5 + 0.5) * 0.9 : 0,
-    lean: up ? Math.sin((p - BURST_END) * 4) * 0.25 : 0,
-  };
-}
-
 /** How long a spider's dart between two points takes, in seconds. */
 export const SPIDER_DART_DURATION = 0.5;
 
