@@ -41,22 +41,32 @@ describe("falling leaves", () => {
     // Walk every leaf through several cycles at 60 fps: from one frame
     // to the next, a visible leaf moves a little and turns a little. It
     // only ever moves to a new tree while it has shrunk to nothing.
+    // The worst step is kept and checked once at the end: an expect per
+    // frame made this the slowest test in the suite, past the timeout on CI.
     const dt = 1 / 60;
+    let moved = 0;
+    let turned = 0;
+    let grew = 0;
     for (const leaf of leaves) {
       let prev = leafPose(leaf, 0);
       for (let t = dt; t < 3 * cycleLength(leaf); t += dt) {
         const p = leafPose(leaf, t);
         if (prev.scale > 0.02 && p.scale > 0.02) {
-          const moved = Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z);
-          expect(moved).toBeLessThan(0.08);
-          expect(Math.abs(p.rx - prev.rx)).toBeLessThan(0.2);
-          expect(Math.abs(p.ry - prev.ry)).toBeLessThan(0.2);
-          expect(Math.abs(p.rz - prev.rz)).toBeLessThan(0.2);
-          expect(Math.abs(p.scale - prev.scale)).toBeLessThanOrEqual(dt / FADE + 1e-9);
+          moved = Math.max(moved, Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z));
+          turned = Math.max(
+            turned,
+            Math.abs(p.rx - prev.rx),
+            Math.abs(p.ry - prev.ry),
+            Math.abs(p.rz - prev.rz)
+          );
+          grew = Math.max(grew, Math.abs(p.scale - prev.scale));
         }
         prev = p;
       }
     }
+    expect(moved).toBeLessThan(0.08);
+    expect(turned).toBeLessThan(0.2);
+    expect(grew).toBeLessThanOrEqual(dt / FADE + 1e-9);
   });
 
   it("lie flat and still once they have landed", () => {
