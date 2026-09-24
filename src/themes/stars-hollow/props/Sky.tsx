@@ -195,11 +195,19 @@ function Stars({ count }: { count: number }) {
 }
 
 /**
- * A near-full October moon, up to the right over the far side of the
- * square: a pale, faintly marked disc in a soft halo. A sprite fixed in
+ * A near-full October moon, just to the left of the church spire, so it
+ * shows above the board from the room view on a phone as well as a
+ * laptop: a pale, faintly marked disc in a soft halo. A sprite fixed in
  * the sky rather than painted on the dome, so it doesn't drift with
  * the clouds and always faces the camera.
  */
+/**
+ * Where the moon hangs: on the room camera's line of sight to a point
+ * just left of the spire and above the board, 50 m out (inside the dome,
+ * well behind the church so the spire would cover it, never the reverse).
+ */
+const MOON: [number, number, number] = [-6, 19, -42];
+
 function Moon() {
   const texture = useMemo(() => {
     const S = 256;
@@ -234,7 +242,7 @@ function Moon() {
   }, []);
   useEffect(() => () => texture.dispose(), [texture]);
   return (
-    <sprite position={[16, 19, -50]} scale={[16, 16, 1]}>
+    <sprite position={MOON} scale={[16, 16, 1]}>
       <spriteMaterial map={texture} transparent depthWrite={false} fog={false} />
     </sprite>
   );
