@@ -11,6 +11,12 @@ export interface Board {
   id: string;
   title: string;
   theme: string;
+  /**
+   * An optional second theme each person can switch the board to (BB-3).
+   * Optional in the type because boards exported or archived before
+   * migration 0008 don't carry the column at all.
+   */
+  secondary_theme?: string | null;
   status: BoardStatus;
   /** The main board that always shows at /board (only one at a time). */
   is_primary: boolean;

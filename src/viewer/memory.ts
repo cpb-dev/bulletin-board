@@ -16,6 +16,14 @@ export interface MemoryPayload {
   profiles: Record<string, Profile>;
   /** Storage path -> `data:image/jpeg;base64,…`, inlined at export time. */
   photos: Record<string, string>;
+  /**
+   * The theme this page shows. A board with a second theme (BB-3) is
+   * exported as one page per theme. Absent in exports made before that,
+   * which render in `board.theme`.
+   */
+  theme?: string;
+  /** The sibling page showing the board in its other theme. */
+  alternate?: { file: string; name: string; emoji: string };
 }
 
 declare global {

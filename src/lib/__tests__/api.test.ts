@@ -15,6 +15,7 @@ import {
   photoStoragePath,
   promoteBoardToMain,
   renameBoard,
+  updateBoardSecondaryTheme,
   updateBoardTheme,
   updateSurpriseReveal,
 } from "../api";
@@ -37,6 +38,27 @@ function chain(result: { data?: unknown; error?: { message: string } | null }) {
       return vi.fn(() => proxy);
     },
   });
+  return proxy;
+}
+
+/** Like `chain`, but each method is one spy, so its arguments can be checked. */
+function recordingChain(result: { data?: unknown; error?: { message: string } | null }) {
+  const spies = new Map<PropertyKey, ReturnType<typeof vi.fn>>();
+  const proxy: Record<string, ReturnType<typeof vi.fn>> = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === "then") {
+          return (
+            resolve: (v: unknown) => unknown,
+            reject: (e: unknown) => unknown
+          ) => Promise.resolve(result).then(resolve, reject);
+        }
+        if (!spies.has(prop)) spies.set(prop, vi.fn(() => proxy));
+        return spies.get(prop);
+      },
+    }
+  );
   return proxy;
 }
 
@@ -327,12 +349,50 @@ describe("items", () => {
 });
 
 describe("updateBoardTheme", () => {
+  it("only touches the theme when there's no second theme to drop", async () => {
+    const update = recordingChain({ data: null, error: null });
+    const { client } = mockSupabase([update]);
+    await updateBoardTheme(client, "b1", "beach-hut");
+    expect(update.update).toHaveBeenCalledWith({ theme: "beach-hut" });
+  });
+
+  it("drops the second theme along with the old main one", async () => {
+    const update = recordingChain({ data: null, error: null });
+    const { client } = mockSupabase([update]);
+    await updateBoardTheme(client, "b1", "beach-hut", { clearSecondary: true });
+    expect(update.update).toHaveBeenCalledWith({
+      theme: "beach-hut",
+      secondary_theme: null,
+    });
+  });
+
   it("throws a friendly error when the update fails", async () => {
     const { client } = mockSupabase([
       chain({ data: null, error: { message: "" } }),
     ]);
     await expect(updateBoardTheme(client, "b1", "x")).rejects.toThrow(
       "Could not change the theme."
+    );
+  });
+});
+
+describe("updateBoardSecondaryTheme", () => {
+  it("sets and removes the second theme", async () => {
+    const set = recordingChain({ data: null, error: null });
+    const clear = recordingChain({ data: null, error: null });
+    const { client } = mockSupabase([set, clear]);
+    await updateBoardSecondaryTheme(client, "b1", "haunted-hollow");
+    await updateBoardSecondaryTheme(client, "b1", null);
+    expect(set.update).toHaveBeenCalledWith({ secondary_theme: "haunted-hollow" });
+    expect(clear.update).toHaveBeenCalledWith({ secondary_theme: null });
+  });
+
+  it("throws a friendly error when the update fails", async () => {
+    const { client } = mockSupabase([
+      chain({ data: null, error: { message: "" } }),
+    ]);
+    await expect(updateBoardSecondaryTheme(client, "b1", "x")).rejects.toThrow(
+      "Could not change the second theme."
     );
   });
 });

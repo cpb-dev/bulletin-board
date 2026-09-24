@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteItem, updateItem } from "@/lib/api";
-import { useBoardStore } from "@/lib/store";
+import { selectDisplayedThemeId, useBoardStore } from "@/lib/store";
 import { getTheme } from "@/themes";
 import { Sheet, Swatch } from "./Sheet";
 
@@ -14,10 +14,10 @@ export function ItemEditor() {
   const item = useBoardStore((s) =>
     s.items.find((i) => i.id === s.editingId)
   );
-  const board = useBoardStore((s) => s.board);
   const profiles = useBoardStore((s) => s.profiles);
   const readOnly = useBoardStore((s) => s.readOnly);
-  const theme = getTheme(board?.theme);
+  // The papers on offer are the ones of the theme on screen (BB-3).
+  const theme = getTheme(useBoardStore(selectDisplayedThemeId));
 
   const [text, setText] = useState("");
   const [paper, setPaper] = useState("");
