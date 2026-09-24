@@ -41,8 +41,10 @@ export function MemoryViewer({ memory }: { memory: MemoryPayload }) {
     setReady(true);
   }, [memory]);
 
+  // A board with a second theme is exported as a page per theme (BB-3);
+  // older exports carry no `theme` and show the board's own.
   const { palette: theme, Scene, BoardDecor } = getThemeModule(
-    memory.board.theme
+    memory.theme ?? memory.board.theme
   );
 
   useEffect(() => {
@@ -95,6 +97,16 @@ export function MemoryViewer({ memory }: { memory: MemoryPayload }) {
             a memory · kept {new Date(saved).toLocaleDateString()}
           </small>
         </span>
+        {memory.alternate && (
+          <a
+            className="viewer-button round ghost viewer-switch"
+            href={encodeURIComponent(memory.alternate.file)}
+            aria-label={`See it in ${memory.alternate.name}`}
+            title={`See it in ${memory.alternate.name}`}
+          >
+            {memory.alternate.emoji}
+          </a>
+        )}
       </div>
 
       {view === "board" && <ZoomButtons />}

@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { clampScale, type PlacementView } from "./board-geometry";
+import {
+  displayedThemeId,
+  writeThemeView,
+  type ThemeView,
+} from "./theme-view";
 import type { Board, BoardItem, Profile } from "./types";
 import type { Fixture } from "./worldcup";
 
@@ -40,6 +45,8 @@ interface BoardState {
   composer: ComposerMode;
   addMenuOpen: boolean;
   themePickerOpen: boolean;
+  /** Which of the board's themes this person is looking at (BB-3). */
+  themeView: ThemeView;
 
   setBoard: (board: Board | null) => void;
   setItems: (items: BoardItem[]) => void;
@@ -66,6 +73,10 @@ interface BoardState {
   setComposer: (mode: ComposerMode) => void;
   setAddMenuOpen: (open: boolean) => void;
   setThemePickerOpen: (open: boolean) => void;
+  /** Set the view without remembering it (e.g. restoring it on load). */
+  setThemeView: (view: ThemeView) => void;
+  /** Flip between main and secondary, remembered on this device. */
+  toggleThemeView: () => void;
 
   upsertItem: (item: BoardItem) => void;
   removeItem: (id: string) => void;
@@ -107,6 +118,7 @@ export const useBoardStore = create<BoardState>((set) => ({
   composer: null,
   addMenuOpen: false,
   themePickerOpen: false,
+  themeView: "primary",
 
   setBoard: (board) => set({ board }),
   setItems: (items) => set({ items }),
@@ -198,6 +210,14 @@ export const useBoardStore = create<BoardState>((set) => ({
       composer: null,
       addMenuOpen: false,
     }),
+  setThemeView: (themeView) => set({ themeView }),
+  toggleThemeView: () =>
+    set((s) => {
+      const themeView: ThemeView =
+        s.themeView === "secondary" ? "primary" : "secondary";
+      if (s.board) writeThemeView(s.board.id, themeView);
+      return { themeView };
+    }),
 
   upsertItem: (item) =>
     set((s) => {
@@ -229,6 +249,18 @@ export const useBoardStore = create<BoardState>((set) => ({
   worldCupFixtures: {},
   setWorldCupFixtures: (worldCupFixtures) => set({ worldCupFixtures }),
 }));
+
+/**
+ * The theme id actually on screen: the board's main theme, or its
+ * secondary when this person has switched to it. Use with
+ * `useBoardStore(selectDisplayedThemeId)` wherever the theme's look
+ * matters (scene, papers).
+ */
+export function selectDisplayedThemeId(
+  s: Pick<BoardState, "board" | "themeView">
+): string | undefined {
+  return displayedThemeId(s.board, s.themeView);
+}
 
 /**
  * Camera framing for `suggestPlacement`, so a new item lands where the

@@ -20,6 +20,8 @@
  * has to carry its own copy of everything it draws.
  */
 
+import { getTheme } from "@/themes";
+import { secondaryThemeOf } from "./theme-view";
 import type { Board, BoardExport, BoardItem, Profile } from "./types";
 import type { ZipEntry } from "./zip";
 
@@ -146,6 +148,44 @@ export function photoManifest(
   return manifest;
 }
 
+/** One offline page in the export: which file, and which theme it shows. */
+export interface ViewerPage {
+  /** File name at the top of the export folder. */
+  file: string;
+  /** Theme id this page renders the board in. */
+  theme: string;
+  /** The page showing the board in its other theme, if it has one. */
+  alternate?: { file: string; name: string; emoji: string };
+}
+
+/**
+ * The offline pages to write. Every board gets `index.html` in its main
+ * theme; a board with a second theme (BB-3) also gets a page in that one,
+ * named after it, and each page links to the other. Two whole pages rather
+ * than one with a switch because each has to carry its own copy of
+ * everything it draws (see the note at the top of this file), and a
+ * double-clicked file can't be told which theme to open in.
+ */
+export function viewerPages(board: Board): ViewerPage[] {
+  const secondary = secondaryThemeOf(board);
+  if (!secondary) return [{ file: "index.html", theme: board.theme }];
+  const main = getTheme(board.theme);
+  const second = getTheme(secondary);
+  const secondFile = `index - ${safeFileName(second.name, "second theme")}.html`;
+  return [
+    {
+      file: "index.html",
+      theme: board.theme,
+      alternate: { file: secondFile, name: second.name, emoji: second.emoji },
+    },
+    {
+      file: secondFile,
+      theme: secondary,
+      alternate: { file: "index.html", name: main.name, emoji: main.emoji },
+    },
+  ];
+}
+
 /**
  * JSON safe to drop inside a `<script>` block: `</script>` anywhere in a
  * note would otherwise end the block early, and U+2028/9 are newlines to
@@ -172,7 +212,10 @@ function escapeHtml(raw: string): string {
  * the compiled viewer. The 3D itself is the app's own components, so a
  * memory looks exactly as it did in the app.
  */
-export function buildViewerHtml(input: ExportInput): string {
+export function buildViewerHtml(
+  input: ExportInput,
+  page: ViewerPage = { file: "index.html", theme: input.board.theme }
+): string {
   const manifest = photoManifest(input.items, input.photos);
   const byPath = new Map(input.photos.map((p) => [p.path, p]));
   const photoData: Record<string, string> = {};
@@ -190,6 +233,8 @@ export function buildViewerHtml(input: ExportInput): string {
     items: input.items,
     profiles: input.profiles,
     photos: photoData,
+    theme: page.theme,
+    ...(page.alternate && { alternate: page.alternate }),
   };
 
   const title = escapeHtml(`${input.board.title} · a memory`);
@@ -264,6 +309,10 @@ canvas { display: block; touch-action: none; }
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .viewer-chip small { display: block; font-weight: 400; opacity: 0.7; font-size: 0.72rem; }
+.viewer-switch {
+  pointer-events: auto; flex-shrink: 0; margin-left: auto;
+  display: grid; place-items: center; text-decoration: none;
+}
 .viewer-zoom {
   position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 0.5rem;
@@ -296,6 +345,16 @@ export function buildReadme(input: ExportInput, folder: string): string {
   const saved = input.board.archived_at ?? input.board.created_at;
   const photoCount = photoManifest(input.items, input.photos).length;
   const noteCount = input.items.filter((i) => i.kind === "note").length;
+  const [main, second] = viewerPages(input.board);
+  // A board with a second theme (BB-3) has a page per theme.
+  const secondPage = second
+    ? `
+               This page is the ${getTheme(main.theme).name} theme.
+
+  ${second.file}
+               The same board in its second theme, ${getTheme(second.theme).name}.
+               Each page has a button to hop across to the other.`
+    : "";
   return `${folder}
 ${"=".repeat(folder.length)}
 
@@ -312,7 +371,7 @@ What's in here
   index.html   Open this. It's the board itself — the same room, the same
                theme, the same notes and photos, read-only. It needs no
                internet and no app; a double-click is enough. (With a
-               connection it also picks up the handwriting font.)
+               connection it also picks up the handwriting font.)${secondPage}
 
   board.json   Everything the board knew: the board's own details and
                every item, with its position, size, tilt and paper. This
@@ -323,7 +382,7 @@ What's in here
                belongs to which item.
 
 The photos are in here twice on purpose: once as real .jpg files you can
-open, print or copy anywhere, and once tucked inside index.html, because
+open, print or copy anywhere, and once tucked inside ${second ? "each .html page" : "index.html"}, because
 a page opened straight off your disk isn't allowed to read the files next
 to it.
 
@@ -350,10 +409,10 @@ export function buildExportBundle(input: ExportInput): ExportBundle {
   };
 
   const entries: ZipEntry[] = [
-    {
-      path: `${folder}/index.html`,
-      data: text.encode(buildViewerHtml({ ...input, now })),
-    },
+    ...viewerPages(input.board).map((page) => ({
+      path: `${folder}/${page.file}`,
+      data: text.encode(buildViewerHtml({ ...input, now }, page)),
+    })),
     {
       path: `${folder}/board.json`,
       data: text.encode(JSON.stringify(keepsake, null, 2)),

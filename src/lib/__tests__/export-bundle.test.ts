@@ -9,6 +9,7 @@ import {
   safeFileName,
   slugify,
   toBase64,
+  viewerPages,
   type ExportInput,
 } from "../export-bundle";
 import type { Board, BoardItem } from "../types";
@@ -311,5 +312,87 @@ describe("buildExportBundle", () => {
       "Summer holiday 2026 (memory)/board.json",
       "Summer holiday 2026 (memory)/README.txt",
     ]);
+  });
+});
+
+describe("a board with a second theme (BB-3)", () => {
+  const paired: Board = { ...board, secondary_theme: "haunted-hollow" };
+
+  it("gets a page per theme, each linking to the other", () => {
+    expect(viewerPages(paired)).toEqual([
+      {
+        file: "index.html",
+        theme: "beach-hut",
+        alternate: {
+          file: "index - Haunted Hollow.html",
+          name: "Haunted Hollow",
+          emoji: "🎃",
+        },
+      },
+      {
+        file: "index - Haunted Hollow.html",
+        theme: "haunted-hollow",
+        alternate: { file: "index.html", name: "Beach Hut", emoji: "🏖️" },
+      },
+    ]);
+  });
+
+  it("a board with one theme still gets just index.html", () => {
+    expect(viewerPages(board)).toEqual([{ file: "index.html", theme: "beach-hut" }]);
+    expect(viewerPages({ ...board, secondary_theme: null })).toHaveLength(1);
+  });
+
+  it("writes both pages, each rendering its own theme", () => {
+    const bundle = buildExportBundle(input({ board: paired }));
+    const page = (name: string) =>
+      readPayload(
+        decode(bundle.entries.find((e) => e.path.endsWith(`/${name}`))!.data)
+      );
+    expect(bundle.entries.map((e) => e.path)).toEqual([
+      "Summer holiday 2026 (memory)/index.html",
+      "Summer holiday 2026 (memory)/index - Haunted Hollow.html",
+      "Summer holiday 2026 (memory)/board.json",
+      "Summer holiday 2026 (memory)/README.txt",
+    ]);
+    expect(page("index.html").theme).toBe("beach-hut");
+    expect(page("index.html").alternate.file).toBe("index - Haunted Hollow.html");
+    expect(page("index - Haunted Hollow.html").theme).toBe("haunted-hollow");
+    expect(page("index - Haunted Hollow.html").alternate.file).toBe("index.html");
+    // Same board, same items — only the theme differs.
+    expect(page("index - Haunted Hollow.html").items).toEqual(
+      page("index.html").items
+    );
+  });
+
+  it("carries the photos in each page, since neither can borrow the other's", () => {
+    const bundle = buildExportBundle(
+      input({
+        board: paired,
+        items: [item({ kind: "photo", photo_path: "board-1/a.jpg" })],
+        photos: [{ path: "board-1/a.jpg", bytes: new Uint8Array([1, 2, 3]) }],
+      })
+    );
+    const pages = bundle.entries.filter((e) => e.path.endsWith(".html"));
+    expect(pages).toHaveLength(2);
+    for (const p of pages) {
+      expect(readPayload(decode(p.data)).photos["board-1/a.jpg"]).toMatch(
+        /^data:image\/jpeg;base64,/
+      );
+    }
+  });
+
+  it("explains both pages in the README", () => {
+    const readme = buildReadme(input({ board: paired }), "x");
+    expect(readme).toContain("index - Haunted Hollow.html");
+    expect(readme).toContain("second theme, Haunted Hollow");
+    expect(readme).toContain("This page is the Beach Hut theme.");
+  });
+
+  it("keeps the second theme in board.json", () => {
+    const bundle = buildExportBundle(input({ board: paired }));
+    const json = JSON.parse(
+      decode(bundle.entries.find((e) => e.path.endsWith("board.json"))!.data)
+    );
+    expect(json.board.secondary_theme).toBe("haunted-hollow");
   });
 });

@@ -11,7 +11,8 @@ import {
   getProfiles,
   listItems,
 } from "@/lib/api";
-import { useBoardStore } from "@/lib/store";
+import { selectDisplayedThemeId, useBoardStore } from "@/lib/store";
+import { readThemeView } from "@/lib/theme-view";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getThemeModule } from "@/themes/scenes";
 import { CAMERA_FOV, EXTENDED_MAX_NX } from "@/lib/board-geometry";
@@ -21,6 +22,7 @@ import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
 import { HeldItem } from "./three/HeldItem";
 import { CameraRig } from "./three/CameraRig";
+import { SnapshotBridge, ThemeMorphLayer, useThemeMorph } from "./ThemeMorph";
 import { Hud } from "./ui/Hud";
 import { Toolbar } from "./ui/Toolbar";
 import { ZoomControls } from "./ui/ZoomControls";
@@ -65,6 +67,7 @@ export function BoardExperience({
     store.stepBack();
     store.setBoard(null);
     store.setItems([]);
+    store.setThemeView("primary");
 
     (async () => {
       try {
@@ -87,6 +90,8 @@ export function BoardExperience({
         const s = useBoardStore.getState();
         s.setReadOnly(readOnly || loadedBoard.status === "archived");
         s.setBoard(loadedBoard);
+        // Main or secondary theme is each person's own choice (BB-3).
+        s.setThemeView(readThemeView(loadedBoard.id));
         s.setItems(loadedItems);
         s.setProfiles(profiles);
       } catch (err) {
@@ -106,9 +111,17 @@ export function BoardExperience({
 
   useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
+  // The theme on screen: the board's main one, or its secondary if this
+  // person switched (BB-3). Changes morph rather than cut.
+  const displayedThemeId = useBoardStore(selectDisplayedThemeId);
+  const { renderedThemeId, bridgeRef, overlayRef } = useThemeMorph(
+    board?.id,
+    displayedThemeId
+  );
+
   // The theme's folder supplies its own scene and board decor, so a new
   // theme never needs a branch here.
-  const { palette: theme, Scene, BoardDecor } = getThemeModule(board?.theme);
+  const { palette: theme, Scene, BoardDecor } = getThemeModule(renderedThemeId);
 
   // Themes with a mini board let you pan past the main board's edge.
   useEffect(() => {
@@ -235,7 +248,9 @@ export function BoardExperience({
         </Board>
         <HeldItem theme={theme} />
         <CameraRig />
+        <SnapshotBridge bridgeRef={bridgeRef} />
       </Canvas>
+      <ThemeMorphLayer overlayRef={overlayRef} />
 
       {/* ---- overlay UI ---- */}
       <Hud readOnly={effectiveReadOnly} />

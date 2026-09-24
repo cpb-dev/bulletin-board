@@ -14,6 +14,12 @@ Summer holiday 2026 (memory)/
   README.txt    what all of the above is
 ```
 
+A board with a second theme (BB-3) also gets `index - <Theme>.html`: the
+same board in its other theme. Each page carries its own copy of
+everything (see below for why) and a button linking to the other, so
+both looks survive in the keepsake. It doubles the viewer's share of the
+folder; the photos in `photos/` are still written once.
+
 ## Why it exists
 
 Archived boards used to be backed only by a JSON file of item rows.
@@ -87,7 +93,9 @@ npm run export:preview      # writes /tmp/try-export and screenshots it
 `scripts/dev/try-export.mts` builds a real export, opens `index.html`
 from `file://` in headless Chromium and saves `room.png` and
 `board.png`, so the offline board can be looked at rather than assumed.
-Set `TRY_EXPORT_THEME` to check a particular theme.
+Set `TRY_EXPORT_THEME` to check a particular theme, and
+`TRY_EXPORT_SECONDARY` to give the board a second theme (writing both
+pages).
 
 ## Known gaps
 

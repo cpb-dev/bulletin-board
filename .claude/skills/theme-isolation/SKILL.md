@@ -49,6 +49,8 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/components/three/HeldItem.tsx`, `SelectionFrame.tsx`, `useItemInteraction.ts`, `photo-texture.ts` | holding, selecting, dragging |
 | `src/components/three/CameraRig.tsx` | both camera stations |
 | `src/components/BoardExperience.tsx` | scene lookup, data load, overlay UI |
+| `src/components/ThemeMorph.tsx` | the dissolve when a board switches between its main and second theme (BB-3) |
+| `src/lib/theme-view.ts` | which of a board's two themes is on screen; remembered per device |
 | `src/themes/index.ts`, `scenes.ts`, `types.ts`, `groups.ts` | the catalogue and its types |
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
 

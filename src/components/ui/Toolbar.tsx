@@ -2,6 +2,8 @@
 
 import { useBoardStore } from "@/lib/store";
 import { isSurpriseBoard } from "@/lib/surprise";
+import { secondaryThemeOf } from "@/lib/theme-view";
+import { getTheme } from "@/themes";
 
 /** Bottom action bar — changes with where you're standing and the mode. */
 export function Toolbar() {
@@ -34,9 +36,12 @@ export function Toolbar() {
 
       <div className="pointer-events-auto flex items-center gap-2">
         {view === "room" ? (
-          <button className="cute-button" onClick={() => walkUp()}>
-            walk up to the board 🚶
-          </button>
+          <>
+            <button className="cute-button" onClick={() => walkUp()}>
+              walk up to the board 🚶
+            </button>
+            <ThemeSwitchButton />
+          </>
         ) : readOnly ? (
           <button className="cute-button ghost" onClick={stepBack}>
             step back
@@ -79,5 +84,31 @@ export function Toolbar() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Flip between the board's main and secondary theme (BB-3). Shows the icon
+ * of the theme you'd switch *to*; the choice is remembered on this device
+ * only, so each of you keeps your own. Hidden when there's no secondary.
+ */
+function ThemeSwitchButton() {
+  const board = useBoardStore((s) => s.board);
+  const themeView = useBoardStore((s) => s.themeView);
+  const toggleThemeView = useBoardStore((s) => s.toggleThemeView);
+  const secondary = secondaryThemeOf(board);
+  if (!board || !secondary) return null;
+
+  const showingSecondary = themeView === "secondary";
+  const next = getTheme(showingSecondary ? board.theme : secondary);
+  return (
+    <button
+      className="cute-button ghost !px-3"
+      onClick={toggleThemeView}
+      aria-label={`Switch to ${next.name}`}
+      title={`Switch to ${next.name}`}
+    >
+      <span aria-hidden>{next.emoji}</span>
+    </button>
   );
 }

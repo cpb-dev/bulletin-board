@@ -325,16 +325,38 @@ export async function updateSurpriseReveal(
   if (error) fail(error.message, "Could not update the surprise.");
 }
 
+/**
+ * Change a board's main theme. Picking a new main theme also drops any
+ * secondary theme (BB-3) — pass `clearSecondary` when the board has one.
+ * It's only sent when needed so theme changes keep working on a database
+ * that hasn't had migration 0008 yet.
+ */
 export async function updateBoardTheme(
   supabase: SupabaseClient,
   boardId: string,
-  theme: string
+  theme: string,
+  options: { clearSecondary?: boolean } = {}
 ): Promise<void> {
   const { error } = await supabase
     .from("boards")
-    .update({ theme })
+    .update(
+      options.clearSecondary ? { theme, secondary_theme: null } : { theme }
+    )
     .eq("id", boardId);
   if (error) fail(error.message, "Could not change the theme.");
+}
+
+/** Set (or, with null, remove) a board's secondary theme. */
+export async function updateBoardSecondaryTheme(
+  supabase: SupabaseClient,
+  boardId: string,
+  secondaryTheme: string | null
+): Promise<void> {
+  const { error } = await supabase
+    .from("boards")
+    .update({ secondary_theme: secondaryTheme })
+    .eq("id", boardId);
+  if (error) fail(error.message, "Could not change the second theme.");
 }
 
 // ---------- Items ----------

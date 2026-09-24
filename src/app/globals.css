@@ -120,3 +120,47 @@ body {
 .float-y {
   animation: float-y 3.2s ease-in-out infinite;
 }
+
+/* BB-3: the old room dissolving into the board's other theme. */
+.theme-morph-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+}
+.theme-morph-layer.frozen {
+  opacity: 1;
+}
+.theme-morph-layer.morphing {
+  animation-name: theme-morph;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1);
+  animation-fill-mode: both;
+}
+@keyframes theme-morph {
+  0% {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+    transform: scale(1);
+  }
+  35% {
+    opacity: 0.9;
+    filter: blur(4px) saturate(1.25);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(18px) saturate(1.5);
+    transform: scale(1.05);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes theme-morph {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}

@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createNote } from "@/lib/api";
 import { randomTilt, suggestPlacement } from "@/lib/board-geometry";
-import { currentPlacementView, useBoardStore } from "@/lib/store";
+import {
+  currentPlacementView,
+  selectDisplayedThemeId,
+  useBoardStore,
+} from "@/lib/store";
 import { getTheme } from "@/themes";
 import { Sheet, Swatch } from "./Sheet";
 
@@ -14,7 +18,8 @@ export function NoteComposer() {
   const supabase = useMemo(() => createClient(), []);
   const open = useBoardStore((s) => s.composer === "note");
   const board = useBoardStore((s) => s.board);
-  const theme = getTheme(board?.theme);
+  // The papers on offer are the ones of the theme on screen (BB-3).
+  const theme = getTheme(useBoardStore(selectDisplayedThemeId));
 
   const [text, setText] = useState("");
   const [paper, setPaper] = useState(theme.papers[0].id);

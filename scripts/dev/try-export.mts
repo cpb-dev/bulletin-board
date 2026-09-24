@@ -13,11 +13,14 @@ import type { Board, BoardItem } from "../../src/lib/types.ts";
 
 const out = process.env.TRY_EXPORT_DIR ?? "/tmp/try-export";
 const theme = process.env.TRY_EXPORT_THEME ?? "beach-hut";
+// Set to a theme id to export a board with a second theme (BB-3).
+const secondary = process.env.TRY_EXPORT_SECONDARY ?? null;
 
 const board: Board = {
   id: "board-1",
   title: "Summer holiday 2026",
   theme,
+  secondary_theme: secondary,
   status: "archived",
   is_primary: false,
   kind: "standard",
