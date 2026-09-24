@@ -7,6 +7,7 @@
  *
  * Args: <theme> <outDir> <name> [camera x,y,z] [look-at x,y,z] [WxH] [waitMs]
  * The size defaults to 1280x720; pass 390x844 for a phone.
+ * PHASE=night (or evening, day) stages that part of the day (BB-21).
  */
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
@@ -34,7 +35,8 @@ page.on("console", (m) => m.type() === "error" && problems.push(`console ${m.tex
 const url =
   `${base}/dev/scene?t=${theme}` +
   (cam ? `&c=${cam}` : "") +
-  (look ? `&l=${look}` : "");
+  (look ? `&l=${look}` : "") +
+  (process.env.PHASE ? `&p=${process.env.PHASE}` : "");
 await page.goto(url, { waitUntil: "networkidle" });
 await page
   .waitForSelector("canvas[data-ready='1']", { timeout: 60000 })

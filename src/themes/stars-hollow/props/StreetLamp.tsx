@@ -3,6 +3,7 @@
 import { IRON } from "./colours";
 import { CornStalks } from "./FallDecor";
 import { DoorWreath } from "./StreetParts";
+import { useLook } from "./phase";
 
 /**
  * A black cast-iron street lamp: a fluted base, a slim post, and either
@@ -14,12 +15,14 @@ import { DoorWreath } from "./StreetParts";
  */
 export function StreetLamp({ globes = 1, dressed = true }: { globes?: 1 | 3; dressed?: boolean }) {
   const H = 3.4;
+  // lit brighter as the day goes (BB-21)
+  const { lampGlow, lampColour } = useLook();
   const iron = <meshStandardMaterial color={IRON} roughness={0.5} metalness={0.3} />;
   const globe = (
     <meshStandardMaterial
       color="#fbf8f0"
-      emissive="#fff4dc"
-      emissiveIntensity={0.25}
+      emissive={lampColour}
+      emissiveIntensity={lampGlow}
       roughness={0.4}
     />
   );

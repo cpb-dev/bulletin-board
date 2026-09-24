@@ -12,6 +12,7 @@ import { SceneStage } from "./SceneStage";
  *
  *   /dev/scene?t=stars-hollow
  *   /dev/scene?t=stars-hollow&c=6,2,-1&l=6,1.5,-8   (camera, look-at)
+ *   /dev/scene?t=stars-hollow&p=night   (day/night phase, BB-21)
  */
 export default function DevScenePage() {
   return <SceneStage />;

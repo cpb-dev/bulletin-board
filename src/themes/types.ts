@@ -11,6 +11,7 @@
 
 import type { ComponentType } from "react";
 import type { Texture } from "three";
+import type { DayCycle, DayPhase } from "@/lib/day-cycle";
 
 export interface PaperColor {
   id: string;
@@ -77,8 +78,14 @@ export interface BoardTheme {
   };
 }
 
-/** The environment a theme's board lives in — its whole 3D world. */
-export type ThemeScene = ComponentType<{ theme: BoardTheme }>;
+/**
+ * The environment a theme's board lives in — its whole 3D world.
+ *
+ * `phase` is the part of the day to show (BB-21). Only themes whose
+ * module sets `dayCycle` are ever given anything but "day", and a scene
+ * that has no cycle can ignore it.
+ */
+export type ThemeScene = ComponentType<{ theme: BoardTheme; phase?: DayPhase }>;
 
 /**
  * What's strung across the top of the board. A theme that doesn't name
@@ -98,4 +105,10 @@ export interface ThemeModule {
   palette: BoardTheme;
   Scene: ThemeScene;
   BoardDecor?: ThemeBoardDecor;
+  /**
+   * Opt in to the day/night cycle (BB-21): the scene is handed the
+   * phase of the day when the board loads. Leave unset and the theme is
+   * always day.
+   */
+  dayCycle?: DayCycle;
 }

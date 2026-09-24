@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { selectDisplayedThemeId, useBoardStore } from "@/lib/store";
 import { readThemeView } from "@/lib/theme-view";
+import { resolvePhase } from "@/lib/day-cycle";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getThemeModule } from "@/themes/scenes";
 import { CAMERA_FOV, EXTENDED_MAX_NX } from "@/lib/board-geometry";
@@ -59,6 +60,8 @@ export function BoardExperience({
   const effectiveReadOnly = useBoardStore((s) => s.readOnly);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // The day/night cycle is decided on load, never mid-visit (BB-21).
+  const [loadedAt] = useState(() => new Date());
 
   useEffect(() => {
     let alive = true;
@@ -121,7 +124,12 @@ export function BoardExperience({
 
   // The theme's folder supplies its own scene and board decor, so a new
   // theme never needs a branch here.
-  const { palette: theme, Scene, BoardDecor } = getThemeModule(renderedThemeId);
+  const { palette: theme, Scene, BoardDecor, dayCycle } = getThemeModule(renderedThemeId);
+
+  // Themes with a day/night cycle show the part of the day it is now —
+  // but a memory keeps the daylight it was saved in.
+  const phase =
+    board?.status === "archived" ? "day" : resolvePhase(dayCycle, loadedAt);
 
   // Themes with a mini board let you pan past the main board's edge.
   useEffect(() => {
@@ -236,7 +244,7 @@ export function BoardExperience({
         // without this, mobile browsers steal drag gestures for scrolling
         style={{ touchAction: "none" }}
       >
-        <Scene theme={theme} />
+        <Scene theme={theme} phase={phase} />
         <Board theme={theme} decor={BoardDecor}>
           {items.map((item) =>
             item.kind === "photo" ? (
