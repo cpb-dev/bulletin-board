@@ -54,6 +54,10 @@ export interface BoardExport {
   app: string;
   board: Board;
   items: BoardItem[];
+  /** Display names, so an exported note keeps its "posted by" stamp. */
+  profiles?: Record<string, Profile>;
+  /** Where each photo was written in the export folder. */
+  photos?: { path: string; file: string }[];
 }
 
 // ---------- Lists (separate to boards) ----------

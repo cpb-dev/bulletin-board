@@ -20,6 +20,8 @@ const eslintConfig = [
       "next-env.d.ts",
       "supabase/functions/**",
       "public/sw.js",
+      // the compiled memory viewer — a build artefact, not source
+      "public/export/**",
     ],
   },
 ];

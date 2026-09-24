@@ -53,6 +53,10 @@ npm run e2e                         # Playwright smoke tests
 npm run build                       # needs NEXT_PUBLIC_SUPABASE_* set
 ```
 
+`dev` and `build` both run `build:viewer` first, which bundles
+`src/viewer/` into the git-ignored `public/export/viewer.js` — the
+offline board inside a keepsake export. See `docs/EXPORT.md`.
+
 The build needs Supabase env vars. CI uses placeholders and so can you:
 
 ```bash
