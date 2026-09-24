@@ -11,15 +11,21 @@ for the shape of it and `docs/DESIGN.md` for the art direction.
 Nine themes share a small set of components. Work on one theme must never
 change another, and archived boards (memories) must render exactly as they
 did when they were saved. Before changing anything under
-`src/components/three/` or `src/lib/themes.ts`, load the **theme-isolation**
+`src/components/three/` or `src/themes/`, load the **theme-isolation**
 skill.
 
 ## Conventions
 
-- **New logic goes in `src/lib/` as pure functions, with unit tests.** The
-  meshes and components stay dumb. `src/lib/crab.ts` and `src/lib/haunted.ts`
-  are the pattern: timing, easing and randomness live there and are tested
-  without a renderer.
+- **Each theme owns its folder.** `src/themes/<id>/` holds that theme's
+  palette, scene, props and logic, and its `index.ts` is the bridge that
+  exports the one `ThemeModule` the catalogue sees. Adding a theme is a new
+  folder plus one line in `src/themes/index.ts` and one in
+  `src/themes/scenes.ts` — never a new branch in shared code.
+- **New logic goes in `src/lib/` as pure functions, with unit tests** —
+  or in `src/themes/<id>/lib/` when only one theme uses it. The meshes and
+  components stay dumb. `src/themes/beach-hut/lib/crab.ts` and
+  `src/themes/haunted-hollow/lib/haunted.ts` are the pattern: timing,
+  easing and randomness live there and are tested without a renderer.
 - **New UI behaviour gets a component test** against the real Zustand store,
   mocking only the network edge (`@/lib/api` or the Supabase client).
 - **Schema changes are a new numbered file in `supabase/migrations/`.** Never
@@ -28,6 +34,12 @@ skill.
 - **Themes must never break archived boards.** `getTheme` falls back to the
   first theme for unknown ids, and that fallback is load-bearing: a board
   saved under a theme id that later disappears still has to render.
+  `src/themes/__tests__/palette-drift.test.ts` pins what every theme looks
+  like; if it fails you have changed an existing theme, so change the
+  digest deliberately and say so.
+- **Import themes by what you need.** `@/themes` is palettes only (cheap);
+  `@/themes/scenes` pulls in all nine 3D scenes and belongs to the board
+  experience alone. Mixing them up quadruples a page's bundle.
 - **Item coordinates are normalized** (`x, y ∈ [-1, 1]`) so the board can be
   resized or restyled without corrupting saved boards. Don't store world
   units.

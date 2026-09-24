@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { createNote } from "@/lib/api";
 import { randomTilt, suggestPlacement } from "@/lib/board-geometry";
 import { currentPlacementView, useBoardStore } from "@/lib/store";
-import { getTheme } from "@/lib/themes";
+import { getTheme } from "@/themes";
 import { Sheet, Swatch } from "./Sheet";
 
 const MAX_NOTE_LENGTH = 200;

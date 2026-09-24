@@ -11,7 +11,7 @@ afterwards.
 - The board uses an exclusive **World Cup theme** (pitch green & gold)
   that is *not* offered in the normal theme picker and can't be applied
   to other boards.
-- The board stands on a **football pitch in a stadium** (`StadiumScene`):
+- The board stands on a **football pitch in a stadium** (`src/themes/world-cup/StadiumScene.tsx`):
   an animated, **tappable crowd** (touch anyone to set off a Mexican wave
   around the stands), **England** and **South Africa** flags fluttering
   beside the board, floodlights, and little **footballs** along the top of

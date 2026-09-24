@@ -4,7 +4,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Board, BoardExport, BoardItem, Profile } from "./types";
-import { DEFAULT_THEME_ID } from "./themes";
+import { DEFAULT_THEME_ID } from "@/themes";
 import {
   WORLD_CUP,
   WORLD_CUP_THEME_ID,

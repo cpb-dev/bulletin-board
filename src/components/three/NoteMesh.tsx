@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { getPaper, pinColorFor, type BoardTheme } from "@/lib/themes";
+import { getPaper, pinColorFor, type BoardTheme } from "@/themes";
 import { ITEM_Z, NOTE_BASE, normToWorld } from "@/lib/board-geometry";
 import type { BoardItem } from "@/lib/types";
 import { useBoardStore } from "@/lib/store";

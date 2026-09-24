@@ -15,7 +15,7 @@ import {
   renameBoard,
   updateSurpriseReveal,
 } from "@/lib/api";
-import { getTheme } from "@/lib/themes";
+import { getTheme } from "@/themes";
 import { useBoardStore } from "@/lib/store";
 import { isStillSecret, validateRevealDate } from "@/lib/surprise";
 import type { Board } from "@/lib/types";

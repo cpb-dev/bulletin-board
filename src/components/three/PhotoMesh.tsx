@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ITEM_Z, normToWorld, photoPlaneSize } from "@/lib/board-geometry";
-import { pinColorFor, type BoardTheme } from "@/lib/themes";
+import { pinColorFor, type BoardTheme } from "@/themes";
 import type { BoardItem } from "@/lib/types";
 import { drawNoteTexture } from "./textures";
 import { Pin } from "./Pin";

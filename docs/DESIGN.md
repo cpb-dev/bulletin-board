@@ -52,8 +52,14 @@ stacking in the middle.
 A theme is a full redecoration: room colours, board frame and cork,
 lighting temperature, pin colours, the four note-paper colours, the
 garland colour, the set dressing (books / bunting / stars / flowers)
-and the 2D UI palette. They live as one typed object each in
-`src/lib/themes.ts`.
+and the 2D UI palette. Each lives in its own folder under `src/themes/`:
+`palette.ts` is the typed object, `index.ts` bridges it to the scene and
+board decor it renders with.
+
+The picker groups them: **Everyday** (Cozy Cabin, Peach Parfait, Midnight
+Picnic, Sage Meadow, Summer House), **Special** (World Cup, Rose Picnic)
+and **Seasonal** (Haunted Hollow, Beach Hut). A theme names its own group
+in its palette.
 
 | Theme | Mood |
 | --- | --- |
@@ -69,11 +75,14 @@ Themes carry small optional flags so a single `Room` can restyle itself:
 log walls and an animated, smoking fireplace with a chimney to the
 ceiling (in place of the window); `windowView: "garden"` paints a sunny
 garden in the window and `plantStyle: "flowerbush"` swaps the pot plant
-for a blossoming bush (**Summer House**); `boardDecor: "shells"` strings
-assorted seashells across the board top instead of fairy lights.
+for a blossoming bush (**Summer House**). A theme that exports a
+`BoardDecor` strings that across the board top instead of fairy lights —
+Beach Hut's seashells, World Cup's footballs, Rose Picnic's hearts,
+Haunted Hollow's cobwebs.
 
-A theme can also set `scene: "beach"` to swap the indoor room entirely
-for the **Beach Hut** environment (`BeachScene.tsx`): a bright daytime
+A theme's module names its own `Scene`, which is how **Beach Hut** swaps
+the indoor room entirely for its own environment
+(`src/themes/beach-hut/BeachScene.tsx`): a bright daytime
 gradient sky with drifting clouds, the board on a wooden easel in the
 sand, a vertex-animated sea rolling in with foam crests, a sandcastle,
 `useFrame`-driven gulls, and **tappable crabs** — poke one for a random
