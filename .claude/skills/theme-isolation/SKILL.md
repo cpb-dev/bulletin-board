@@ -1,6 +1,6 @@
 ---
 name: theme-isolation
-description: Rules for changing anything that a board theme renders — scenes, props, the board itself, the theme catalogue, or shared three.js helpers. Use when working on one theme, adding a theme, detailing a model, or touching any file under src/components/three/ or src/lib/themes.ts. Ensures existing and archived boards are never changed by work aimed at a different theme, and defines the Shared Surface Declaration required whenever shared code is touched.
+description: Rules for changing anything that a board theme renders — scenes, props, the board itself, the theme catalogue, or shared three.js helpers. Use when working on one theme, adding a theme, detailing a model, or touching any file under src/components/three/ or src/themes/. Ensures existing and archived boards are never changed by work aimed at a different theme, and defines the Shared Surface Declaration required whenever shared code is touched.
 ---
 
 # Theme isolation
@@ -48,29 +48,30 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/components/three/NoteMesh.tsx`, `PhotoMesh.tsx`, `Pin.tsx` | every pinned item |
 | `src/components/three/HeldItem.tsx`, `SelectionFrame.tsx`, `useItemInteraction.ts`, `photo-texture.ts` | holding, selecting, dragging |
 | `src/components/three/CameraRig.tsx` | both camera stations |
-| `src/components/BoardExperience.tsx` | scene switch, data load, overlay UI |
-| `src/lib/themes.ts` | the catalogue and its types |
+| `src/components/BoardExperience.tsx` | scene lookup, data load, overlay UI |
+| `src/themes/index.ts`, `scenes.ts`, `types.ts`, `groups.ts` | the catalogue and its types |
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
 
 **Shared by a group of themes:**
 
 | File | Themes |
 | --- | --- |
-| `src/components/three/Room.tsx` | the five indoor themes: cozy-cabin, peach-parfait, midnight-picnic, sage-meadow, summer-house |
+| `src/components/three/Room.tsx` | the five Everyday themes: cozy-cabin, peach-parfait, midnight-picnic, sage-meadow, summer-house |
 
-**Isolated to one theme:**
+**Isolated to one theme — everything under that theme's own folder:**
 
-| File | Theme |
+| Folder | Theme |
 | --- | --- |
-| `BeachScene.tsx` | beach-hut |
-| `StadiumScene.tsx` | world-cup (special, outside `THEMES`) |
-| `RoseFieldScene.tsx` | rose-picnic (special, surprise boards only) |
-| `HauntedScene.tsx` | haunted-hollow |
-| `src/components/three/props/*.tsx` | whichever scene imports it |
+| `src/themes/beach-hut/` | beach-hut (scene, shell decor, crab logic) |
+| `src/themes/world-cup/` | world-cup (stadium scene, football decor) |
+| `src/themes/rose-picnic/` | rose-picnic (rose field scene, heart decor) |
+| `src/themes/haunted-hollow/` | haunted-hollow (scene, every prop, its lib) |
+| `src/themes/<id>/palette.ts` | that theme's colours, and only that theme's |
 
-Note that `world-cup` and `rose-picnic` are deliberately **not** in `THEMES`,
-so they never appear in the theme picker. They are still real boards people
-can be looking at — include them in any impact check.
+All nine themes are in `THEMES` and all nine appear in the picker, grouped
+by `palette.group` (`basic` / `special` / `seasonal`). `world-cup` and
+`rose-picnic` are no longer hidden, so a change to either is now a change
+someone can see on an ordinary board — treat them like any other theme.
 
 ### Deriving the surface
 
@@ -82,19 +83,31 @@ file you are about to change:
 grep -rn "from \"[./@a-z/]*<basename>\"" src --include=*.tsx --include=*.ts
 
 # then walk UP: who imports those? keep going until you reach
-# BoardExperience.tsx or a scene file, and note which themes those serve
-grep -n 'scene === ' src/components/BoardExperience.tsx
-grep -n 'scene:' src/lib/themes.ts
+# BoardExperience.tsx or a theme's index.ts, and note which themes
+# those serve
+grep -rn 'Scene:' src/themes/*/index.ts
 ```
 
 A change is shared if that walk ends at more than one theme.
+
+A file's folder is the fastest first answer: anything under
+`src/themes/<id>/` belongs to that theme alone, and anything under
+`src/components/three/` is shared by several. That is what the split is
+for — but still walk the imports before changing shared code.
 
 ## Prefer isolation when adding
 
 When building something new for one theme:
 
-- **New props go in `src/components/three/props/`**, imported only by that
-  theme's scene. That is why `Pumpkin.tsx` lives there.
+- **New props go in `src/themes/<id>/props/`**, imported only by that
+  theme's scene. That is why `Pumpkin.tsx` lives under
+  `src/themes/haunted-hollow/props/`.
+- **A new theme should need no shared change at all.** Give it a folder
+  with a `palette.ts` and an `index.ts` exporting its `ThemeModule`
+  (palette, `Scene`, optional `BoardDecor`), then register it in
+  `src/themes/index.ts` and `src/themes/scenes.ts`. If you find yourself
+  adding a branch to `Board.tsx` or `BoardExperience.tsx`, stop — the
+  module is meant to carry that.
 - **Extend shared helpers additively.** If a prop needs richer shading, add
   a new function rather than changing the existing one — `makeToonRamp`
   exists precisely because `makeToonGradient` is used by all nine themes and
@@ -143,10 +156,17 @@ Example:
 
 - **Route sizes.** Build before and after; every unrelated route should be
   byte-identical. A changed size on `/lists` after a theme change means
-  something leaked.
-- **The catalogue test.** `src/lib/__tests__/themes.test.ts` asserts every
-  theme maps to a scene that exists — a theme naming a missing scene falls
-  back silently to the indoor room.
+  something leaked. Watch `/memories` especially: it wants palettes only,
+  so it must import `@/themes`, never `@/themes/scenes`. Importing the
+  scene registry from a page pulls all nine 3D scenes into it (that
+  mistake once took `/memories` from 7 kB to 286 kB).
+- **The catalogue tests.** `src/themes/__tests__/catalogue.test.ts` asserts
+  every theme has a scene, is filed under a real group, and appears exactly
+  once in the picker; it also keeps the palette list and the scene list in
+  step. `src/themes/__tests__/palette-drift.test.ts` pins a digest of every
+  theme's look — if it fails you have changed how an existing theme renders,
+  which is allowed only deliberately, with the digest updated in the same
+  commit.
 - **Look at the other themes.** Tests cannot see colour. If you changed
   anything shared, say so and ask for a visual check of at least one theme
   from each group: an indoor one, beach-hut, and `/worldcup`.

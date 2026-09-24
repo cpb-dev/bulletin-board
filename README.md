@@ -90,8 +90,10 @@ npm run lint && npm run typecheck
 
 - `NEXT_PUBLIC_APP_NAME` — the name shown in the app and on your home
   screen (set it in Vercel → Settings → Environment Variables).
-- `src/lib/themes.ts` — every colour of every theme lives here; add a
-  fifth theme by adding one object.
+- `src/themes/<theme-id>/` — one folder per theme: `palette.ts` for its
+  colours, `index.ts` bridging to its scene and decor. Add a theme by
+  copying a folder and registering it in `src/themes/index.ts` and
+  `src/themes/scenes.ts`.
 - `supabase/migrations/0001_init.sql` — the guest list of the two
   emails allowed to sign up.
 - `node scripts/generate-icons.mjs` — regenerates the app icons.

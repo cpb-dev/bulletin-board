@@ -216,7 +216,7 @@ In rough order of payoff:
 1. **Real profiles over stacked primitives.** `LatheGeometry` from a profile,
    or `ExtrudeGeometry` with a bevel, gives a true silhouette. A pumpkin is
    one lathe with lobes displaced into it, not seven spheres — see
-   `src/components/three/props/Pumpkin.tsx`.
+   `src/themes/haunted-hollow/props/Pumpkin.tsx`.
 2. **Break symmetry.** Nothing should be a perfect sphere or a straight
    cylinder. Displace vertices, bend trunks with `CatmullRomCurve3` +
    `TubeGeometry`, weather stone.

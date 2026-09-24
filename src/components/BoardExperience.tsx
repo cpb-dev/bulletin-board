@@ -13,14 +13,9 @@ import {
 } from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
-import { getTheme } from "@/lib/themes";
+import { getThemeModule } from "@/themes/scenes";
 import { CAMERA_FOV, EXTENDED_MAX_NX } from "@/lib/board-geometry";
 import type { Fixture } from "@/lib/worldcup";
-import { Room } from "./three/Room";
-import { BeachScene } from "./three/BeachScene";
-import { StadiumScene } from "./three/StadiumScene";
-import { RoseFieldScene } from "./three/RoseFieldScene";
-import { HauntedScene } from "./three/HauntedScene";
 import { Board } from "./three/Board";
 import { NoteMesh } from "./three/NoteMesh";
 import { PhotoMesh } from "./three/PhotoMesh";
@@ -111,7 +106,9 @@ export function BoardExperience({
 
   useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
-  const theme = getTheme(board?.theme);
+  // The theme's folder supplies its own scene and board decor, so a new
+  // theme never needs a branch here.
+  const { palette: theme, Scene, BoardDecor } = getThemeModule(board?.theme);
 
   // Themes with a mini board let you pan past the main board's edge.
   useEffect(() => {
@@ -226,18 +223,8 @@ export function BoardExperience({
         // without this, mobile browsers steal drag gestures for scrolling
         style={{ touchAction: "none" }}
       >
-        {theme.scene === "beach" ? (
-          <BeachScene theme={theme} />
-        ) : theme.scene === "stadium" ? (
-          <StadiumScene theme={theme} />
-        ) : theme.scene === "rosefield" ? (
-          <RoseFieldScene theme={theme} />
-        ) : theme.scene === "haunted" ? (
-          <HauntedScene theme={theme} />
-        ) : (
-          <Room theme={theme} />
-        )}
-        <Board theme={theme}>
+        <Scene theme={theme} />
+        <Board theme={theme} decor={BoardDecor}>
           {items.map((item) =>
             item.kind === "photo" ? (
               <PhotoMesh key={item.id} item={item} theme={theme} />

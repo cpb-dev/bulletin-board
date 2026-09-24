@@ -10,7 +10,7 @@ import {
   listArchivedBoards,
 } from "@/lib/api";
 import type { Board } from "@/lib/types";
-import { getTheme, THEMES } from "@/lib/themes";
+import { getTheme, groupedThemes, THEMES } from "@/themes";
 
 /**
  * The memory box: archive ("back up") the current board to keep it
@@ -136,20 +136,27 @@ export default function MemoriesPage() {
                 <p className="text-sm opacity-75 mb-2">
                   theme for the fresh board:
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      className="cute-button ghost text-sm"
-                      style={
-                        nextTheme === t.id
-                          ? { outline: `3px solid ${t.ui.accent}` }
-                          : undefined
-                      }
-                      onClick={() => setNextTheme(t.id)}
-                    >
-                      {t.emoji} {t.name}
-                    </button>
+                <div className="flex flex-col gap-3">
+                  {groupedThemes().map(({ group, themes }) => (
+                    <section key={group.id} aria-label={group.label}>
+                      <p className="text-xs opacity-60 mb-1">{group.label}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {themes.map((t) => (
+                          <button
+                            key={t.id}
+                            className="cute-button ghost text-sm"
+                            style={
+                              nextTheme === t.id
+                                ? { outline: `3px solid ${t.ui.accent}` }
+                                : undefined
+                            }
+                            onClick={() => setNextTheme(t.id)}
+                          >
+                            {t.emoji} {t.name}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
                   ))}
                 </div>
               </div>

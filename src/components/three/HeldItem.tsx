@@ -5,7 +5,7 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { createClient } from "@/lib/supabase/client";
 import { photoPlaneSize } from "@/lib/board-geometry";
-import { getPaper, type BoardTheme } from "@/lib/themes";
+import { getPaper, type BoardTheme } from "@/themes";
 import { noteStamp } from "@/lib/format";
 import { useBoardStore } from "@/lib/store";
 import type { BoardItem } from "@/lib/types";

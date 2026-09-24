@@ -12,9 +12,8 @@ import {
   worldToNorm,
 } from "@/lib/board-geometry";
 import { useBoardStore } from "@/lib/store";
-import type { BoardTheme } from "@/lib/themes";
+import type { BoardTheme, ThemeBoardDecor } from "@/themes/types";
 import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
-import { Cobwebs } from "./props/Cobweb";
 
 /**
  * The bulletin board itself: chunky frame, speckled cork, a string of
@@ -25,9 +24,12 @@ import { Cobwebs } from "./props/Cobweb";
  */
 export function Board({
   theme,
+  decor: Decor,
   children,
 }: {
   theme: BoardTheme;
+  /** The theme's own board decor. Without one, fairy lights. */
+  decor?: ThemeBoardDecor;
   children?: React.ReactNode;
 }) {
   const gradient = useMemo(() => makeToonGradient(), []);
@@ -132,14 +134,8 @@ export function Board({
         />
       </mesh>
 
-      {theme.boardDecor === "shells" ? (
-        <Shells gradient={gradient} />
-      ) : theme.boardDecor === "footballs" ? (
-        <Footballs />
-      ) : theme.boardDecor === "hearts" ? (
-        <Hearts />
-      ) : theme.boardDecor === "cobwebs" ? (
-        <Cobwebs />
+      {Decor ? (
+        <Decor theme={theme} gradient={gradient} />
       ) : (
         <FairyLights color={theme.garland} />
       )}
@@ -324,238 +320,6 @@ function makePennantTexture(
   return t;
 }
 
-/** A garland of plump pink hearts along the top of the board. */
-function Hearts() {
-  const geometry = useMemo(() => {
-    const s = new THREE.Shape();
-    // unit heart, later scaled down
-    s.moveTo(0, -0.42);
-    s.bezierCurveTo(-0.46, -0.1, -0.48, 0.24, -0.22, 0.38);
-    s.bezierCurveTo(-0.08, 0.46, 0, 0.36, 0, 0.26);
-    s.bezierCurveTo(0, 0.36, 0.08, 0.46, 0.22, 0.38);
-    s.bezierCurveTo(0.48, 0.24, 0.46, -0.1, 0, -0.42);
-    return new THREE.ExtrudeGeometry(s, {
-      depth: 0.18,
-      bevelEnabled: true,
-      bevelSize: 0.04,
-      bevelThickness: 0.04,
-      bevelSegments: 2,
-    });
-  }, []);
-  useEffect(() => () => geometry.dispose(), [geometry]);
-
-  const hearts = useMemo(() => {
-    const rand = mulberry32(14);
-    const count = 8;
-    return Array.from({ length: count }, (_, i) => {
-      const t = i / (count - 1);
-      return {
-        x: -BOARD.width / 2 + 0.35 + t * (BOARD.width - 0.7),
-        y:
-          BOARD.centerY + BOARD.height / 2 + 0.14 - Math.sin(t * Math.PI) * 0.06,
-        tilt: (rand() - 0.5) * 0.5,
-        tint: i % 2 === 0 ? "#ff8fb4" : "#ffc2d6",
-      };
-    });
-  }, []);
-
-  return (
-    <group>
-      {hearts.map((hh, i) => (
-        <mesh
-          key={i}
-          geometry={geometry}
-          position={[hh.x, hh.y, BOARD_SURFACE_Z + 0.05]}
-          rotation={[0, 0, hh.tilt]}
-          scale={0.16}
-        >
-          <meshStandardMaterial color={hh.tint} roughness={0.55} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/** A row of little footballs along the top of the board. */
-function Footballs() {
-  const balls = useMemo(() => {
-    const count = 9;
-    return Array.from({ length: count }, (_, i) => {
-      const t = i / (count - 1);
-      const x = -BOARD.width / 2 + 0.35 + t * (BOARD.width - 0.7);
-      const y =
-        BOARD.centerY + BOARD.height / 2 + 0.13 - Math.sin(t * Math.PI) * 0.05;
-      return { x, y, spin: (i % 2 === 0 ? 1 : -1) * 0.4 };
-    });
-  }, []);
-  return (
-    <group>
-      {balls.map((b, i) => (
-        <group
-          key={i}
-          position={[b.x, b.y, BOARD_SURFACE_Z + 0.06]}
-          rotation={[0.3, b.spin, 0]}
-        >
-          <Football />
-        </group>
-      ))}
-    </group>
-  );
-}
-
-/** A small stylised football — a faceted white ball with dark patches. */
-export function Football({ radius = 0.07 }: { radius?: number }) {
-  const patches = useMemo(() => {
-    const dirs = [
-      [0, 0, 1],
-      [0.9, 0.35, 0.2],
-      [-0.75, -0.5, 0.4],
-      [0.2, -0.95, 0.1],
-      [-0.3, 0.85, -0.4],
-    ];
-    return dirs.map((p) => {
-      const v = new THREE.Vector3(p[0], p[1], p[2]).normalize();
-      const q = new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 0, 1),
-        v
-      );
-      return {
-        pos: v.clone().multiplyScalar(radius * 0.99).toArray() as [
-          number,
-          number,
-          number,
-        ],
-        quat: q,
-      };
-    });
-  }, [radius]);
-
-  return (
-    <group>
-      <mesh castShadow>
-        <icosahedronGeometry args={[radius, 1]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.5} flatShading />
-      </mesh>
-      {patches.map((p, i) => (
-        <mesh key={i} position={p.pos} quaternion={p.quat}>
-          <circleGeometry args={[radius * 0.4, 5]} />
-          <meshStandardMaterial color="#161616" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/** A row of assorted seashells pinned along the top of the board. */
-function Shells({ gradient }: { gradient: THREE.Texture }) {
-  const shells = useMemo(() => {
-    const rand = mulberry32(11);
-    const kinds = ["scallop", "conch", "starfish", "spiral", "clam"] as const;
-    const count = 7;
-    const out: {
-      kind: (typeof kinds)[number];
-      pos: [number, number, number];
-      rot: number;
-      scale: number;
-      color: string;
-    }[] = [];
-    const palette = ["#ffd9c0", "#f7b7a3", "#ffe7b3", "#e9c6e0", "#cfe8ef"];
-    for (let i = 0; i < count; i++) {
-      const t = i / (count - 1);
-      const x = -BOARD.width / 2 + 0.35 + t * (BOARD.width - 0.7);
-      const y = BOARD.centerY + BOARD.height / 2 + 0.12 - Math.sin(t * Math.PI) * 0.05;
-      out.push({
-        kind: kinds[i % kinds.length],
-        pos: [x, y, BOARD_SURFACE_Z + 0.05],
-        rot: (rand() - 0.5) * 0.6,
-        scale: 0.85 + rand() * 0.4,
-        color: palette[i % palette.length],
-      });
-    }
-    return out;
-  }, []);
-
-  return (
-    <group>
-      {shells.map((s, i) => (
-        <group key={i} position={s.pos} rotation={[0, 0, s.rot]} scale={s.scale}>
-          <Shell kind={s.kind} color={s.color} gradient={gradient} />
-        </group>
-      ))}
-    </group>
-  );
-}
-
-function Shell({
-  kind,
-  color,
-  gradient,
-}: {
-  kind: "scallop" | "conch" | "starfish" | "spiral" | "clam";
-  color: string;
-  gradient: THREE.Texture;
-}) {
-  const mat = (
-    <meshToonMaterial color={color} gradientMap={gradient} side={THREE.DoubleSide} />
-  );
-  if (kind === "starfish") {
-    return (
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <extrudeGeometry args={[starShape(), { depth: 0.03, bevelEnabled: false }]} />
-        {mat}
-      </mesh>
-    );
-  }
-  if (kind === "conch" || kind === "spiral") {
-    return (
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.08, 0.18, 12, 1, false]} />
-        {mat}
-      </mesh>
-    );
-  }
-  if (kind === "clam") {
-    return (
-      <mesh>
-        <sphereGeometry args={[0.1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.4]} />
-        {mat}
-      </mesh>
-    );
-  }
-  // scallop — a ribbed fan
-  return (
-    <group>
-      <mesh>
-        <sphereGeometry args={[0.1, 16, 6, 0, Math.PI, 0, Math.PI / 2]} />
-        {mat}
-      </mesh>
-      {[-0.05, 0, 0.05].map((rx, i) => (
-        <mesh key={i} position={[rx, 0.02, 0.06]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.006, 0.006, 0.1, 5]} />
-          <meshToonMaterial color="#ffffff" gradientMap={gradient} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/** A five-point star outline for the starfish shell. */
-function starShape(): THREE.Shape {
-  const shape = new THREE.Shape();
-  const outer = 0.11;
-  const inner = 0.05;
-  for (let i = 0; i < 10; i++) {
-    const r = i % 2 === 0 ? outer : inner;
-    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-    const x = Math.cos(a) * r;
-    const y = Math.sin(a) * r;
-    if (i === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
-  }
-  shape.closePath();
-  return shape;
-}
-
 /** A sagging string of glowing fairy lights across the board's top. */
 function FairyLights({ color }: { color: string }) {
   const bulbs = useMemo(() => {
@@ -594,5 +358,3 @@ function FairyLights({ color }: { color: string }) {
     </group>
   );
 }
-
-

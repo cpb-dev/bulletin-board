@@ -119,12 +119,18 @@ src/
   app/                     routes (login, board, memories)
   components/
     BoardExperience.tsx    one board = 3D scene + overlay UI + data load
-    three/                 Room, Board, NoteMesh, PhotoMesh, CameraRig…
+    three/                 shared by every board: Room, Board, NoteMesh…
     ui/                    Toolbar, composers, editor, theme picker…
+  themes/
+    index.ts               the catalogue: palettes, groups, getTheme
+    scenes.ts              the same list with each theme's 3D scene
+    types.ts               BoardTheme, ThemeModule, ThemeGroupId
+    groups.ts              the picker's sections, in order
+    <theme-id>/            one folder per theme — palette, scene, props,
+                           lib, and an index.ts bridging them together
   lib/
     api.ts                 all Supabase reads/writes
     board-geometry.ts      pure math (positions, wrapping, placement)
-    themes.ts              the theme catalogue
     store.ts               Zustand: items, camera mode, open panels
     use-realtime-board.ts  live sync subscription
     image.ts               client-side photo compression

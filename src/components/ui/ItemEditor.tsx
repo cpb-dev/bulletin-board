@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteItem, updateItem } from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
-import { getTheme } from "@/lib/themes";
+import { getTheme } from "@/themes";
 import { Sheet, Swatch } from "./Sheet";
 
 /** Bottom sheet for reading, editing or taking down a pinned item. */

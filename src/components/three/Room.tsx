@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import type { BoardTheme } from "@/lib/themes";
+import type { BoardTheme } from "@/themes/types";
 import { BOARD } from "@/lib/board-geometry";
 import { makeToonGradient, mulberry32 } from "./textures";
 

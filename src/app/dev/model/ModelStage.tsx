@@ -3,28 +3,28 @@
 import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
-import { Pumpkin } from "@/components/three/props/Pumpkin";
-import { HauntedHouse } from "@/components/three/props/HauntedHouse";
-import { AutumnGrove } from "@/components/three/props/AutumnTree";
+import { Pumpkin } from "@/themes/haunted-hollow/props/Pumpkin";
+import { HauntedHouse } from "@/themes/haunted-hollow/props/HauntedHouse";
+import { AutumnGrove } from "@/themes/haunted-hollow/props/AutumnTree";
 import {
   Headstone,
   type HeadstoneKind,
-} from "@/components/three/props/Headstone";
-import { Ground } from "@/components/three/props/Ground";
-import { Sky } from "@/components/three/props/Sky";
-import { Spider } from "@/components/three/props/Spider";
-import { Cobwebs } from "@/components/three/props/Cobweb";
-import { HouseWindow } from "@/components/three/props/HouseWindow";
+} from "@/themes/haunted-hollow/props/Headstone";
+import { Ground } from "@/themes/haunted-hollow/props/Ground";
+import { Sky } from "@/themes/haunted-hollow/props/Sky";
+import { Spider } from "@/themes/haunted-hollow/props/Spider";
+import { Cobwebs } from "@/themes/haunted-hollow/props/Cobweb";
+import { HouseWindow } from "@/themes/haunted-hollow/props/HouseWindow";
 import { makeToonRamp } from "@/components/three/textures";
-import { makeCobwebTexture } from "@/components/three/props/HauntedHouse";
-import { FORMS, PASS_KINDS } from "@/lib/ghost";
-import { GraveMound } from "@/components/three/props/GraveMound";
+import { makeCobwebTexture } from "@/themes/haunted-hollow/props/HauntedHouse";
+import { FORMS, PASS_KINDS } from "@/themes/haunted-hollow/lib/ghost";
+import { GraveMound } from "@/themes/haunted-hollow/props/GraveMound";
 import {
   ARM_KINDS,
   ZombieArm,
-} from "@/components/three/props/ZombieArm";
-import { armPose, RISE_KINDS } from "@/lib/zombie";
-import { scatterStarts } from "@/lib/spider";
+} from "@/themes/haunted-hollow/props/ZombieArm";
+import { armPose, RISE_KINDS } from "@/themes/haunted-hollow/lib/zombie";
+import { scatterStarts } from "@/themes/haunted-hollow/lib/spider";
 import {
   BOARD,
   BOARD_SURFACE_Z,
@@ -32,7 +32,7 @@ import {
   NOTE_BASE,
 } from "@/lib/board-geometry";
 import { Pin } from "@/components/three/Pin";
-import type { ArmPose } from "@/lib/zombie";
+import type { ArmPose } from "@/themes/haunted-hollow/lib/zombie";
 
 const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
 
