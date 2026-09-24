@@ -16,6 +16,8 @@ describe("Stars Hollow looks", () => {
     // no extra lights by day: they'd change the look and cost draws
     expect(d.lampLight).toBe(0);
     expect(d.boardLight).toBe(0);
+    // the garland's bulbs are steady and throw no light by day
+    expect(d.garland).toEqual({ glow: 0, light: 0, twinkle: 0 });
     expect(d.sky.stars).toBe(0);
     expect(d.sky.moon).toBe(false);
   });
@@ -27,6 +29,8 @@ describe("Stars Hollow looks", () => {
       expect(order[i].ambient.intensity).toBeLessThan(order[i - 1].ambient.intensity);
       expect(order[i].lampGlow).toBeGreaterThan(order[i - 1].lampGlow);
       expect(order[i].windowGlow).toBeGreaterThan(order[i - 1].windowGlow);
+      expect(order[i].garland.glow).toBeGreaterThan(order[i - 1].garland.glow);
+      expect(order[i].garland.light).toBeGreaterThan(order[i - 1].garland.light);
     }
   });
 

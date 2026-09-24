@@ -46,7 +46,7 @@ function Stage() {
         }}
       >
         <Scene theme={theme} phase={phase} />
-        <Board theme={theme} decor={BoardDecor} />
+        <Board theme={theme} decor={BoardDecor} phase={phase} />
       </Canvas>
     </div>
   );

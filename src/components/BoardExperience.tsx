@@ -245,7 +245,7 @@ export function BoardExperience({
         style={{ touchAction: "none" }}
       >
         <Scene theme={theme} phase={phase} />
-        <Board theme={theme} decor={BoardDecor}>
+        <Board theme={theme} decor={BoardDecor} phase={phase}>
           {items.map((item) =>
             item.kind === "photo" ? (
               <PhotoMesh key={item.id} item={item} theme={theme} />

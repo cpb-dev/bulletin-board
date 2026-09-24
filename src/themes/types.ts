@@ -89,11 +89,13 @@ export type ThemeScene = ComponentType<{ theme: BoardTheme; phase?: DayPhase }>;
 
 /**
  * What's strung across the top of the board. A theme that doesn't name
- * one gets the default fairy lights in its garland colour.
+ * one gets the default fairy lights in its garland colour. `phase` is
+ * the same part of the day the scene is showing (BB-21).
  */
 export type ThemeBoardDecor = ComponentType<{
   theme: BoardTheme;
   gradient: Texture;
+  phase?: DayPhase;
 }>;
 
 /**

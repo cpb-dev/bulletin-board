@@ -47,6 +47,15 @@ export interface PhaseLook {
   lampLight: number;
   /** Warm light on the board's face, so the notes read after dark. */
   boardLight: number;
+  /** The fairy bulbs in the board's leaf garland. */
+  garland: {
+    /** Soft halo round each bulb; 0 for none. */
+    glow: number;
+    /** Real light the bulbs throw on the leaves and the top of the board. */
+    light: number;
+    /** How deep a bulb's twinkle dips, 0–1; 0 holds them steady. */
+    twinkle: number;
+  };
 }
 
 export const LOOKS: Record<DayPhase, PhaseLook> = {
@@ -79,6 +88,7 @@ export const LOOKS: Record<DayPhase, PhaseLook> = {
     lampColour: "#fff4dc",
     lampLight: 0,
     boardLight: 0,
+    garland: { glow: 0, light: 0, twinkle: 0 },
   },
 
   // Golden hour sliding into dusk: the sun low in the west behind the
@@ -112,6 +122,7 @@ export const LOOKS: Record<DayPhase, PhaseLook> = {
     lampColour: "#ffe2b0",
     lampLight: 0.6,
     boardLight: 0.25,
+    garland: { glow: 0.5, light: 0.5, twinkle: 0.45 },
   },
 
   // A clear October night: deep blue sky, stars and a moon, moonlight
@@ -144,5 +155,6 @@ export const LOOKS: Record<DayPhase, PhaseLook> = {
     lampColour: "#ffd89a",
     lampLight: 1,
     boardLight: 0.55,
+    garland: { glow: 1, light: 1, twinkle: 0.6 },
   },
 };
