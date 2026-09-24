@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mulberry32 } from "@/components/three/textures";
-import { GAZEBO, GAZEBO_YAW, leafPiles, trees } from "../lib/layout";
+import { GAZEBO, GAZEBO_YAW, leafPiles, trees, WALK } from "../lib/layout";
 import { useKit, useRepeated } from "./kit";
 import { makeGrassTexture } from "./textures";
 import { LEAF_COLOURS } from "./colours";
@@ -50,7 +50,7 @@ export function Ground({ color }: { color: string }) {
 function Paths() {
   const ring = useRepeated((k) => k.paving, 14, 1);
   const walk = useRepeated((k) => k.paving, 1, 5);
-  const inner = GAZEBO.radius + 0.35;
+  const inner = WALK.start;
   return (
     <group position={[GAZEBO.x, 0, GAZEBO.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
@@ -61,10 +61,10 @@ function Paths() {
       <group rotation={[0, GAZEBO_YAW, 0]}>
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.011, inner + 5]}
+          position={[0, 0.011, inner + WALK.length / 2]}
           receiveShadow
         >
-          <planeGeometry args={[1.6, 10]} />
+          <planeGeometry args={[WALK.width, WALK.length]} />
           <meshStandardMaterial color="#cfcac0" map={walk} roughness={0.95} />
         </mesh>
       </group>

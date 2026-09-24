@@ -37,11 +37,41 @@ export const SIGN = { x: -4.15, z: -3.4 } as const;
 export const GAZEBO = { x: -8.8, z: -9.8, radius: 3.0, scale: 1.2 } as const;
 
 /**
- * Which way the gazebo's steps face: not straight at the viewer, which
- * would run its path through the sign, but across towards the board,
- * so the path from the steps passes the sign on its right.
+ * Which way the gazebo's steps face, and so which way its path runs.
+ *
+ * Not straight at the viewer, which would run the path under the sign,
+ * and not across towards the board, which runs it under the board —
+ * there isn't room between the two. Instead it heads out towards the
+ * front of the green on the far side of the sign, passing it on its
+ * left.
  */
-export const GAZEBO_YAW = Math.atan2(0 - GAZEBO.x, -3.2 - GAZEBO.z);
+export const GAZEBO_YAW = Math.atan2(-7 - GAZEBO.x, -1 - GAZEBO.z);
+
+/** The paved walk out from the gazebo steps, along `GAZEBO_YAW`. */
+export const WALK = {
+  /** Where it starts, out from the gazebo's centre. */
+  start: GAZEBO.radius + 0.35,
+  length: 10,
+  width: 1.6,
+} as const;
+
+/** A point `t` metres along the middle of the walk. */
+export function walkPoint(t: number): { x: number; z: number } {
+  const d = WALK.start + t;
+  return {
+    x: GAZEBO.x + Math.sin(GAZEBO_YAW) * d,
+    z: GAZEBO.z + Math.cos(GAZEBO_YAW) * d,
+  };
+}
+
+/** The three-globe lamps on the green, clear of the walk. */
+export function squareLamps(): { x: number; z: number; dressed: boolean }[] {
+  return [
+    { x: -8.9, z: -1.4, dressed: true },
+    { x: -3.4, z: -10.8, dressed: false },
+    { x: -13.8, z: -7.4, dressed: true },
+  ];
+}
 
 /* ------------------------------------------------------------------ */
 /*  Main Street                                                        */
@@ -253,13 +283,13 @@ export interface TreeSpot {
  */
 export function trees(): TreeSpot[] {
   const square: TreeSpot[] = [
-    { species: "maple", x: -13.4, z: -12.8, seed: 3, scale: 1.15 },
+    { species: "maple", x: -17.2, z: -5.4, seed: 3, scale: 1.15 },
     { species: "maple", x: -2.6, z: -13.8, seed: 5, scale: 1.05 },
-    { species: "maple", x: -11.4, z: -3.2, seed: 8, scale: 0.95 },
+    { species: "maple", x: -12.2, z: -2.6, seed: 8, scale: 0.95 },
     { species: "maple", x: -0.6, z: -10.2, seed: 12, scale: 1.0 },
-    { species: "maple", x: -17.5, z: -19, seed: 21, scale: 1.2 },
-    { species: "maple", x: -9.5, z: -26, seed: 23, scale: 1.25 },
-    { species: "sycamore", x: -4.8, z: -19.5, seed: 2, scale: 1.1 },
+    { species: "maple", x: -26, z: -15, seed: 21, scale: 1.2 },
+    { species: "maple", x: -5.2, z: -28.5, seed: 23, scale: 1.25 },
+    { species: "sycamore", x: -3.8, z: -19.8, seed: 2, scale: 1.1 },
     { species: "sycamore", x: 7.5, z: -31, seed: 4, scale: 1.0 },
     // the corner across the side street from Luke's
     { species: "maple", x: 11.2, z: -0.6, seed: 27, scale: 0.95 },

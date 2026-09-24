@@ -1,6 +1,6 @@
 "use client";
 
-import { GAZEBO, GAZEBO_YAW, SIGN, faceCamera } from "../lib/layout";
+import { GAZEBO, GAZEBO_YAW, SIGN, faceCamera, squareLamps } from "../lib/layout";
 import { Bench, CornStalks, HayBale, Mums } from "./FallDecor";
 import { StreetLamp } from "./StreetLamp";
 
@@ -68,13 +68,9 @@ export function SquareDressing() {
       })}
 
       {/* lamps on the green */}
-      {[
-        [-7.3, -2.2],
-        [-3.4, -10.8],
-        [-13.8, -7.4],
-      ].map(([x, z], i) => (
+      {squareLamps().map(({ x, z, dressed }, i) => (
         <group key={i} position={[x, 0, z]} rotation={[0, faceCamera(x, z), 0]}>
-          <StreetLamp globes={3} dressed={i !== 1} />
+          <StreetLamp globes={3} dressed={dressed} />
         </group>
       ))}
     </group>

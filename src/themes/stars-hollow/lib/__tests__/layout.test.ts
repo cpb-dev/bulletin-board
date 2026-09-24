@@ -14,10 +14,23 @@ import {
   SIGN,
   STREET,
   STREET_RIGHT,
+  squareLamps,
   streetLamps,
   streetPoint,
   trees,
+  WALK,
+  walkPoint,
 } from "../layout";
+import { planTree, type TreeSpecies } from "../tree";
+
+/** How far a tree's crown reaches out from its trunk, before scaling. */
+function planTreeReach(species: TreeSpecies, seed: number): number {
+  const t = planTree(species, seed);
+  return Math.max(
+    ...t.blobs.map((b) => Math.hypot(b.at[0], b.at[2]) + b.r),
+    ...t.limbs.map((l) => Math.hypot(l.points[2][0], l.points[2][2]))
+  );
+}
 
 /** The disc of ground in props/Ground.tsx. */
 const GROUND_RADIUS = 57;
@@ -69,6 +82,29 @@ describe("the square", () => {
     expect(GAZEBO.z).toBeLessThan(SIGN.z - 3);
     // and to its left, so the sign can't hide the whole of it
     expect(GAZEBO.x).toBeLessThan(SIGN.x);
+  });
+
+  it("runs the gazebo's walk clear of the board, the sign, the lamps and the leaf piles", () => {
+    const half = WALK.width / 2;
+    const obstacles = [
+      // the board: its frame and posts, as a row of points along it
+      ...Array.from({ length: 11 }, (_, i) => ({
+        what: "board",
+        x: BOARD_LEFT - 0.1 + (i / 10) * (BOARD_RIGHT - BOARD_LEFT + 0.2),
+        z: BOARD.wallZ - 0.16,
+        r: 0.3,
+      })),
+      // the sign, its stalks and the hay bale in front of it
+      { what: "sign", x: SIGN.x, z: SIGN.z, r: 1.6 },
+      ...squareLamps().map((l) => ({ what: "lamp", x: l.x, z: l.z, r: 0.4 })),
+      ...leafPiles().map((p) => ({ what: "leaves", x: p.x, z: p.z, r: p.r })),
+    ];
+    for (let t = 0; t <= WALK.length; t += 0.1) {
+      const p = walkPoint(t);
+      for (const o of obstacles) {
+        expect(Math.hypot(p.x - o.x, p.z - o.z), `${o.what} at ${t.toFixed(1)} m`).toBeGreaterThan(o.r + half);
+      }
+    }
   });
 
   it("turns the gazebo's steps away from the sign", () => {
@@ -179,11 +215,44 @@ describe("the whole plan", () => {
   });
 
   it("keeps the square's trees off the road, the gazebo and the sign", () => {
+    // the gazebo's roof overhangs its base by a fair way
+    const roof = 3.2 * GAZEBO.scale;
     for (const t of trees().filter((t) => t.species !== "street")) {
-      expect(Math.hypot(t.x - GAZEBO.x, t.z - GAZEBO.z)).toBeGreaterThan(GAZEBO.radius + 1);
+      // No crown may reach over the gazebo — from any side, or it shows
+      // through the columns and through the roof from the room.
+      const crown = planTreeReach(t.species, t.seed) * t.scale;
+      expect(
+        Math.hypot(t.x - GAZEBO.x, t.z - GAZEBO.z),
+        `${t.species} ${t.seed} crowds the gazebo`
+      ).toBeGreaterThan(roof + crown + 0.5);
       expect(Math.hypot(t.x - SIGN.x, t.z - SIGN.z)).toBeGreaterThan(2);
       const off = (t.x - STREET.through.x) * STREET_RIGHT.x + (t.z - STREET.through.z) * STREET_RIGHT.z;
       expect(Math.abs(off)).toBeGreaterThan(STREET.halfWidth + 1);
+    }
+  });
+
+  it("keeps every crown out from behind the gazebo, as seen from the board", () => {
+    // A tree standing well clear of the gazebo can still sit right
+    // behind it from where you stand, and then its leaves show through
+    // the columns as if it were growing through the roof. Check from
+    // the room view and with the head turned fully left.
+    const roof = 3.2 * GAZEBO.scale;
+    const cameras = [
+      { x: CAMERA.x, z: CAMERA.z },
+      { x: CAMERA.x - 0.6, z: CAMERA.z },
+    ];
+    for (const cam of cameras) {
+      const gDist = Math.hypot(GAZEBO.x - cam.x, GAZEBO.z - cam.z);
+      const gAngle = Math.atan2(GAZEBO.x - cam.x, GAZEBO.z - cam.z);
+      for (const t of trees()) {
+        const dist = Math.hypot(t.x - cam.x, t.z - cam.z);
+        if (dist < gDist) continue; // in front of it is fine
+        const crown = planTreeReach(t.species, t.seed) * t.scale;
+        const apart = Math.abs(Math.atan2(t.x - cam.x, t.z - cam.z) - gAngle);
+        expect(apart, `${t.species} ${t.seed} is behind the gazebo`).toBeGreaterThan(
+          Math.asin(Math.min(1, crown / dist)) + Math.asin(roof / gDist)
+        );
+      }
     }
   });
 
