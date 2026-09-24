@@ -33,6 +33,18 @@ import {
 } from "@/lib/board-geometry";
 import { Pin } from "@/components/three/Pin";
 import type { ArmPose } from "@/themes/haunted-hollow/lib/zombie";
+import { KitProvider } from "@/themes/stars-hollow/props/kit";
+import { TownSign } from "@/themes/stars-hollow/props/TownSign";
+import { Gazebo } from "@/themes/stars-hollow/props/Gazebo";
+import { LukesDiner } from "@/themes/stars-hollow/props/LukesDiner";
+import { Storefront } from "@/themes/stars-hollow/props/Storefront";
+import { FallTree } from "@/themes/stars-hollow/props/FallTree";
+import { StreetLamp } from "@/themes/stars-hollow/props/StreetLamp";
+import { Bench, CornStalks, HayBale, Mums } from "@/themes/stars-hollow/props/FallDecor";
+
+/** Stars Hollow's shop kinds, in `?v=` order. */
+const SHOP_KINDS = ["brick-teal", "brick-arched", "victorian", "clapboard", "brick-tall"] as const;
+const TREE_SPECIES = ["maple", "street", "sycamore"] as const;
 
 const HEADSTONE_KINDS: HeadstoneKind[] = ["round", "gabled", "cross"];
 
@@ -251,6 +263,66 @@ const MODELS: Record<
       ))}
       <Cobwebs />
     </group>
+  ),
+  /*
+   * Stars Hollow. Its props share textures through a kit, so each is
+   * staged inside its own provider. For the whole scene in its own
+   * light, use /dev/scene?t=stars-hollow instead.
+   */
+  sign: () => (
+    <KitProvider>
+      <TownSign />
+    </KitProvider>
+  ),
+  gazebo: () => (
+    <KitProvider>
+      <Gazebo />
+    </KitProvider>
+  ),
+  lukes: () => (
+    <KitProvider>
+      <LukesDiner />
+    </KitProvider>
+  ),
+  /** `v` picks the kind of shopfront. */
+  shop: (v) => (
+    <KitProvider>
+      <Storefront
+        kind={SHOP_KINDS[v % SHOP_KINDS.length]}
+        sign="STARS HOLLOW BOOKS"
+        width={4.6}
+        depth={5}
+        floors={1 + (v % 2)}
+        seed={v + 2}
+      />
+    </KitProvider>
+  ),
+  /** `v` picks the species; the seed follows it. */
+  "fall-tree": (v) => (
+    <KitProvider>
+      <FallTree species={TREE_SPECIES[v % TREE_SPECIES.length]} seed={v + 3} />
+    </KitProvider>
+  ),
+  /** `v` 0 is a Main Street lamp, 1 a three-globe lamp on the square. */
+  lamp: (v) => (
+    <KitProvider>
+      <StreetLamp globes={v % 2 ? 3 : 1} />
+    </KitProvider>
+  ),
+  /** The October dressing: stalks, a bale with mums on it, a bench. */
+  "fall-decor": (v) => (
+    <KitProvider>
+      <group position={[-1.2, 0, 0]}>
+        <CornStalks seed={v + 1} />
+      </group>
+      <HayBale />
+      <group position={[0.2, 0.45, 0]}>
+        <Mums seed={v} />
+      </group>
+      <group position={[1.6, 0, 0]}>
+        <Bench />
+      </group>
+    </KitProvider>
   ),
   headstone: (v, age) => (
     <Headstone

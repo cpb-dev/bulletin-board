@@ -24,7 +24,7 @@ export interface PaperColor {
  * in the theme's own palette — themes are added by the developer, so
  * there is no in-app way to re-file one.
  */
-export type ThemeGroupId = "basic" | "special" | "seasonal";
+export type ThemeGroupId = "basic" | "special" | "seasonal" | "tv";
 
 export interface BoardTheme {
   id: string;

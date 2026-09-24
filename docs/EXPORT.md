@@ -60,7 +60,7 @@ which resolves photos out of the export's own inlined data and refuses
 every write. That alias is what lets the export reuse the app's drawing
 code **unchanged** — there is no forked copy of anything visual to drift.
 
-The bundle is ~1.2 MB (three.js, React, R3F and all nine scenes). It is
+The bundle is ~1.2 MB (three.js, React, R3F and every theme's scene). It is
 carried once per exported folder, alongside photos that are usually
 larger.
 

@@ -7,7 +7,7 @@
  *
  * The split is deliberate and load-bearing. Pages like /memories want a
  * theme's colours and nothing else — importing the catalogue must not drag
- * nine 3D scenes into their bundle. So:
+ * every theme's 3D scene into their bundle. So:
  *
  *   import { getTheme } from "@/themes";         // colours: cheap
  *   import { getThemeModule } from "@/themes/scenes"; // + 3D: the board only
@@ -25,6 +25,7 @@ import { palette as worldCup } from "./world-cup/palette";
 import { palette as rosePicnic } from "./rose-picnic/palette";
 import { palette as hauntedHollow } from "./haunted-hollow/palette";
 import { palette as beachHut } from "./beach-hut/palette";
+import { palette as starsHollow } from "./stars-hollow/palette";
 import { THEME_GROUPS, type ThemeGroup } from "./groups";
 import type { BoardTheme, PaperColor } from "./types";
 
@@ -52,6 +53,8 @@ export const THEMES: BoardTheme[] = [
   // seasonal
   hauntedHollow,
   beachHut,
+  // tv
+  starsHollow,
 ];
 
 export const DEFAULT_THEME_ID = "cozy-cabin";

@@ -17,4 +17,5 @@ export const THEME_GROUPS: ThemeGroup[] = [
   { id: "basic", label: "Everyday", blurb: "the rooms we live in" },
   { id: "special", label: "Special", blurb: "for the big occasions" },
   { id: "seasonal", label: "Seasonal", blurb: "here for a while" },
+  { id: "tv", label: "TV", blurb: "places from the shows we love" },
 ];
