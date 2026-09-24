@@ -34,13 +34,14 @@ beforeEach(() => {
 });
 
 describe("ThemePicker", () => {
-  it("groups the themes under Everyday, Special and Seasonal", () => {
+  it("groups the themes under Everyday, Special, Seasonal and TV", () => {
     render(<ThemePicker />);
     const sections = screen.getAllByRole("region");
     expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual([
       "Everyday",
       "Special",
       "Seasonal",
+      "TV",
     ]);
   });
 
@@ -57,6 +58,7 @@ describe("ThemePicker", () => {
     expect(inGroup("Special").join(" ")).toContain("Rose Picnic");
     expect(inGroup("Seasonal").join(" ")).toContain("Haunted Hollow");
     expect(inGroup("Seasonal").join(" ")).toContain("Beach Hut");
+    expect(inGroup("TV").join(" ")).toContain("Stars Hollow");
   });
 
   it("offers every theme in the catalogue — none are hidden", () => {

@@ -8,7 +8,7 @@ for the shape of it and `docs/DESIGN.md` for the art direction.
 
 **Boards that already exist must keep working and keep looking the same.**
 
-Nine themes share a small set of components. Work on one theme must never
+Ten themes share a small set of components. Work on one theme must never
 change another, and archived boards (memories) must render exactly as they
 did when they were saved. Before changing anything under
 `src/components/three/` or `src/themes/`, load the **theme-isolation**
@@ -38,7 +38,7 @@ skill.
   like; if it fails you have changed an existing theme, so change the
   digest deliberately and say so.
 - **Import themes by what you need.** `@/themes` is palettes only (cheap);
-  `@/themes/scenes` pulls in all nine 3D scenes and belongs to the board
+  `@/themes/scenes` pulls in all ten 3D scenes and belongs to the board
   experience alone. Mixing them up quadruples a page's bundle.
 - **Item coordinates are normalized** (`x, y ∈ [-1, 1]`) so the board can be
   resized or restyled without corrupting saved boards. Don't store world
@@ -79,5 +79,7 @@ no downloaded models and no image assets — keep it that way unless the change
 is discussed first; it's what keeps first paint quick on bad wifi.
 
 Headless Chromium renders WebGL in this environment, so 3D work does not have
-to be done blind. Load the **model-detailing** skill before building or
+to be done blind. `/dev/model` stages one prop; `/dev/scene?t=<theme>` renders
+a theme's whole world from the room camera (or any `c=`/`l=` camera), and
+`scripts/shoot-scene.mjs` screenshots it. Load the **model-detailing** skill before building or
 reworking any prop.

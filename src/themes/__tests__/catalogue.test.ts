@@ -28,6 +28,7 @@ describe("theme catalogue", () => {
       "rose-picnic",
       "haunted-hollow",
       "beach-hut",
+      "stars-hollow",
     ]) {
       expect(
         THEMES.some((t) => t.id === id),
@@ -53,7 +54,13 @@ describe("theme catalogue", () => {
   it("gives every outdoor theme its own scene; the rest are the indoor room", () => {
     // A theme that silently fell back to the indoor room would be a very
     // confusing bug, so pin which themes are indoors and which are not.
-    const outdoor = ["beach-hut", "haunted-hollow", "world-cup", "rose-picnic"];
+    const outdoor = [
+      "beach-hut",
+      "haunted-hollow",
+      "world-cup",
+      "rose-picnic",
+      "stars-hollow",
+    ];
     for (const m of THEME_MODULES) {
       expect(m.Scene, `${m.palette.id} needs a scene`).toBeDefined();
       if (outdoor.includes(m.palette.id)) {
@@ -101,11 +108,12 @@ describe("theme groups", () => {
     expect(groupOf("rose-picnic")).toBe("special");
     expect(groupOf("haunted-hollow")).toBe("seasonal");
     expect(groupOf("beach-hut")).toBe("seasonal");
+    expect(groupOf("stars-hollow")).toBe("tv");
   });
 
   it("shows every theme exactly once, in group order", () => {
     const sections = groupedThemes();
-    expect(sections.map((s) => s.group.id)).toEqual(["basic", "special", "seasonal"]);
+    expect(sections.map((s) => s.group.id)).toEqual(["basic", "special", "seasonal", "tv"]);
     const shown = sections.flatMap((s) => s.themes.map((t) => t.id));
     expect(shown.sort()).toEqual(THEMES.map((t) => t.id).sort());
   });

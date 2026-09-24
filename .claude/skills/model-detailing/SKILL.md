@@ -61,6 +61,26 @@ between waits. Keep the throwaway script inside the repo: a script in
 Register a new prop in the `MODELS` map in
 `src/app/dev/model/ModelStage.tsx`.
 
+### The whole scene
+
+`/dev/scene?t=<theme>` renders a theme's entire world — scene, board,
+board decor — with the scene's own lights, from the room camera. Add
+`&c=x,y,z&l=x,y,z` to put the camera anywhere (an aerial shot catches
+things standing in the road; `c=-0.2,1.45,4.4&l=-5.5,1.5,-2.2` and
+`c=1.0,1.45,4.4&l=5.5,1.5,-2.2` are the room view with the head turned
+fully left and right).
+
+```bash
+CHROME_PATH=... node scripts/shoot-scene.mjs stars-hollow /tmp/shots room
+CHROME_PATH=... node scripts/shoot-scene.mjs stars-hollow /tmp/shots phone "" "" 390x844
+CHROME_PATH=... node scripts/dev/scene-stats.mjs stars-hollow haunted-hollow
+```
+
+The last prints draw calls per theme. A scene built from many small
+pieces gets expensive fast — Stars Hollow was 1,300 draws before its
+buildings were welded by material (`src/themes/stars-hollow/lib/batch.ts`);
+compare against an existing outdoor theme before shipping.
+
 It is dev-only by construction — see the theme-isolation skill. Do not make
 it reachable in production.
 

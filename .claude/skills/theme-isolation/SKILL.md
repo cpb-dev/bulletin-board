@@ -29,7 +29,7 @@ a Shared Surface Declaration (below) before you finish.
 
 Do not judge this by how many files import something.
 `src/components/three/Board.tsx` has exactly one importer and is rendered for
-**all nine themes**. `Room.tsx` looks like "one scene" and serves **five**.
+**all ten themes**. `Room.tsx` looks like "one scene" and serves **five**.
 
 The real question is: **when this code runs, which boards can a person be
 looking at?**
@@ -66,10 +66,11 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/themes/world-cup/` | world-cup (stadium scene, football decor) |
 | `src/themes/rose-picnic/` | rose-picnic (rose field scene, heart decor) |
 | `src/themes/haunted-hollow/` | haunted-hollow (scene, every prop, its lib) |
+| `src/themes/stars-hollow/` | stars-hollow (scene, every prop, its kit of textures, layout and batching lib) |
 | `src/themes/<id>/palette.ts` | that theme's colours, and only that theme's |
 
-All nine themes are in `THEMES` and all nine appear in the picker, grouped
-by `palette.group` (`basic` / `special` / `seasonal`). `world-cup` and
+All ten themes are in `THEMES` and all ten appear in the picker, grouped
+by `palette.group` (`basic` / `special` / `seasonal` / `tv`). `world-cup` and
 `rose-picnic` are no longer hidden, so a change to either is now a change
 someone can see on an ordinary board — treat them like any other theme.
 
@@ -110,7 +111,7 @@ When building something new for one theme:
   module is meant to carry that.
 - **Extend shared helpers additively.** If a prop needs richer shading, add
   a new function rather than changing the existing one — `makeToonRamp`
-  exists precisely because `makeToonGradient` is used by all nine themes and
+  exists precisely because `makeToonGradient` is used by all ten themes and
   must not drift.
 - **Widening a union type is additive** and safe (`scene`, `boardDecor`).
   Adding a branch to a switch is additive. Changing an existing branch is
@@ -158,7 +159,7 @@ Example:
   byte-identical. A changed size on `/lists` after a theme change means
   something leaked. Watch `/memories` especially: it wants palettes only,
   so it must import `@/themes`, never `@/themes/scenes`. Importing the
-  scene registry from a page pulls all nine 3D scenes into it (that
+  scene registry from a page pulls every 3D scene into it (that
   mistake once took `/memories` from 7 kB to 286 kB).
 - **The catalogue tests.** `src/themes/__tests__/catalogue.test.ts` asserts
   every theme has a scene, is filed under a real group, and appears exactly
@@ -183,6 +184,11 @@ production build**, not merely unreachable.
 - `src/middleware.ts` lets `/dev` through only when
   `NODE_ENV !== "production"`, so it can never sit in front of the auth wall.
 - Verify by building and confirming the route is not listed at all.
+- `/dev/scene?t=<theme>` (`src/app/dev/scene/page.dev.tsx`) renders a
+  theme's whole scene and board from the room camera with no sign-in;
+  `scripts/shoot-scene.mjs` screenshots it and
+  `scripts/dev/scene-stats.mjs` prints its draw calls. Same rules: dev-only
+  by construction.
 
 ## As the app grows
 
