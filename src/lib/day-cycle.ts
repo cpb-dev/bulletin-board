@@ -26,7 +26,8 @@ export interface DayCycle {
   phases: 2 | 3;
   /**
    * TESTING ONLY: show this phase whatever the time. Must be unset
-   * before a theme ships, or the theme is stuck in one phase.
+   * before a theme ships, or the theme is stuck in one phase — the
+   * catalogue test fails if one is left in.
    */
   pin?: DayPhase;
 }
