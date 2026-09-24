@@ -159,3 +159,15 @@ describe("pinColorFor", () => {
     }
   });
 });
+
+describe("day/night cycle (BB-21)", () => {
+  it("never ships a theme pinned to one part of the day", () => {
+    // `pin` is for reviewing a phase on a preview; left in, the theme
+    // would be stuck in that phase for everyone.
+    for (const m of THEME_MODULES) expect(m.dayCycle?.pin, m.palette.id).toBeUndefined();
+  });
+
+  it("is on Stars Hollow with all three phases", () => {
+    expect(getThemeModule("stars-hollow").dayCycle).toEqual({ phases: 3 });
+  });
+});

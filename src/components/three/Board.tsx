@@ -13,6 +13,7 @@ import {
 } from "@/lib/board-geometry";
 import { useBoardStore } from "@/lib/store";
 import type { BoardTheme, ThemeBoardDecor } from "@/themes/types";
+import type { DayPhase } from "@/lib/day-cycle";
 import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
 
 /**
@@ -25,11 +26,14 @@ import { makeCorkTexture, makeToonGradient, mulberry32 } from "./textures";
 export function Board({
   theme,
   decor: Decor,
+  phase,
   children,
 }: {
   theme: BoardTheme;
   /** The theme's own board decor. Without one, fairy lights. */
   decor?: ThemeBoardDecor;
+  /** The part of the day, handed on to the theme's decor (BB-21). */
+  phase?: DayPhase;
   children?: React.ReactNode;
 }) {
   const gradient = useMemo(() => makeToonGradient(), []);
@@ -135,7 +139,7 @@ export function Board({
       </mesh>
 
       {Decor ? (
-        <Decor theme={theme} gradient={gradient} />
+        <Decor theme={theme} gradient={gradient} phase={phase} />
       ) : (
         <FairyLights color={theme.garland} />
       )}

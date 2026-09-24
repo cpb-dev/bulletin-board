@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useKit } from "./kit";
+import { useLook } from "./phase";
 import {
   makeAwningTexture,
   makeFasciaTexture,
@@ -56,6 +57,8 @@ export function Glass({
   map: THREE.Texture;
   glow?: number;
 }) {
+  // shops light up from within as it gets dark (BB-21)
+  const { windowGlow } = useLook();
   return (
     <mesh position={at}>
       <planeGeometry args={[w, h]} />
@@ -63,7 +66,7 @@ export function Glass({
         map={map}
         emissive="#ffffff"
         emissiveMap={map}
-        emissiveIntensity={glow}
+        emissiveIntensity={glow * windowGlow}
         roughness={0.25}
         metalness={0.05}
       />

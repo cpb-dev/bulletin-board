@@ -51,6 +51,7 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/components/BoardExperience.tsx` | scene lookup, data load, overlay UI |
 | `src/components/ThemeMorph.tsx` | the dissolve when a board switches between its main and second theme (BB-3) |
 | `src/lib/theme-view.ts` | which of a board's two themes is on screen; remembered per device |
+| `src/lib/day-cycle.ts` | the day/night phase (BB-21); only themes whose module sets `dayCycle` ever get anything but "day", and archived boards always get "day" |
 | `src/themes/index.ts`, `scenes.ts`, `types.ts`, `groups.ts` | the catalogue and its types |
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
 
