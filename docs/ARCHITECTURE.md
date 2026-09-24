@@ -82,8 +82,10 @@ fully unit-tested.
 **Boards are append-only history.** "Backing up" a board flips it to
 `archived` and creates a fresh `active` board. Nothing is copied,
 nothing can be lost in the copy step, and archived boards render
-through the exact same 3D component in read-only mode. A JSON keepsake
-export exists as a belt-and-braces second backup.
+through the exact same 3D component in read-only mode. A keepsake
+export exists as a belt-and-braces second backup: a ZIP holding the
+board's rows, the photos themselves, and a self-contained page that
+renders the whole board in 3D offline. See docs/EXPORT.md.
 
 **Realtime as enhancement, not requirement.** The app is fully
 functional on plain request/response; the `postgres_changes`

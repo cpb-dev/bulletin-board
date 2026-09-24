@@ -47,3 +47,6 @@ next-env.d.ts
 
 # keep the env template
 !.env.example
+
+# the compiled memory viewer (built by predev/prebuild)
+/public/export/

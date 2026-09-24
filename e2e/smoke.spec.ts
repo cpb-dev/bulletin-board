@@ -63,6 +63,13 @@ test("the world cup fixtures API returns fixtures (fallback ok)", async ({
   expect(json.fixtures.length).toBeGreaterThan(0);
 });
 
+test("the offline board viewer is behind the auth wall", async ({ page }) => {
+  // It ships no data, but it is app code and nothing should be readable
+  // from outside the wall that doesn't have to be.
+  await page.goto("/export/viewer.js");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test("the notifications service worker is served", async ({ request }) => {
   const res = await request.get("/sw.js");
   expect(res.ok()).toBeTruthy();

@@ -35,7 +35,8 @@ two of you can ever get in.
   floats up close, like holding it in your hand (tilt it with your
   finger); editing happens in Edit mode.
 - **Memories** — "back up" a full board to the memory box forever, start
-  a fresh one, revisit old boards in 3D, download keepsake JSON exports.
+  a fresh one, revisit old boards in 3D, download a keepsake folder that
+  opens the board offline (docs/EXPORT.md).
 - **Lists** — a separate 📝 Lists page for shared checklists (shopping,
   date ideas, films…); make as many as you like, tick things off
   together, archive old ones. Kept apart from the board's memories.

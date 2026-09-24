@@ -5,10 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   archiveBoardAndStartFresh,
-  exportBoard,
   getPrimaryBoard,
   listArchivedBoards,
 } from "@/lib/api";
+import {
+  downloadBoardExport,
+  formatBytes,
+  progressLabel,
+  type ExportProgress,
+} from "@/lib/export-download";
 import type { Board } from "@/lib/types";
 import { getTheme, groupedThemes, THEMES } from "@/themes";
 
@@ -23,6 +28,8 @@ export default function MemoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportNote, setExportNote] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [keepsakeTitle, setKeepsakeTitle] = useState("");
   const [nextTheme, setNextTheme] = useState(THEMES[0].id);
@@ -80,20 +87,37 @@ export default function MemoriesPage() {
     }
   }
 
+  /**
+   * Download a memory as a folder you can keep: the board's data, its
+   * photos as real files, and a page that renders the whole thing in 3D
+   * without the app or the internet.
+   */
   async function download(board: Board) {
+    if (exporting) return;
+    setError(null);
+    setExportNote(null);
+    setExporting(board.id);
     try {
-      const data = await exportBoard(supabase, board);
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${board.title.replace(/[^\w\- ]+/g, "").trim() || "board"}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      setError("Could not export that board.");
+      const result = await downloadBoardExport(
+        supabase,
+        board,
+        (progress: ExportProgress) => setExportNote(progressLabel(progress))
+      );
+      const lost = result.missing.length;
+      setExportNote(
+        lost
+          ? `saved ${result.fileName} (${formatBytes(result.bytes)}) — but ${lost} photo${
+              lost === 1 ? "" : "s"
+            } couldn't be reached, so try again on a better connection 🥺`
+          : `saved ${result.fileName} (${formatBytes(result.bytes)}) — unzip it and open index.html 💝`
+      );
+    } catch (err) {
+      setExportNote(null);
+      setError(
+        err instanceof Error ? err.message : "Could not export that board."
+      );
+    } finally {
+      setExporting(null);
     }
   }
 
@@ -193,7 +217,17 @@ export default function MemoriesPage() {
       )}
 
       <section>
-        <h2 className="font-bold text-lg mb-3">saved boards</h2>
+        <h2 className="font-bold text-lg mb-1">saved boards</h2>
+        <p className="text-xs opacity-60 mb-3">
+          ⬇️ downloads a memory as a little folder — the notes, the photos
+          themselves, and a page that opens the board in 3D on your own
+          device, no app or internet needed.
+        </p>
+        {exportNote && (
+          <p role="status" className="text-sm opacity-80 mb-3">
+            {exportNote}
+          </p>
+        )}
         {!loading && memories.length === 0 && (
           <p className="opacity-70 text-sm">
             nothing here yet — when a board is full of lovely things, save
@@ -226,9 +260,10 @@ export default function MemoriesPage() {
                   <button
                     className="cute-button ghost text-sm"
                     onClick={() => download(m)}
+                    disabled={exporting !== null}
                     aria-label={`Download ${m.title}`}
                   >
-                    ⬇️
+                    {exporting === m.id ? "…" : "⬇️"}
                   </button>
                 </div>
               </li>

@@ -8,7 +8,7 @@ import {
   createSurpriseBoard,
   deleteBoard,
   deleteItem,
-  exportBoard,
+  fetchBoardPhotos,
   getPrimaryBoard,
   getWorldCupBoard,
   listActiveBoards,
@@ -18,7 +18,7 @@ import {
   updateBoardTheme,
   updateSurpriseReveal,
 } from "../api";
-import type { Board } from "../types";
+import type { Board, BoardItem } from "../types";
 
 /**
  * Minimal chainable mock of the supabase-js query builder: every
@@ -337,19 +337,123 @@ describe("updateBoardTheme", () => {
   });
 });
 
-describe("exportBoard", () => {
-  it("bundles the board with its items", async () => {
-    const items = [{ id: "i1" }, { id: "i2" }];
-    const { client } = mockSupabase([chain({ data: items, error: null })]);
-    const result = await exportBoard(client, board);
-    expect(result.board).toEqual(board);
-    expect(result.items).toHaveLength(2);
-    expect(new Date(result.exported_at).getTime()).not.toBeNaN();
-  });
-});
-
 describe("photoStoragePath", () => {
   it("namespaces photos by board", () => {
     expect(photoStoragePath("b1", "f1")).toBe("b1/f1.jpg");
+  });
+});
+
+describe("fetchBoardPhotos", () => {
+  function photoItem(id: string, path: string | null): BoardItem {
+    return {
+      id,
+      board_id: "b1",
+      kind: path ? "photo" : "note",
+      content: "",
+      photo_path: path,
+      paper: "photo",
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scale: 1,
+      fixture_id: null,
+      created_by: "u1",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+  }
+
+  /** A client whose storage hands out signed URLs for the given paths. */
+  function photoClient(signable: string[]) {
+    return {
+      storage: {
+        from: () => ({
+          createSignedUrl: async (path: string) =>
+            signable.includes(path)
+              ? { data: { signedUrl: `https://signed.test/${path}` }, error: null }
+              : { data: null, error: { message: "no such object" } },
+        }),
+      },
+    } as unknown as SupabaseClient;
+  }
+
+  it("downloads the bytes behind each photo_path", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      }))
+    );
+    const { photos, missing } = await fetchBoardPhotos(
+      photoClient(["b1/a.jpg", "b1/b.jpg"]),
+      [photoItem("1", "b1/a.jpg"), photoItem("2", "b1/b.jpg")]
+    );
+    expect(photos.map((p) => p.path)).toEqual(["b1/a.jpg", "b1/b.jpg"]);
+    expect(Array.from(photos[0].bytes)).toEqual([1, 2, 3]);
+    expect(missing).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+
+  it("ignores notes, which have nothing to download", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { photos } = await fetchBoardPhotos(photoClient([]), [
+      photoItem("1", null),
+    ]);
+    expect(photos).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("downloads a shared photo path only once", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([7]).buffer,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { photos } = await fetchBoardPhotos(photoClient(["b1/a.jpg"]), [
+      photoItem("1", "b1/a.jpg"),
+      photoItem("2", "b1/a.jpg"),
+    ]);
+    expect(photos).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the photos it could reach and names the ones it could not", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith("b1/a.jpg")
+          ? { ok: true, arrayBuffer: async () => new Uint8Array([9]).buffer }
+          : { ok: false, status: 404 }
+      )
+    );
+    const { photos, missing } = await fetchBoardPhotos(
+      photoClient(["b1/a.jpg", "b1/gone.jpg"]),
+      [photoItem("1", "b1/a.jpg"), photoItem("2", "b1/gone.jpg")]
+    );
+    expect(photos.map((p) => p.path)).toEqual(["b1/a.jpg"]);
+    expect(missing).toEqual(["b1/gone.jpg"]);
+    vi.unstubAllGlobals();
+  });
+
+  it("reports progress so a phone can show it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([1]).buffer,
+      }))
+    );
+    const seen: string[] = [];
+    await fetchBoardPhotos(
+      photoClient(["b1/a.jpg", "b1/b.jpg"]),
+      [photoItem("1", "b1/a.jpg"), photoItem("2", "b1/b.jpg")],
+      (done, total) => seen.push(`${done}/${total}`)
+    );
+    expect(seen).toEqual(["0/2", "1/2", "2/2"]);
+    vi.unstubAllGlobals();
   });
 });

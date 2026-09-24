@@ -3,7 +3,8 @@
  * first argument so the whole module is unit-testable with a mock.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Board, BoardExport, BoardItem, Profile } from "./types";
+import type { Board, BoardItem, Profile } from "./types";
+import type { ExportPhoto } from "./export-bundle";
 import { DEFAULT_THEME_ID } from "@/themes";
 import {
   WORLD_CUP,
@@ -459,15 +460,55 @@ export async function getProfiles(
 
 // ---------- Keepsake export ----------
 
-export async function exportBoard(
+/** What came back from storage when bundling a board's photos. */
+export interface FetchedPhotos {
+  photos: ExportPhoto[];
+  /** Storage paths that could not be downloaded — an incomplete backup. */
+  missing: string[];
+}
+
+/**
+ * Download the actual bytes of every photo on a board.
+ *
+ * Item rows carry a `photo_path`, not a photo; the files live in a
+ * private bucket behind short-lived signed URLs. Without this an export
+ * is only a description of a board, which is the whole point of BB-15 —
+ * a memory must be recoverable from its export alone.
+ *
+ * Fetched one at a time on purpose: phones on mobile data are the normal
+ * case here, progress stays meaningful, and a board only ever holds a
+ * handful of photos.
+ */
+export async function fetchBoardPhotos(
   supabase: SupabaseClient,
-  board: Board
-): Promise<BoardExport> {
-  const items = await listItems(supabase, board.id);
-  return {
-    exported_at: new Date().toISOString(),
-    app: APP_NAME,
-    board,
-    items,
-  };
+  items: BoardItem[],
+  onProgress?: (done: number, total: number) => void
+): Promise<FetchedPhotos> {
+  const paths = items
+    .map((item) => item.photo_path)
+    .filter((path): path is string => Boolean(path));
+  const unique = [...new Set(paths)];
+
+  const photos: ExportPhoto[] = [];
+  const missing: string[] = [];
+  let done = 0;
+  onProgress?.(0, unique.length);
+
+  for (const path of unique) {
+    try {
+      const url = await getPhotoUrl(supabase, path);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(String(response.status));
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      photos.push({ path, bytes });
+    } catch {
+      // One unreachable photo shouldn't lose the other twenty — the
+      // caller is told which ones didn't make it.
+      missing.push(path);
+    }
+    done += 1;
+    onProgress?.(done, unique.length);
+  }
+
+  return { photos, missing };
 }
