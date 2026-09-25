@@ -42,6 +42,12 @@ export interface BoardItem {
   content: string;
   photo_path: string | null;
   paper: string;
+  /**
+   * The note's silhouette (BB-24), separate from its paper colour. Null
+   * or missing on every note from before migration 0009, and whenever the
+   * paper already implies the shape — see `resolveNoteShape`.
+   */
+  shape?: string | null;
   x: number;
   y: number;
   rotation: number;

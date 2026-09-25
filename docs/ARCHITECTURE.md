@@ -108,7 +108,10 @@ boards            id, title, theme, secondary_theme, status active|archived,
                   -- optional second theme (BB-3). Which of the two each
                   -- person sees lives in their own localStorage, not here.
 items             id, board_id, kind note|photo, content, photo_path,
-                  paper, x, y, rotation, scale, created_by, timestamps
+                  paper, shape, x, y, rotation, scale, created_by, timestamps
+                  -- paper is the colour (from the theme's presets);
+                  -- shape (BB-24) is null unless it differs from what
+                  -- paper implies: 'heart' paper = heart, else square
 lists             id, title, status active|archived, created_at, archived_at
 list_items        id, list_id, content, done, position, created_by, timestamps
 allowed_members   email   -- the guest list; no API access at all

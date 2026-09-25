@@ -10,7 +10,14 @@ import {
   useBoardStore,
 } from "@/lib/store";
 import { getTheme } from "@/themes";
-import { Sheet, Swatch } from "./Sheet";
+import {
+  legacyShape,
+  shapeAfterPaperChange,
+  shapeToStore,
+  type NoteShape,
+} from "@/lib/note-shape";
+import { Sheet } from "./Sheet";
+import { NoteStylePicker } from "./NoteStylePicker";
 
 const MAX_NOTE_LENGTH = 200;
 
@@ -23,6 +30,11 @@ export function NoteComposer() {
 
   const [text, setText] = useState("");
   const [paper, setPaper] = useState(theme.papers[0].id);
+  // The shape follows the paper (as it always did) until one is picked.
+  const [shape, setShape] = useState<NoteShape>(() =>
+    legacyShape(theme.papers[0].id)
+  );
+  const [shapeChosen, setShapeChosen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +55,7 @@ export function NoteComposer() {
         board_id: board.id,
         content: text.trim(),
         paper,
+        shape: shapeToStore(shape, paper),
         x: spot.x,
         y: spot.y,
         rotation: randomTilt(),
@@ -77,18 +90,19 @@ export function NoteComposer() {
         {text.length}/{MAX_NOTE_LENGTH}
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
-        <span className="text-sm opacity-75">paper:</span>
-        {theme.papers.map((p) => (
-          <Swatch
-            key={p.id}
-            color={p.bg}
-            label={p.name}
-            selected={paper === p.id}
-            onSelect={() => setPaper(p.id)}
-          />
-        ))}
-      </div>
+      <NoteStylePicker
+        theme={theme}
+        paper={paper}
+        shape={shape}
+        onPaper={(p) => {
+          setPaper(p);
+          setShape((s) => shapeAfterPaperChange(s, shapeChosen, p));
+        }}
+        onShape={(s) => {
+          setShape(s);
+          setShapeChosen(true);
+        }}
+      />
 
       {error && (
         <p role="alert" className="mt-3 text-sm text-red-300">

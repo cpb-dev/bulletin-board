@@ -54,6 +54,8 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/lib/day-cycle.ts` | the day/night phase (BB-21); only themes whose module sets `dayCycle` ever get anything but "day", and archived boards always get "day" |
 | `src/themes/index.ts`, `scenes.ts`, `types.ts`, `groups.ts` | the catalogue and its types |
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
+| `src/lib/note-shape.ts`, `src/components/three/note-shape-geometry.ts` | every note's shape (BB-24); a null `shape` must keep resolving to the legacy look (`paper = "heart"` is a heart, else square) — live rows and archived boards depend on it |
+| `src/components/ui/NoteStylePicker.tsx` | the colour and shape picker in the composer and editor, on every board |
 
 **Shared by a group of themes:**
 
