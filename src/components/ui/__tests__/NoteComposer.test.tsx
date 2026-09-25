@@ -113,4 +113,76 @@ describe("NoteComposer", () => {
     expect(screen.getByRole("button", { name: "Butter" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rose" })).toBeInTheDocument();
   });
+
+  it("offers every shape, square to start with", () => {
+    render(<NoteComposer />);
+    for (const name of ["Square", "Heart", "Circle", "Cloud", "Star", "Torn page"]) {
+      expect(screen.getByRole("button", { name: `${name} shape` })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Square shape" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
+  async function pin(text = "hi") {
+    createNoteMock.mockResolvedValue({ id: "i1", x: 0, y: 0 });
+    await userEvent.type(screen.getByPlaceholderText(/write something sweet/i), text);
+    await userEvent.click(screen.getByRole("button", { name: /pin it/i }));
+    return createNoteMock.mock.calls[0][1];
+  }
+
+  it("pins a plain note without a shape, as before", async () => {
+    render(<NoteComposer />);
+    const input = await pin();
+    expect(input.shape).toBeNull();
+  });
+
+  it("pins the chosen shape and colour", async () => {
+    render(<NoteComposer />);
+    await userEvent.click(screen.getByRole("button", { name: "Rose" }));
+    await userEvent.click(screen.getByRole("button", { name: "Star shape" }));
+    const input = await pin();
+    expect(input.paper).toBe("rose");
+    expect(input.shape).toBe("star");
+  });
+
+  it("lets a heart be any colour", async () => {
+    render(<NoteComposer />);
+    await userEvent.click(screen.getByRole("button", { name: "Heart shape" }));
+    const input = await pin();
+    expect(input.paper).toBe("butter");
+    expect(input.shape).toBe("heart");
+  });
+
+  describe("on Rose Picnic", () => {
+    beforeEach(() => {
+      useBoardStore.setState({ board: { ...board, theme: "rose-picnic" } });
+    });
+
+    it("still starts on the classic heart note, stored exactly as before", async () => {
+      render(<NoteComposer />);
+      expect(screen.getByRole("button", { name: "Heart shape" })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      );
+      const input = await pin();
+      expect(input.paper).toBe("heart");
+      expect(input.shape).toBeNull();
+    });
+
+    it("follows the paper until a shape is picked", async () => {
+      render(<NoteComposer />);
+      await userEvent.click(screen.getByRole("button", { name: "Petal" }));
+      expect(screen.getByRole("button", { name: "Square shape" })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Cloud shape" }));
+      await userEvent.click(screen.getByRole("button", { name: "Heart" }));
+      const input = await pin();
+      expect(input.paper).toBe("heart");
+      expect(input.shape).toBe("cloud");
+    });
+  });
 });

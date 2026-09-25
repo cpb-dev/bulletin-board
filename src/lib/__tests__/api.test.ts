@@ -331,6 +331,32 @@ describe("items", () => {
     ).resolves.toEqual(note);
   });
 
+  it("createNote leaves the shape column out for plain and classic heart notes", async () => {
+    // Pinning must work exactly as before BB-24, even before migration
+    // 0009 adds the column.
+    const plain = recordingChain({ data: { id: "i1" }, error: null });
+    const unset = recordingChain({ data: { id: "i2" }, error: null });
+    const { client } = mockSupabase([plain, unset]);
+    const base = { board_id: "b1", content: "hi", x: 0, y: 0, rotation: 0 };
+    await createNote(client, { ...base, paper: "heart", shape: null });
+    await createNote(client, { ...base, paper: "butter" });
+    expect(plain.insert).toHaveBeenCalledWith({ ...base, paper: "heart", kind: "note" });
+    expect(unset.insert).toHaveBeenCalledWith({ ...base, paper: "butter", kind: "note" });
+  });
+
+  it("createNote writes a chosen shape", async () => {
+    const insert = recordingChain({ data: { id: "i1" }, error: null });
+    const { client } = mockSupabase([insert]);
+    const base = { board_id: "b1", content: "hi", x: 0, y: 0, rotation: 0 };
+    await createNote(client, { ...base, paper: "butter", shape: "star" });
+    expect(insert.insert).toHaveBeenCalledWith({
+      ...base,
+      paper: "butter",
+      shape: "star",
+      kind: "note",
+    });
+  });
+
   it("deleteItem also removes the photo from storage", async () => {
     const { client, storageRemove } = mockSupabase([
       chain({ data: null, error: null }),

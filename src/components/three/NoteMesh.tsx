@@ -8,7 +8,9 @@ import type { BoardItem } from "@/lib/types";
 import { useBoardStore } from "@/lib/store";
 import { noteStamp } from "@/lib/format";
 import { fixtureNoteText } from "@/lib/worldcup";
+import { pinAnchor, resolveNoteShape, shapeSeed } from "@/lib/note-shape";
 import { drawNoteTexture } from "./textures";
+import { useNoteShapeGeometry } from "./note-shape-geometry";
 import { Pin } from "./Pin";
 import { SelectionFrame } from "./SelectionFrame";
 import { useItemDrag } from "./useItemInteraction";
@@ -58,6 +60,10 @@ export function NoteMesh({
   );
   const content = liveFixture ? fixtureNoteText(liveFixture) : item.content;
 
+  // Old rows have no shape: "heart" paper stays a heart, the rest square.
+  const shape = resolveNoteShape(item);
+  const seed = useMemo(() => shapeSeed(item.id), [item.id]);
+
   const texture = useMemo(
     () =>
       drawNoteTexture({
@@ -65,18 +71,24 @@ export function NoteMesh({
         bg: paper.bg,
         ink: paper.ink,
         footer,
-        shape: item.paper === "heart" ? "heart" : "square",
+        shape,
+        seed,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [content, paper.bg, paper.ink, footer, item.paper, fontsReady]
+    [content, paper.bg, paper.ink, footer, shape, seed, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 
   const { x, y } = normToWorld(item.x, item.y);
   const size = NOTE_BASE * item.scale;
+  // BB-24 shapes are cut to their outline, so the shadow and the grab
+  // area follow the paper. Null for square and heart (a plain plane).
+  const cut = useNoteShapeGeometry(shape, seed, size);
   // Hearts float free: a square drop shadow would box them in, and a pin
   // through the top notch looks wrong on a love note.
-  const isHeart = item.paper === "heart";
+  const isHeart = shape === "heart";
+  const pinAt = pinAnchor(shape);
+  const pinY = shape === "square" ? size / 2 - 0.05 : (pinAt ?? 0) * (size / 2);
   const lift = isActive ? 0.07 : 0;
   const pop = isActive ? 1.05 : hovered ? 1.02 : 1;
 
@@ -84,31 +96,56 @@ export function NoteMesh({
     <group position={[x, y, ITEM_Z + lift]} rotation={[0, 0, item.rotation]}>
       <group scale={pop}>
         {/* soft fake shadow */}
-        {!isHeart && (
-          <mesh position={[0.02, -0.025, -0.012]}>
-            <planeGeometry args={[size, size]} />
-            <meshBasicMaterial color="#000000" transparent opacity={0.16} />
-          </mesh>
+        {cut ? (
+          <>
+            <mesh position={[0.02, -0.025, -0.012]} geometry={cut}>
+              <meshBasicMaterial color="#000000" transparent opacity={0.16} />
+            </mesh>
+            <mesh
+              geometry={cut}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerOver={() => setHovered(true)}
+              onPointerOut={() => setHovered(false)}
+            >
+              <meshStandardMaterial
+                map={texture}
+                transparent
+                roughness={0.9}
+                side={THREE.FrontSide}
+              />
+            </mesh>
+          </>
+        ) : (
+          <>
+            {!isHeart && (
+              <mesh position={[0.02, -0.025, -0.012]}>
+                <planeGeometry args={[size, size]} />
+                <meshBasicMaterial color="#000000" transparent opacity={0.16} />
+              </mesh>
+            )}
+            <mesh
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerOver={() => setHovered(true)}
+              onPointerOut={() => setHovered(false)}
+            >
+              <planeGeometry args={[size, size]} />
+              <meshStandardMaterial
+                map={texture}
+                transparent
+                roughness={0.9}
+                side={THREE.FrontSide}
+              />
+            </mesh>
+          </>
         )}
-        <mesh
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
-        >
-          <planeGeometry args={[size, size]} />
-          <meshStandardMaterial
-            map={texture}
-            transparent
-            roughness={0.9}
-            side={THREE.FrontSide}
-          />
-        </mesh>
-        {!isHeart && (
+        {pinAt !== null && (
           <Pin
             color={pinColorFor(theme, item.id)}
-            position={[0, size / 2 - 0.05, 0.012]}
+            position={[0, pinY, 0.012]}
           />
         )}
         {isSelected && (

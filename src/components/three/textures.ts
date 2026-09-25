@@ -2,6 +2,12 @@
 
 import * as THREE from "three";
 import { wrapLines } from "@/lib/board-geometry";
+import {
+  noteLayout,
+  noteOutline,
+  type NoteShape,
+  type Pt,
+} from "@/lib/note-shape";
 
 /** Tiny deterministic PRNG so textures look identical every render. */
 export function mulberry32(seed: number): () => number {
@@ -89,8 +95,14 @@ export interface NoteTextureOptions {
   transparent?: boolean;
   /** Little "posted by · date" stamp drawn at the foot of the note. */
   footer?: string;
-  /** Paper silhouette — "heart" is the surprise board's love note. */
-  shape?: "square" | "heart";
+  /**
+   * Paper silhouette. "square" and "heart" are the original drawings and
+   * must never change; the rest (BB-24) are drawn from the outlines in
+   * `@/lib/note-shape`.
+   */
+  shape?: NoteShape;
+  /** Seeds a shape's irregular edge (the torn page), per note. */
+  seed?: number;
   width?: number;
   height?: number;
 }
@@ -110,6 +122,12 @@ export function drawNoteTexture(
   const ctx = canvas.getContext("2d")!;
 
   const heart = options.shape === "heart" && !options.transparent;
+  // BB-24 shapes. Null for square and heart, which keep their own drawing.
+  const outline =
+    options.shape && !options.transparent
+      ? noteOutline(options.shape, options.seed)
+      : null;
+  const layout = outline && options.shape ? noteLayout(options.shape) : null;
 
   if (!options.transparent) {
     ctx.fillStyle = options.bg;
@@ -130,6 +148,8 @@ export function drawNoteTexture(
       ctx.fillStyle = shine;
       heartPath(ctx, w, h);
       ctx.fill();
+    } else if (outline) {
+      drawOutlinedPaper(ctx, outline, w, h, options);
     } else {
       // Paper with slightly irregular hand-cut edges.
       roundRect(ctx, 6, 6, w - 12, h - 12, 18);
@@ -145,9 +165,13 @@ export function drawNoteTexture(
   const pad = options.transparent ? 8 : heart ? Math.round(w * 0.22) : 44;
   // Reserve a strip at the foot for the "posted by" stamp.
   const footerH = options.footer && !options.transparent ? 58 : 0;
-  const maxWidth = w - pad * 2;
-  const areaTop = heart ? h * 0.26 : pad;
-  const areaBottom = heart ? h * 0.66 - footerH * 0.4 : h - pad - footerH;
+  const maxWidth = layout ? (layout.right - layout.left) * w : w - pad * 2;
+  const areaTop = layout ? layout.top * h : heart ? h * 0.26 : pad;
+  const areaBottom = layout
+    ? layout.bottom * h
+    : heart
+      ? h * 0.66 - footerH * 0.4
+      : h - pad - footerH;
   const maxHeight = areaBottom - areaTop;
   ctx.fillStyle = options.ink;
   ctx.textAlign = "center";
@@ -172,7 +196,12 @@ export function drawNoteTexture(
     ctx.fillText(line, w / 2, startY + i * lineHeight, maxWidth);
   });
 
-  if (footerH > 0 && heart) {
+  if (footerH > 0 && layout) {
+    // Outlined shapes: a small stamp in the space kept for it, no divider.
+    ctx.fillStyle = withAlpha(options.ink, 0.7);
+    ctx.font = handwritingFont(28);
+    ctx.fillText(options.footer!, w / 2, layout.footerY * h, layout.footerWidth * w);
+  } else if (footerH > 0 && heart) {
     // Stamp sits in the narrowing lower lobe — no divider on a heart.
     ctx.fillStyle = withAlpha(options.ink, 0.7);
     ctx.font = handwritingFont(28);
@@ -194,6 +223,62 @@ export function drawNoteTexture(
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
   return texture;
+}
+
+/**
+ * Paper cut to one of the BB-24 outlines: flat colour, a soft highlight
+ * from the top left, and a faint edge so pale papers still read against
+ * a pale board. The torn page also gets its notepad rules.
+ */
+function drawOutlinedPaper(
+  ctx: CanvasRenderingContext2D,
+  outline: readonly Pt[],
+  w: number,
+  h: number,
+  options: NoteTextureOptions
+) {
+  const trace = () => {
+    ctx.beginPath();
+    outline.forEach(([x, y], i) =>
+      i ? ctx.lineTo(x * w, y * h) : ctx.moveTo(x * w, y * h)
+    );
+    ctx.closePath();
+  };
+  ctx.fillStyle = options.bg;
+  trace();
+  ctx.fill();
+
+  ctx.save();
+  trace();
+  ctx.clip();
+  const shine = ctx.createRadialGradient(
+    w * 0.3,
+    h * 0.22,
+    10,
+    w * 0.3,
+    h * 0.22,
+    w * 0.55
+  );
+  shine.addColorStop(0, "rgba(255,255,255,0.35)");
+  shine.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = shine;
+  ctx.fillRect(0, 0, w, h);
+  if (options.shape === "torn") {
+    ctx.strokeStyle = withAlpha(options.ink, 0.13);
+    ctx.lineWidth = 2;
+    for (let y = h * 0.2; y < h * 0.95; y += h * 0.075) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = withAlpha(options.ink, 0.14);
+  ctx.lineWidth = 3;
+  trace();
+  ctx.stroke();
 }
 
 /** A classic two-lobed heart filling the canvas. */

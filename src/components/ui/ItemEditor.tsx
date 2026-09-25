@@ -5,7 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { deleteItem, updateItem } from "@/lib/api";
 import { selectDisplayedThemeId, useBoardStore } from "@/lib/store";
 import { getTheme } from "@/themes";
-import { Sheet, Swatch } from "./Sheet";
+import {
+  resolveNoteShape,
+  shapeToStore,
+  type NoteShape,
+} from "@/lib/note-shape";
+import { Sheet } from "./Sheet";
+import { NoteStylePicker } from "./NoteStylePicker";
 
 /** Bottom sheet for reading, editing or taking down a pinned item. */
 export function ItemEditor() {
@@ -21,6 +27,7 @@ export function ItemEditor() {
 
   const [text, setText] = useState("");
   const [paper, setPaper] = useState("");
+  const [shape, setShape] = useState<NoteShape>("square");
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +36,7 @@ export function ItemEditor() {
     if (item) {
       setText(item.content);
       setPaper(item.paper);
+      setShape(resolveNoteShape(item));
       setConfirmingDelete(false);
       setError(null);
     }
@@ -43,7 +51,9 @@ export function ItemEditor() {
     year: "numeric",
   });
   const isNote = item.kind === "note";
-  const dirty = text !== item.content || (isNote && paper !== item.paper);
+  const dirty =
+    text !== item.content ||
+    (isNote && (paper !== item.paper || shape !== resolveNoteShape(item)));
 
   function close() {
     useBoardStore.getState().setEditing(null);
@@ -54,9 +64,14 @@ export function ItemEditor() {
     setBusy(true);
     setError(null);
     try {
-      const patch = isNote
-        ? { content: text.trim(), paper }
-        : { content: text.trim() };
+      const patch: Parameters<typeof updateItem>[2] = { content: text.trim() };
+      if (isNote) {
+        patch.paper = paper;
+        // Only touch the shape column when the stored value changes, so
+        // recolouring a plain note writes exactly what it did before BB-24.
+        const stored = shapeToStore(shape, paper);
+        if (stored !== (item.shape ?? null)) patch.shape = stored;
+      }
       await updateItem(supabase, item.id, patch);
       useBoardStore.getState().upsertItem({ ...item, ...patch });
       close();
@@ -103,18 +118,15 @@ export function ItemEditor() {
           />
 
           {isNote && (
-            <div className="mt-3 flex items-center gap-3">
-              <span className="text-sm opacity-75">paper:</span>
-              {theme.papers.map((p) => (
-                <Swatch
-                  key={p.id}
-                  color={p.bg}
-                  label={p.name}
-                  selected={paper === p.id}
-                  onSelect={() => setPaper(p.id)}
-                />
-              ))}
-            </div>
+            // In the editor the note's shape is already settled, so a
+            // new colour never changes it.
+            <NoteStylePicker
+              theme={theme}
+              paper={paper}
+              shape={shape}
+              onPaper={setPaper}
+              onShape={setShape}
+            />
           )}
 
           {error && (

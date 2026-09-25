@@ -8,6 +8,7 @@
  * Args: <theme> <outDir> <name> [camera x,y,z] [look-at x,y,z] [WxH] [waitMs]
  * The size defaults to 1280x720; pass 390x844 for a phone.
  * PHASE=night (or evening, day) stages that part of the day (BB-21).
+ * NOTES=1 pins a sample note of every shape, old and new (BB-24).
  */
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
@@ -36,7 +37,8 @@ const url =
   `${base}/dev/scene?t=${theme}` +
   (cam ? `&c=${cam}` : "") +
   (look ? `&l=${look}` : "") +
-  (process.env.PHASE ? `&p=${process.env.PHASE}` : "");
+  (process.env.PHASE ? `&p=${process.env.PHASE}` : "") +
+  (process.env.NOTES ? "&notes=1" : "");
 await page.goto(url, { waitUntil: "networkidle" });
 await page
   .waitForSelector("canvas[data-ready='1']", { timeout: 60000 })

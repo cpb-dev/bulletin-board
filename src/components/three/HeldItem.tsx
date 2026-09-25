@@ -9,7 +9,9 @@ import { getPaper, type BoardTheme } from "@/themes";
 import { noteStamp } from "@/lib/format";
 import { useBoardStore } from "@/lib/store";
 import type { BoardItem } from "@/lib/types";
+import { resolveNoteShape, shapeSeed } from "@/lib/note-shape";
 import { drawNoteTexture } from "./textures";
+import { useNoteShapeGeometry } from "./note-shape-geometry";
 import { useFontsReady } from "./NoteMesh";
 import { usePhotoTexture } from "./photo-texture";
 
@@ -118,8 +120,13 @@ function HeldNote({
   );
   const footer = noteStamp(authorName, item.created_at);
   const size = 0.5;
+  // Old rows have no shape: "heart" paper stays a heart, the rest square.
+  const shape = resolveNoteShape(item);
+  const seed = useMemo(() => shapeSeed(item.id), [item.id]);
+  // BB-24 shapes cast a shadow the shape of the paper.
+  const cut = useNoteShapeGeometry(shape, seed, size);
   // Matches the board: no square drop shadow boxing in the heart silhouette.
-  const isHeart = item.paper === "heart";
+  const isHeart = shape === "heart";
 
   useEffect(() => onNatural({ w: size, h: size }), [onNatural]);
 
@@ -130,22 +137,29 @@ function HeldNote({
         bg: paper.bg,
         ink: paper.ink,
         footer,
-        shape: item.paper === "heart" ? "heart" : "square",
+        shape,
+        seed,
         width: 768,
         height: 768,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [item.content, paper.bg, paper.ink, footer, item.paper, fontsReady]
+    [item.content, paper.bg, paper.ink, footer, shape, seed, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 
   return (
     <group>
-      {!isHeart && (
-        <mesh position={[0.02, -0.025, -0.012]}>
-          <planeGeometry args={[size, size]} />
+      {cut ? (
+        <mesh position={[0.02, -0.025, -0.012]} geometry={cut}>
           <meshBasicMaterial color="#000" transparent opacity={0.22} />
         </mesh>
+      ) : (
+        !isHeart && (
+          <mesh position={[0.02, -0.025, -0.012]}>
+            <planeGeometry args={[size, size]} />
+            <meshBasicMaterial color="#000" transparent opacity={0.22} />
+          </mesh>
+        )
       )}
       <mesh>
         <planeGeometry args={[size, size]} />

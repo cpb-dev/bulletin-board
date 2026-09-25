@@ -380,6 +380,11 @@ export async function createNote(
     board_id: string;
     content: string;
     paper: string;
+    /**
+     * Only sent when set: a plain or classic heart note leaves the column
+     * out entirely, so pinning works exactly as before BB-24.
+     */
+    shape?: string | null;
     x: number;
     y: number;
     rotation: number;
@@ -387,9 +392,11 @@ export async function createNote(
     fixture_id?: string;
   }
 ): Promise<BoardItem> {
+  const { shape, ...rest } = input;
+  const row = shape ? { ...rest, shape } : rest;
   const { data, error } = await supabase
     .from("items")
-    .insert({ ...input, kind: "note" })
+    .insert({ ...row, kind: "note" })
     .select()
     .single();
   if (error || !data) fail(error?.message, "Could not pin the note.");
@@ -420,7 +427,10 @@ export async function updateItem(
   supabase: SupabaseClient,
   id: string,
   patch: Partial<
-    Pick<BoardItem, "content" | "paper" | "x" | "y" | "rotation" | "scale">
+    Pick<
+      BoardItem,
+      "content" | "paper" | "shape" | "x" | "y" | "rotation" | "scale"
+    >
   >
 ): Promise<void> {
   const { error } = await supabase.from("items").update(patch).eq("id", id);

@@ -7,6 +7,42 @@ import { Board } from "@/components/three/Board";
 import { CAMERA_FOV } from "@/lib/board-geometry";
 import { getThemeModule } from "@/themes/scenes";
 import { resolvePhase, type DayPhase } from "@/lib/day-cycle";
+import { NoteMesh } from "@/components/three/NoteMesh";
+import type { BoardTheme } from "@/themes";
+import type { BoardItem } from "@/lib/types";
+
+/**
+ * `notes=1` pins one note of every shape (BB-24), in the theme's papers,
+ * plus a pre-BB-24 row (no shape column) for each paper, so a render shows
+ * old notes and new shapes side by side.
+ */
+function sampleNotes(theme: BoardTheme): BoardItem[] {
+  const shapes = [null, "heart", "circle", "cloud", "star", "torn"];
+  const note = (i: number, paper: string, shape: string | null, x: number, y: number): BoardItem => ({
+    id: `sample-${i}`,
+    board_id: "dev",
+    kind: "note",
+    content: shape ?? `old ${paper}`,
+    photo_path: null,
+    paper,
+    ...(shape ? { shape } : {}),
+    x,
+    y,
+    rotation: ((i % 3) - 1) * 0.05,
+    scale: 1,
+    fixture_id: null,
+    created_by: null,
+    created_at: "2026-09-25T12:00:00Z",
+    updated_at: "2026-09-25T12:00:00Z",
+  });
+  const papers = theme.papers.map((p) => p.id);
+  return [
+    ...shapes.map((shape, i) =>
+      note(i, papers[(i + 1) % papers.length], shape, -0.8 + i * 0.32, 0.45)
+    ),
+    ...papers.map((paper, i) => note(10 + i, paper, null, -0.8 + i * 0.32, -0.4)),
+  ];
+}
 
 /** "x,y,z" -> a tuple, or the fallback if it doesn't parse. */
 function vec(s: string | null, fallback: [number, number, number]) {
@@ -47,6 +83,10 @@ function Stage() {
       >
         <Scene theme={theme} phase={phase} />
         <Board theme={theme} decor={BoardDecor} phase={phase} />
+        {params.get("notes") &&
+          sampleNotes(theme).map((item) => (
+            <NoteMesh key={item.id} item={item} theme={theme} />
+          ))}
       </Canvas>
     </div>
   );
