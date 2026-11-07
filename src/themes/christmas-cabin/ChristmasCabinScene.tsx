@@ -7,15 +7,17 @@ import { CabinRoom } from "./props/CabinRoom";
 import { Fireplace } from "./props/Fireplace";
 import { AlphabetWall } from "./props/AlphabetWall";
 import { ChristmasTree } from "./props/ChristmasTree";
-import { Sofa } from "./props/Sofa";
+import { Presents } from "./props/Presents";
 import { SnowWindow } from "./props/SnowWindow";
+import { Tinsel } from "./props/Tinsel";
 
 /**
  * Christmas Cabin (BB-35): a cosy cabin room on a snowy evening.
  *
- * From the room camera: a wide window onto the snow with the sofa under
- * it, left of the board, and the fireplace on its right. Turn your head
- * right for the alphabet light wall and the tree. Where everything
+ * From the room camera: the tree in the corner beside a wide window onto
+ * the snow, tinsel under its sill and presents trailing from the tree
+ * to the window, all left of the board; the fireplace on its right.
+ * Turn your head right for the alphabet light wall. Where everything
  * stands lives in `lib/layout.ts`, with tests.
  *
  * This is the base: every prop is a block-out, and each one is detailed
@@ -48,8 +50,9 @@ export const ChristmasCabinScene: ThemeScene = ({ theme }) => {
       <Fireplace gradient={gradient} />
       <AlphabetWall />
       <ChristmasTree gradient={gradient} />
-      <Sofa gradient={gradient} />
+      <Presents gradient={gradient} />
       <SnowWindow gradient={gradient} />
+      <Tinsel />
     </group>
   );
 };
