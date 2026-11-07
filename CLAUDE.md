@@ -20,7 +20,9 @@ skill.
   palette, scene, props and logic, and its `index.ts` is the bridge that
   exports the one `ThemeModule` the catalogue sees. Adding a theme is a new
   folder plus one line in `src/themes/index.ts` and one in
-  `src/themes/scenes.ts` — never a new branch in shared code.
+  `src/themes/scenes.ts` — never a new branch in shared code. A new
+  theme is hidden from the picker until it's released from dev mode's
+  Dev section (it has no `theme_status` row); see `docs/DEV-MODE.md`.
 - **New logic goes in `src/lib/` as pure functions, with unit tests** —
   or in `src/themes/<id>/lib/` when only one theme uses it. The meshes and
   components stay dumb. `src/themes/beach-hut/lib/crab.ts` and

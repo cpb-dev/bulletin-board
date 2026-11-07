@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   selectDisplayedThemeId,
+  selectLocked,
   selectSceneThemeId,
   useBoardStore,
 } from "../store";
@@ -306,5 +307,57 @@ describe("dev preview (BB-36)", () => {
       phase: "night",
     });
     expect(useBoardStore.getState().board).toBe(board);
+  });
+});
+
+describe("the board is view-only during a dev preview (BB-36)", () => {
+  it("locks while the developer previews anything", () => {
+    useBoardStore.setState({ isDev: true });
+    expect(selectLocked(useBoardStore.getState())).toBe(false);
+    for (const patch of [
+      { themeId: "beach-hut" },
+      { phase: "night" as const },
+      { sampleNotes: true },
+    ]) {
+      useBoardStore.setState({ devPreview: { ...NO_PREVIEW, ...patch } });
+      expect(selectLocked(useBoardStore.getState())).toBe(true);
+    }
+  });
+
+  it("never locks for anyone else", () => {
+    useBoardStore.setState({
+      isDev: false,
+      devPreview: { ...NO_PREVIEW, themeId: "beach-hut" },
+    });
+    expect(selectLocked(useBoardStore.getState())).toBe(false);
+  });
+
+  it("is still locked on a memory, preview or not", () => {
+    useBoardStore.setState({ readOnly: true });
+    expect(selectLocked(useBoardStore.getState())).toBe(true);
+  });
+
+  it("drops out of editing when a preview starts", () => {
+    useBoardStore.setState({
+      isDev: true,
+      mode: "edit",
+      selectedId: "a",
+      editingId: "a",
+      composer: "note",
+      addMenuOpen: true,
+    });
+    useBoardStore.getState().setDevPreview({ themeId: "beach-hut" });
+    const s = useBoardStore.getState();
+    expect(s.mode).toBe("view");
+    expect(s.selectedId).toBeNull();
+    expect(s.editingId).toBeNull();
+    expect(s.composer).toBeNull();
+    expect(s.addMenuOpen).toBe(false);
+  });
+
+  it("leaves editing alone when the preview is turned off", () => {
+    useBoardStore.setState({ isDev: true, mode: "edit" });
+    useBoardStore.getState().setDevPreview(NO_PREVIEW);
+    expect(useBoardStore.getState().mode).toBe("edit");
   });
 });

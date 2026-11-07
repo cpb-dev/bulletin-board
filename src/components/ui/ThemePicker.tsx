@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { updateBoardSecondaryTheme, updateBoardTheme } from "@/lib/api";
 import { useBoardStore } from "@/lib/store";
 import { secondaryActionFor, secondaryThemeOf } from "@/lib/theme-view";
+import { pickerHiddenIds } from "@/lib/theme-status";
 import { getTheme, groupedThemes } from "@/themes";
 import type { Board } from "@/lib/types";
 import { Sheet } from "./Sheet";
@@ -30,8 +31,18 @@ export function ThemePicker() {
   const [error, setError] = useState<string | null>(null);
   // The theme whose hold menu is showing.
   const [holding, setHolding] = useState<string | null>(null);
-  // The catalogue never changes at runtime, so group it once.
-  const sections = useMemo(() => groupedThemes(), []);
+  // Themes under construction (BB-36) aren't offered — unless this board
+  // already uses one, so the picker never hides what's on screen.
+  const drafts = useBoardStore((s) => s.draftThemeIds);
+  const theme = board?.theme;
+  const secondaryId = board?.secondary_theme;
+  const sections = useMemo(
+    () =>
+      groupedThemes(
+        pickerHiddenIds(drafts, theme ? { theme, secondary_theme: secondaryId } : null)
+      ),
+    [drafts, theme, secondaryId]
+  );
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);

@@ -11,14 +11,16 @@ import {
   getProfiles,
   listItems,
 } from "@/lib/api";
+import { listThemeStatuses } from "@/lib/theme-status-api";
 import {
-  selectDisplayedThemeId,
+  selectLocked,
   selectSceneThemeId,
   useBoardStore,
 } from "@/lib/store";
 import { readThemeView } from "@/lib/theme-view";
 import { previewPhase, readDevPreview } from "@/lib/dev-preview";
-import { getTheme } from "@/themes";
+import { draftThemeIds } from "@/lib/theme-status";
+import { THEMES } from "@/themes";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getThemeModule } from "@/themes/scenes";
 import { CAMERA_FOV, EXTENDED_MAX_NX } from "@/lib/board-geometry";
@@ -65,6 +67,8 @@ export function BoardExperience({
   const mode = useBoardStore((s) => s.mode);
   // Archived boards (opened directly) are always read-only.
   const effectiveReadOnly = useBoardStore((s) => s.readOnly);
+  // ...and nothing can be changed during a dev preview either (BB-36).
+  const locked = useBoardStore(selectLocked);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // The day/night cycle is decided on load, never mid-visit (BB-21).
@@ -128,6 +132,13 @@ export function BoardExperience({
   const devPreview = useBoardStore((s) => s.devPreview);
   useEffect(() => {
     let alive = true;
+    // Which themes are under construction decides what the picker offers.
+    listThemeStatuses(supabase).then((rows) => {
+      if (alive)
+        useBoardStore
+          .getState()
+          .setDraftThemeIds(draftThemeIds(rows, THEMES.map((t) => t.id)));
+    });
     fetch("/api/dev")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { dev?: boolean } | null) => {
@@ -138,14 +149,12 @@ export function BoardExperience({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [supabase]);
 
   // The theme on screen: the board's main one, or its secondary if this
   // person switched (BB-3), or a dev preview (BB-36). Changes morph
   // rather than cut.
-  const displayedThemeId = useBoardStore(selectDisplayedThemeId);
   const sceneThemeId = useBoardStore(selectSceneThemeId);
-  const previewingOtherTheme = sceneThemeId !== displayedThemeId;
   const { renderedThemeId, bridgeRef, overlayRef } = useThemeMorph(
     board?.id,
     sceneThemeId
@@ -167,16 +176,10 @@ export function BoardExperience({
   );
 
   // Themes with a mini board let you pan past the main board's edge.
-  // While previewing a different theme the board's real theme decides,
-  // so a note can never be dragged (and saved) somewhere the real theme
-  // has no board.
-  const miniBoard = previewingOtherTheme
-    ? !!getTheme(displayedThemeId).miniBoard
-    : !!theme.miniBoard;
   useEffect(() => {
-    useBoardStore.getState().setFocusMaxX(miniBoard ? EXTENDED_MAX_NX : 1);
+    useBoardStore.getState().setFocusMaxX(theme.miniBoard ? EXTENDED_MAX_NX : 1);
     return () => useBoardStore.getState().setFocusMaxX(1);
-  }, [miniBoard]);
+  }, [theme.miniBoard]);
 
   // Opportunistic reveal sweep: if a surprise unlocked while nobody was
   // around, opening the app delivers its notification promptly.
@@ -316,7 +319,7 @@ export function BoardExperience({
       )}
       {view === "board" &&
         mode === "view" &&
-        !effectiveReadOnly &&
+        !locked &&
         items.length === 0 &&
         !loading && (
           <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
@@ -342,7 +345,7 @@ export function BoardExperience({
           <FixturesPanel
             open={fixturesOpen}
             boardId={board?.id}
-            readOnly={effectiveReadOnly}
+            readOnly={locked}
             onClose={() => setFixturesOpen(false)}
           />
         </>

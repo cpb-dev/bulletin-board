@@ -10,7 +10,9 @@ import type { Board } from "@/lib/types";
 // Only the network edge is mocked — the store and the catalogue are real.
 const updateBoardTheme = vi.hoisted(() => vi.fn());
 const updateBoardSecondaryTheme = vi.hoisted(() => vi.fn());
+const setThemeStatus = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api", () => ({ updateBoardTheme, updateBoardSecondaryTheme }));
+vi.mock("@/lib/theme-status-api", () => ({ setThemeStatus }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({}) }));
 
 const board: Board = {
@@ -34,7 +36,10 @@ beforeEach(() => {
   updateBoardTheme.mockResolvedValue(undefined);
   updateBoardSecondaryTheme.mockReset();
   updateBoardSecondaryTheme.mockResolvedValue(undefined);
+  setThemeStatus.mockReset();
+  setThemeStatus.mockResolvedValue(undefined);
   useBoardStore.setState({
+    draftThemeIds: [],
     themePickerOpen: true,
     board,
     isDev: false,
@@ -70,9 +75,9 @@ describe("ThemePicker", () => {
     expect(inGroup("TV").join(" ")).toContain("Stars Hollow");
   });
 
-  it("offers every released theme in the catalogue", () => {
+  it("offers every live theme in the catalogue", () => {
     render(<ThemePicker />);
-    for (const theme of THEMES.filter((t) => t.status !== "draft")) {
+    for (const theme of THEMES) {
       expect(
         screen.getByRole("button", { name: new RegExp(theme.name, "i") }),
         `${theme.id} should be pickable`
@@ -228,6 +233,28 @@ describe("ThemePicker", () => {
   });
 });
 
+describe("ThemePicker and themes under construction (BB-36)", () => {
+  it("doesn't offer a theme that's under construction", () => {
+    useBoardStore.setState({ draftThemeIds: ["beach-hut"] });
+    render(<ThemePicker />);
+    expect(screen.queryByRole("button", { name: /beach hut/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /haunted hollow/i })).toBeInTheDocument();
+  });
+
+  it("still shows one the board already uses", () => {
+    useBoardStore.setState({
+      draftThemeIds: ["cozy-cabin", "beach-hut"],
+      board: { ...board, secondary_theme: "beach-hut" },
+    });
+    render(<ThemePicker />);
+    expect(screen.getByRole("button", { name: /cozy cabin/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: /beach hut/i })).toBeInTheDocument();
+  });
+});
+
 describe("ThemePicker dev section (BB-36)", () => {
   it("is not there for someone who isn't the developer", () => {
     render(<ThemePicker />);
@@ -235,7 +262,8 @@ describe("ThemePicker dev section (BB-36)", () => {
     expect(screen.queryByText(/preview only/i)).not.toBeInTheDocument();
   });
 
-  it("lists every theme, drafts included, for the developer", () => {
+  it("lists every theme, under construction included, for the developer", () => {
+    useBoardStore.setState({ draftThemeIds: ["beach-hut"] });
     useBoardStore.setState({ isDev: true });
     render(<ThemePicker />);
     const dev = screen.getByRole("region", { name: "Dev" });
@@ -290,5 +318,50 @@ describe("ThemePicker dev section (BB-36)", () => {
     await userEvent.click(screen.getByRole("button", { name: /stop previewing/i }));
     expect(useBoardStore.getState().devPreview).toEqual(NO_PREVIEW);
     expect(screen.queryByRole("button", { name: /stop previewing/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("ThemePicker dev section: live or under construction", () => {
+  beforeEach(() => {
+    useBoardStore.setState({ isDev: true, draftThemeIds: ["beach-hut"] });
+  });
+
+  it("releases a theme under construction", async () => {
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /release beach hut/i }));
+    expect(setThemeStatus).toHaveBeenCalledWith("beach-hut", "live");
+    expect(useBoardStore.getState().draftThemeIds).not.toContain("beach-hut");
+    // Now it's offered in its group like any other theme.
+    expect(
+      within(screen.getByRole("region", { name: "Seasonal" })).getByRole("button", {
+        name: /beach hut/i,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("puts a live theme back under construction", async () => {
+    render(<ThemePicker />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /mark stars hollow as under construction/i })
+    );
+    expect(setThemeStatus).toHaveBeenCalledWith("stars-hollow", "draft");
+    expect(useBoardStore.getState().draftThemeIds).toContain("stars-hollow");
+    expect(screen.queryByRole("region", { name: "TV" })).not.toBeInTheDocument();
+  });
+
+  it("puts it back and explains if the change can't be saved", async () => {
+    setThemeStatus.mockRejectedValueOnce(new Error("not configured"));
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /release beach hut/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not configured/i);
+    expect(useBoardStore.getState().draftThemeIds).toEqual(["beach-hut"]);
+  });
+
+  it("never writes to the board", async () => {
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /release beach hut/i }));
+    expect(updateBoardTheme).not.toHaveBeenCalled();
+    expect(updateBoardSecondaryTheme).not.toHaveBeenCalled();
+    expect(useBoardStore.getState().board).toBe(board);
   });
 });

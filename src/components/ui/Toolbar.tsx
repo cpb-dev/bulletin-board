@@ -1,6 +1,6 @@
 "use client";
 
-import { useBoardStore } from "@/lib/store";
+import { selectLocked, selectPreviewLocked, useBoardStore } from "@/lib/store";
 import { isSurpriseBoard } from "@/lib/surprise";
 import { secondaryThemeOf } from "@/lib/theme-view";
 import { getTheme } from "@/themes";
@@ -9,7 +9,9 @@ import { getTheme } from "@/themes";
 export function Toolbar() {
   const view = useBoardStore((s) => s.view);
   const mode = useBoardStore((s) => s.mode);
-  const readOnly = useBoardStore((s) => s.readOnly);
+  // Memories can't be changed, and nor can anything mid dev preview.
+  const readOnly = useBoardStore(selectLocked);
+  const previewLocked = useBoardStore(selectPreviewLocked);
   // Surprise boards keep their exclusive theme — no theme switching.
   const surprise = useBoardStore((s) => isSurpriseBoard(s.board));
   const addMenuOpen = useBoardStore((s) => s.addMenuOpen);
@@ -43,9 +45,22 @@ export function Toolbar() {
             <ThemeSwitchButton />
           </>
         ) : readOnly ? (
-          <button className="cute-button ghost" onClick={stepBack}>
-            step back
-          </button>
+          <>
+            {/* Mid preview (BB-36): the picker stays in reach to switch
+                theme or stop. */}
+            {previewLocked && (
+              <button
+                className="cute-button ghost"
+                onClick={() => setThemePickerOpen(true)}
+                aria-label="Change theme"
+              >
+                🎨
+              </button>
+            )}
+            <button className="cute-button ghost" onClick={stepBack}>
+              step back
+            </button>
+          </>
         ) : mode === "edit" ? (
           <>
             <span className="text-sm opacity-75 px-1">moving &amp; resizing</span>

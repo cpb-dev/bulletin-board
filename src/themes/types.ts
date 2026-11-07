@@ -34,14 +34,6 @@ export interface BoardTheme {
   emoji: string;
   /** The picker section this theme belongs to. */
   group: ThemeGroupId;
-  /**
-   * `"draft"` keeps a theme out of the picker while it's being built: it
-   * is only reachable through dev mode's preview (BB-36), which never
-   * saves it to a board. Delete the field to release the theme. Like
-   * `group`, it isn't part of the palette-drift digest, so releasing a
-   * theme isn't "drift".
-   */
-  status?: "draft";
   room: {
     wall: string;
     wallTrim: string;

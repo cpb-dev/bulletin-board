@@ -6,6 +6,7 @@ import {
   type ThemeView,
 } from "./theme-view";
 import {
+  isPreviewing,
   NO_PREVIEW,
   previewThemeId,
   writeDevPreview,
@@ -60,6 +61,8 @@ interface BoardState {
    */
   isDev: boolean;
   devPreview: DevPreview;
+  /** Themes under construction, from `theme_status` (BB-36). */
+  draftThemeIds: string[];
 
   setBoard: (board: Board | null) => void;
   setItems: (items: BoardItem[]) => void;
@@ -91,8 +94,12 @@ interface BoardState {
   /** Flip between main and secondary, remembered on this device. */
   toggleThemeView: () => void;
   setIsDev: (isDev: boolean) => void;
-  /** Change the dev preview, remembered on this device. */
+  /**
+   * Change the dev preview, remembered on this device. Starting one
+   * drops out of editing: the board is view-only while previewing.
+   */
   setDevPreview: (preview: Partial<DevPreview>) => void;
+  setDraftThemeIds: (ids: string[]) => void;
 
   upsertItem: (item: BoardItem) => void;
   removeItem: (id: string) => void;
@@ -137,6 +144,7 @@ export const useBoardStore = create<BoardState>((set) => ({
   themeView: "primary",
   isDev: false,
   devPreview: NO_PREVIEW,
+  draftThemeIds: [],
 
   setBoard: (board) => set({ board }),
   setItems: (items) => set({ items }),
@@ -241,8 +249,17 @@ export const useBoardStore = create<BoardState>((set) => ({
     set((s) => {
       const devPreview = { ...s.devPreview, ...patch };
       writeDevPreview(devPreview);
-      return { devPreview };
+      if (!(s.isDev && isPreviewing(devPreview))) return { devPreview };
+      return {
+        devPreview,
+        mode: "view" as const,
+        selectedId: null,
+        editingId: null,
+        composer: null,
+        addMenuOpen: false,
+      };
     }),
+  setDraftThemeIds: (draftThemeIds) => set({ draftThemeIds }),
 
   upsertItem: (item) =>
     set((s) => {
@@ -297,6 +314,27 @@ export function selectSceneThemeId(
   s: Pick<BoardState, "board" | "themeView" | "isDev" | "devPreview">
 ): string | undefined {
   return previewThemeId(selectDisplayedThemeId(s), s.devPreview, s.isDev);
+}
+
+/**
+ * Whether the board can be changed from here: not on an archived board
+ * or a read-only view, and not while the developer is previewing (BB-36)
+ * — a preview is for looking, so nothing can be added, edited, moved or
+ * resized until it's exited. Anything that writes to the board should
+ * check this rather than `readOnly`. (`readOnly` alone still means "this
+ * is a memory" for the header and the realtime subscription.)
+ */
+export function selectLocked(
+  s: Pick<BoardState, "readOnly" | "isDev" | "devPreview">
+): boolean {
+  return s.readOnly || (s.isDev && isPreviewing(s.devPreview));
+}
+
+/** True when the lock comes from a dev preview, not from the board. */
+export function selectPreviewLocked(
+  s: Pick<BoardState, "readOnly" | "isDev" | "devPreview">
+): boolean {
+  return !s.readOnly && s.isDev && isPreviewing(s.devPreview);
 }
 
 /**
