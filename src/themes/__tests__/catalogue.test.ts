@@ -54,8 +54,11 @@ describe("theme catalogue", () => {
   it("gives every outdoor theme its own scene; the rest are the indoor room", () => {
     // A theme that silently fell back to the indoor room would be a very
     // confusing bug, so pin which themes are indoors and which are not.
+    // (Christmas Cabin is indoors, but builds its own room rather than
+    // the shared one, so it belongs with the themes that bring a scene.)
     const outdoor = [
       "beach-hut",
+      "christmas-cabin",
       "haunted-hollow",
       "world-cup",
       "rose-picnic",
@@ -108,6 +111,7 @@ describe("theme groups", () => {
     expect(groupOf("rose-picnic")).toBe("special");
     expect(groupOf("haunted-hollow")).toBe("seasonal");
     expect(groupOf("beach-hut")).toBe("seasonal");
+    expect(groupOf("christmas-cabin")).toBe("seasonal");
     expect(groupOf("stars-hollow")).toBe("tv");
   });
 
