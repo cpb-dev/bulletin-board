@@ -50,7 +50,8 @@ export function Fireplace({ gradient }: { gradient: THREE.Texture }) {
         <meshToonMaterial color="#2f6b3f" gradientMap={gradient} />
       </mesh>
       {/* firebox + fire */}
-      <mesh position={[0, 0.95, -depth / 2 + 0.02]}>
+      {/* In front of the wall's slat panelling, so none shows through. */}
+      <mesh position={[0, 0.95, -depth / 2 + 0.07]}>
         <planeGeometry args={[width - 1, 1.6]} />
         <meshBasicMaterial color="#1a1410" />
       </mesh>
