@@ -11,9 +11,16 @@ import {
   getProfiles,
   listItems,
 } from "@/lib/api";
-import { selectDisplayedThemeId, useBoardStore } from "@/lib/store";
+import { listThemeStatuses } from "@/lib/theme-status-api";
+import {
+  selectLocked,
+  selectSceneThemeId,
+  useBoardStore,
+} from "@/lib/store";
 import { readThemeView } from "@/lib/theme-view";
-import { resolvePhase } from "@/lib/day-cycle";
+import { previewPhase, readDevPreview } from "@/lib/dev-preview";
+import { draftThemeIds } from "@/lib/theme-status";
+import { THEMES } from "@/themes";
 import { useRealtimeBoard } from "@/lib/use-realtime-board";
 import { getThemeModule } from "@/themes/scenes";
 import { CAMERA_FOV, EXTENDED_MAX_NX } from "@/lib/board-geometry";
@@ -33,6 +40,8 @@ import { PhotoComposer } from "./ui/PhotoComposer";
 import { ItemEditor } from "./ui/ItemEditor";
 import { ThemePicker } from "./ui/ThemePicker";
 import { FixturesPanel } from "./ui/FixturesPanel";
+import { DevBanner } from "./dev/DevBanner";
+import { DevSampleNotes } from "./dev/DevSampleNotes";
 
 /**
  * The whole experience for one board: 3D scene + overlay UI.
@@ -58,6 +67,8 @@ export function BoardExperience({
   const mode = useBoardStore((s) => s.mode);
   // Archived boards (opened directly) are always read-only.
   const effectiveReadOnly = useBoardStore((s) => s.readOnly);
+  // ...and nothing can be changed during a dev preview either (BB-36).
+  const locked = useBoardStore(selectLocked);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // The day/night cycle is decided on load, never mid-visit (BB-21).
@@ -114,12 +125,39 @@ export function BoardExperience({
 
   useRealtimeBoard(supabase, effectiveReadOnly ? undefined : board?.id);
 
+  // Dev mode (BB-36): the server says whether this person is the
+  // developer. For everyone else this resolves to false and nothing
+  // below changes. A remembered preview is only read once it's confirmed.
+  const isDev = useBoardStore((s) => s.isDev);
+  const devPreview = useBoardStore((s) => s.devPreview);
+  useEffect(() => {
+    let alive = true;
+    // Which themes are under construction decides what the picker offers.
+    listThemeStatuses(supabase).then((rows) => {
+      if (alive)
+        useBoardStore
+          .getState()
+          .setDraftThemeIds(draftThemeIds(rows, THEMES.map((t) => t.id)));
+    });
+    fetch("/api/dev")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { dev?: boolean } | null) => {
+        if (alive && d?.dev)
+          useBoardStore.setState({ isDev: true, devPreview: readDevPreview() });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
+
   // The theme on screen: the board's main one, or its secondary if this
-  // person switched (BB-3). Changes morph rather than cut.
-  const displayedThemeId = useBoardStore(selectDisplayedThemeId);
+  // person switched (BB-3), or a dev preview (BB-36). Changes morph
+  // rather than cut.
+  const sceneThemeId = useBoardStore(selectSceneThemeId);
   const { renderedThemeId, bridgeRef, overlayRef } = useThemeMorph(
     board?.id,
-    displayedThemeId
+    sceneThemeId
   );
 
   // The theme's folder supplies its own scene and board decor, so a new
@@ -127,9 +165,15 @@ export function BoardExperience({
   const { palette: theme, Scene, BoardDecor, dayCycle } = getThemeModule(renderedThemeId);
 
   // Themes with a day/night cycle show the part of the day it is now —
-  // but a memory keeps the daylight it was saved in.
-  const phase =
-    board?.status === "archived" ? "day" : resolvePhase(dayCycle, loadedAt);
+  // but a memory keeps the daylight it was saved in. Only a dev phase
+  // override (BB-36) changes that, and only on the developer's device.
+  const phase = previewPhase(
+    dayCycle,
+    loadedAt,
+    board?.status === "archived",
+    devPreview,
+    isDev
+  );
 
   // Themes with a mini board let you pan past the main board's edge.
   useEffect(() => {
@@ -253,6 +297,7 @@ export function BoardExperience({
               <NoteMesh key={item.id} item={item} theme={theme} />
             )
           )}
+          {isDev && devPreview.sampleNotes && <DevSampleNotes theme={theme} />}
         </Board>
         <HeldItem theme={theme} />
         <CameraRig />
@@ -265,6 +310,7 @@ export function BoardExperience({
       <Toolbar />
       <ZoomControls />
       <HeldOverlay />
+      {isDev && <DevBanner />}
 
       {view === "room" && !loading && !error && (
         <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
@@ -273,7 +319,7 @@ export function BoardExperience({
       )}
       {view === "board" &&
         mode === "view" &&
-        !effectiveReadOnly &&
+        !locked &&
         items.length === 0 &&
         !loading && (
           <p className="pointer-events-none absolute bottom-24 inset-x-0 text-center text-sm opacity-80 drop-shadow">
@@ -299,7 +345,7 @@ export function BoardExperience({
           <FixturesPanel
             open={fixturesOpen}
             boardId={board?.id}
-            readOnly={effectiveReadOnly}
+            readOnly={locked}
             onClose={() => setFixturesOpen(false)}
           />
         </>

@@ -12,7 +12,7 @@ import {
   scaleFromHandleDrag,
   worldToNorm,
 } from "@/lib/board-geometry";
-import { useBoardStore } from "@/lib/store";
+import { selectLocked, useBoardStore } from "@/lib/store";
 import type { BoardItem } from "@/lib/types";
 
 const DRAG_THRESHOLD = 0.035; // normalized units before a tap becomes a drag
@@ -47,7 +47,9 @@ export function useItemDrag(item: BoardItem) {
   );
 
   function onPointerDown(e: ThreeEvent<PointerEvent>) {
-    const { view, readOnly, mode } = useBoardStore.getState();
+    const state = useBoardStore.getState();
+    const { view, mode } = state;
+    const readOnly = selectLocked(state);
     if (view === "room") {
       e.stopPropagation();
       useBoardStore.getState().walkUp({ x: item.x, y: item.y });
@@ -88,7 +90,8 @@ export function useItemDrag(item: BoardItem) {
 
   function onPointerUp(e: ThreeEvent<PointerEvent>) {
     const state = useBoardStore.getState();
-    const { view, readOnly, mode } = state;
+    const { view, mode } = state;
+    const readOnly = selectLocked(state);
     if (view !== "room" && (mode !== "edit" || readOnly) && !drag.current) {
       // A drag that panned the board shouldn't react to the trailing tap.
       if (state.suppressNextTap) {

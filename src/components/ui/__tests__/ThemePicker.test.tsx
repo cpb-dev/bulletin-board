@@ -4,12 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { LONG_PRESS_MS, ThemePicker } from "../ThemePicker";
 import { useBoardStore } from "@/lib/store";
 import { THEMES } from "@/themes";
+import { NO_PREVIEW } from "@/lib/dev-preview";
 import type { Board } from "@/lib/types";
 
 // Only the network edge is mocked — the store and the catalogue are real.
 const updateBoardTheme = vi.hoisted(() => vi.fn());
 const updateBoardSecondaryTheme = vi.hoisted(() => vi.fn());
+const setThemeStatus = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api", () => ({ updateBoardTheme, updateBoardSecondaryTheme }));
+vi.mock("@/lib/theme-status-api", () => ({ setThemeStatus }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({}) }));
 
 const board: Board = {
@@ -33,7 +36,15 @@ beforeEach(() => {
   updateBoardTheme.mockResolvedValue(undefined);
   updateBoardSecondaryTheme.mockReset();
   updateBoardSecondaryTheme.mockResolvedValue(undefined);
-  useBoardStore.setState({ themePickerOpen: true, board });
+  setThemeStatus.mockReset();
+  setThemeStatus.mockResolvedValue(undefined);
+  useBoardStore.setState({
+    draftThemeIds: [],
+    themePickerOpen: true,
+    board,
+    isDev: false,
+    devPreview: NO_PREVIEW,
+  });
 });
 
 describe("ThemePicker", () => {
@@ -64,7 +75,7 @@ describe("ThemePicker", () => {
     expect(inGroup("TV").join(" ")).toContain("Stars Hollow");
   });
 
-  it("offers every theme in the catalogue — none are hidden", () => {
+  it("offers every live theme in the catalogue", () => {
     render(<ThemePicker />);
     for (const theme of THEMES) {
       expect(
@@ -219,5 +230,138 @@ describe("ThemePicker", () => {
       expect(await screen.findByRole("alert")).toBeInTheDocument();
       expect(useBoardStore.getState().board?.secondary_theme ?? null).toBeNull();
     });
+  });
+});
+
+describe("ThemePicker and themes under construction (BB-36)", () => {
+  it("doesn't offer a theme that's under construction", () => {
+    useBoardStore.setState({ draftThemeIds: ["beach-hut"] });
+    render(<ThemePicker />);
+    expect(screen.queryByRole("button", { name: /beach hut/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /haunted hollow/i })).toBeInTheDocument();
+  });
+
+  it("still shows one the board already uses", () => {
+    useBoardStore.setState({
+      draftThemeIds: ["cozy-cabin", "beach-hut"],
+      board: { ...board, secondary_theme: "beach-hut" },
+    });
+    render(<ThemePicker />);
+    expect(screen.getByRole("button", { name: /cozy cabin/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: /beach hut/i })).toBeInTheDocument();
+  });
+});
+
+describe("ThemePicker dev section (BB-36)", () => {
+  it("is not there for someone who isn't the developer", () => {
+    render(<ThemePicker />);
+    expect(screen.queryByRole("region", { name: "Dev" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/preview only/i)).not.toBeInTheDocument();
+  });
+
+  it("lists every theme, under construction included, for the developer", () => {
+    useBoardStore.setState({ draftThemeIds: ["beach-hut"] });
+    useBoardStore.setState({ isDev: true });
+    render(<ThemePicker />);
+    const dev = screen.getByRole("region", { name: "Dev" });
+    for (const theme of THEMES) {
+      expect(
+        within(dev).getByRole("button", { name: new RegExp(`Preview ${theme.name}`, "i") })
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("previews a theme without saving anything", async () => {
+    useBoardStore.setState({ isDev: true });
+    render(<ThemePicker />);
+    const dev = screen.getByRole("region", { name: "Dev" });
+    const beachHut = within(dev).getByRole("button", { name: /preview beach hut/i });
+
+    await userEvent.click(beachHut);
+
+    expect(useBoardStore.getState().devPreview.themeId).toBe("beach-hut");
+    expect(beachHut).toHaveAttribute("aria-pressed", "true");
+    // The board itself is untouched, and nothing went over the network.
+    expect(useBoardStore.getState().board).toBe(board);
+    expect(updateBoardTheme).not.toHaveBeenCalled();
+    expect(updateBoardSecondaryTheme).not.toHaveBeenCalled();
+
+    // Tapping it again goes back to the board's real theme.
+    await userEvent.click(beachHut);
+    expect(useBoardStore.getState().devPreview.themeId).toBeNull();
+  });
+
+  it("forces a time of day and toggles sample notes", async () => {
+    useBoardStore.setState({ isDev: true });
+    render(<ThemePicker />);
+    const dev = screen.getByRole("region", { name: "Dev" });
+
+    const time = within(dev).getByRole("group", { name: "Time of day" });
+    await userEvent.click(within(time).getByRole("button", { name: /night/i }));
+    expect(useBoardStore.getState().devPreview.phase).toBe("night");
+    await userEvent.click(within(time).getByRole("button", { name: /clock/i }));
+    expect(useBoardStore.getState().devPreview.phase).toBeNull();
+
+    await userEvent.click(within(dev).getByRole("button", { name: /sample notes/i }));
+    expect(useBoardStore.getState().devPreview.sampleNotes).toBe(true);
+  });
+
+  it("stops previewing in one tap", async () => {
+    useBoardStore.setState({
+      isDev: true,
+      devPreview: { themeId: "stars-hollow", phase: "night", sampleNotes: true },
+    });
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /stop previewing/i }));
+    expect(useBoardStore.getState().devPreview).toEqual(NO_PREVIEW);
+    expect(screen.queryByRole("button", { name: /stop previewing/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("ThemePicker dev section: live or under construction", () => {
+  beforeEach(() => {
+    useBoardStore.setState({ isDev: true, draftThemeIds: ["beach-hut"] });
+  });
+
+  it("releases a theme under construction", async () => {
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /release beach hut/i }));
+    expect(setThemeStatus).toHaveBeenCalledWith("beach-hut", "live");
+    expect(useBoardStore.getState().draftThemeIds).not.toContain("beach-hut");
+    // Now it's offered in its group like any other theme.
+    expect(
+      within(screen.getByRole("region", { name: "Seasonal" })).getByRole("button", {
+        name: /beach hut/i,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("puts a live theme back under construction", async () => {
+    render(<ThemePicker />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /mark stars hollow as under construction/i })
+    );
+    expect(setThemeStatus).toHaveBeenCalledWith("stars-hollow", "draft");
+    expect(useBoardStore.getState().draftThemeIds).toContain("stars-hollow");
+    expect(screen.queryByRole("region", { name: "TV" })).not.toBeInTheDocument();
+  });
+
+  it("puts it back and explains if the change can't be saved", async () => {
+    setThemeStatus.mockRejectedValueOnce(new Error("not configured"));
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /release beach hut/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not configured/i);
+    expect(useBoardStore.getState().draftThemeIds).toEqual(["beach-hut"]);
+  });
+
+  it("never writes to the board", async () => {
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /release beach hut/i }));
+    expect(updateBoardTheme).not.toHaveBeenCalled();
+    expect(updateBoardSecondaryTheme).not.toHaveBeenCalled();
+    expect(useBoardStore.getState().board).toBe(board);
   });
 });

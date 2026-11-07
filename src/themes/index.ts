@@ -71,12 +71,15 @@ export function getTheme(id: string | null | undefined): BoardTheme {
 
 /**
  * The catalogue split into the picker's sections, in group order and
- * theme order. Groups with no themes in them are left out.
+ * theme order. Themes in `hidden` (those under construction, BB-36) are
+ * left out, and so are groups with no themes left in them.
  */
-export function groupedThemes(): { group: ThemeGroup; themes: BoardTheme[] }[] {
+export function groupedThemes(
+  hidden: ReadonlySet<string> = new Set()
+): { group: ThemeGroup; themes: BoardTheme[] }[] {
   return THEME_GROUPS.map((group) => ({
     group,
-    themes: THEMES.filter((t) => t.group === group.id),
+    themes: THEMES.filter((t) => t.group === group.id && !hidden.has(t.id)),
   })).filter((section) => section.themes.length > 0);
 }
 

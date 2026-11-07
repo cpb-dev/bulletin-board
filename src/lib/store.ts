@@ -5,6 +5,13 @@ import {
   writeThemeView,
   type ThemeView,
 } from "./theme-view";
+import {
+  isPreviewing,
+  NO_PREVIEW,
+  previewThemeId,
+  writeDevPreview,
+  type DevPreview,
+} from "./dev-preview";
 import type { Board, BoardItem, Profile } from "./types";
 import type { Fixture } from "./worldcup";
 
@@ -47,6 +54,15 @@ interface BoardState {
   themePickerOpen: boolean;
   /** Which of the board's themes this person is looking at (BB-3). */
   themeView: ThemeView;
+  /**
+   * Dev mode (BB-36). `isDev` comes from the server (`/api/dev`), and is
+   * false for everyone not in `DEV_EMAILS`. The preview is local to this
+   * device and never written to the board.
+   */
+  isDev: boolean;
+  devPreview: DevPreview;
+  /** Themes under construction, from `theme_status` (BB-36). */
+  draftThemeIds: string[];
 
   setBoard: (board: Board | null) => void;
   setItems: (items: BoardItem[]) => void;
@@ -77,6 +93,13 @@ interface BoardState {
   setThemeView: (view: ThemeView) => void;
   /** Flip between main and secondary, remembered on this device. */
   toggleThemeView: () => void;
+  setIsDev: (isDev: boolean) => void;
+  /**
+   * Change the dev preview, remembered on this device. Starting one
+   * drops out of editing: the board is view-only while previewing.
+   */
+  setDevPreview: (preview: Partial<DevPreview>) => void;
+  setDraftThemeIds: (ids: string[]) => void;
 
   upsertItem: (item: BoardItem) => void;
   removeItem: (id: string) => void;
@@ -119,6 +142,9 @@ export const useBoardStore = create<BoardState>((set) => ({
   addMenuOpen: false,
   themePickerOpen: false,
   themeView: "primary",
+  isDev: false,
+  devPreview: NO_PREVIEW,
+  draftThemeIds: [],
 
   setBoard: (board) => set({ board }),
   setItems: (items) => set({ items }),
@@ -218,6 +244,22 @@ export const useBoardStore = create<BoardState>((set) => ({
       if (s.board) writeThemeView(s.board.id, themeView);
       return { themeView };
     }),
+  setIsDev: (isDev) => set({ isDev }),
+  setDevPreview: (patch) =>
+    set((s) => {
+      const devPreview = { ...s.devPreview, ...patch };
+      writeDevPreview(devPreview);
+      if (!(s.isDev && isPreviewing(devPreview))) return { devPreview };
+      return {
+        devPreview,
+        mode: "view" as const,
+        selectedId: null,
+        editingId: null,
+        composer: null,
+        addMenuOpen: false,
+      };
+    }),
+  setDraftThemeIds: (draftThemeIds) => set({ draftThemeIds }),
 
   upsertItem: (item) =>
     set((s) => {
@@ -251,15 +293,48 @@ export const useBoardStore = create<BoardState>((set) => ({
 }));
 
 /**
- * The theme id actually on screen: the board's main theme, or its
- * secondary when this person has switched to it. Use with
- * `useBoardStore(selectDisplayedThemeId)` wherever the theme's look
- * matters (scene, papers).
+ * The board's theme as this person has it: the main theme, or its
+ * secondary when they've switched to it (BB-3). This is the theme that
+ * anything which *saves* should follow — the composer's and editor's
+ * papers — so a dev preview can never leak into a saved note.
  */
 export function selectDisplayedThemeId(
   s: Pick<BoardState, "board" | "themeView">
 ): string | undefined {
   return displayedThemeId(s.board, s.themeView);
+}
+
+/**
+ * The theme the 3D scene renders: `selectDisplayedThemeId`, unless the
+ * developer is previewing another theme on this device (BB-36). For
+ * everyone not in dev mode the two are always the same. Only the scene
+ * uses this; nothing that writes to the board should.
+ */
+export function selectSceneThemeId(
+  s: Pick<BoardState, "board" | "themeView" | "isDev" | "devPreview">
+): string | undefined {
+  return previewThemeId(selectDisplayedThemeId(s), s.devPreview, s.isDev);
+}
+
+/**
+ * Whether the board can be changed from here: not on an archived board
+ * or a read-only view, and not while the developer is previewing (BB-36)
+ * — a preview is for looking, so nothing can be added, edited, moved or
+ * resized until it's exited. Anything that writes to the board should
+ * check this rather than `readOnly`. (`readOnly` alone still means "this
+ * is a memory" for the header and the realtime subscription.)
+ */
+export function selectLocked(
+  s: Pick<BoardState, "readOnly" | "isDev" | "devPreview">
+): boolean {
+  return s.readOnly || (s.isDev && isPreviewing(s.devPreview));
+}
+
+/** True when the lock comes from a dev preview, not from the board. */
+export function selectPreviewLocked(
+  s: Pick<BoardState, "readOnly" | "isDev" | "devPreview">
+): boolean {
+  return !s.readOnly && s.isDev && isPreviewing(s.devPreview);
 }
 
 /**

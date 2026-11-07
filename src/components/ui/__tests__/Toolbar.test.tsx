@@ -5,6 +5,7 @@ import { Toolbar } from "../Toolbar";
 import { useBoardStore } from "@/lib/store";
 import { readThemeView, themeViewKey } from "@/lib/theme-view";
 import type { Board } from "@/lib/types";
+import { NO_PREVIEW } from "@/lib/dev-preview";
 
 const board: Board = {
   id: "board-1",
@@ -36,6 +37,8 @@ beforeEach(() => {
     themePickerOpen: false,
     editingId: null,
     selectedId: null,
+    isDev: false,
+    devPreview: NO_PREVIEW,
   });
 });
 
@@ -156,5 +159,40 @@ describe("Toolbar", () => {
         screen.queryByRole("button", { name: /switch to/i })
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("Toolbar during a dev preview (BB-36)", () => {
+  beforeEach(() => {
+    useBoardStore.setState({
+      view: "board",
+      isDev: true,
+      devPreview: { ...NO_PREVIEW, themeId: "beach-hut" },
+    });
+  });
+
+  it("offers no way to add, edit or move notes", () => {
+    render(<Toolbar />);
+    expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the theme picker in reach to switch or stop", async () => {
+    render(<Toolbar />);
+    await userEvent.click(screen.getByRole("button", { name: /change theme/i }));
+    expect(useBoardStore.getState().themePickerOpen).toBe(true);
+  });
+
+  it("is back to normal once the preview ends", () => {
+    useBoardStore.setState({ devPreview: NO_PREVIEW });
+    render(<Toolbar />);
+    expect(screen.getByRole("button", { name: /add/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /edit/i })).toBeInTheDocument();
+  });
+
+  it("only locks the board for the developer", () => {
+    useBoardStore.setState({ isDev: false });
+    render(<Toolbar />);
+    expect(screen.getByRole("button", { name: /add/i })).toBeInTheDocument();
   });
 });

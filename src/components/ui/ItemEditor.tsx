@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteItem, updateItem } from "@/lib/api";
-import { selectDisplayedThemeId, useBoardStore } from "@/lib/store";
+import {
+  selectDisplayedThemeId,
+  selectLocked,
+  useBoardStore,
+} from "@/lib/store";
 import { getTheme } from "@/themes";
 import {
   resolveNoteShape,
@@ -21,7 +25,7 @@ export function ItemEditor() {
     s.items.find((i) => i.id === s.editingId)
   );
   const profiles = useBoardStore((s) => s.profiles);
-  const readOnly = useBoardStore((s) => s.readOnly);
+  const readOnly = useBoardStore(selectLocked);
   // The papers on offer are the ones of the theme on screen (BB-3).
   const theme = getTheme(useBoardStore(selectDisplayedThemeId));
 

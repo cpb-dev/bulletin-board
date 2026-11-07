@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useBoardStore } from "../store";
+import {
+  selectDisplayedThemeId,
+  selectLocked,
+  selectSceneThemeId,
+  useBoardStore,
+} from "../store";
+import { DEV_PREVIEW_KEY, NO_PREVIEW } from "../dev-preview";
+import type { Board } from "../types";
 import type { BoardItem } from "../types";
 
 function makeItem(overrides: Partial<BoardItem> = {}): BoardItem {
@@ -44,7 +51,11 @@ beforeEach(() => {
     composer: null,
     addMenuOpen: false,
     themePickerOpen: false,
+    themeView: "primary",
+    isDev: false,
+    devPreview: NO_PREVIEW,
   });
+  window.localStorage.clear();
 });
 
 describe("camera state", () => {
@@ -241,5 +252,112 @@ describe("held item", () => {
     store.setHeld("item-2");
     store.stepBack();
     expect(useBoardStore.getState().heldId).toBeNull();
+  });
+});
+
+describe("dev preview (BB-36)", () => {
+  const board = {
+    id: "board-1",
+    theme: "cozy-cabin",
+    secondary_theme: "haunted-hollow",
+  } as Board;
+
+  it("never changes the scene for someone who isn't the developer", () => {
+    useBoardStore.setState({
+      board,
+      isDev: false,
+      devPreview: { ...NO_PREVIEW, themeId: "beach-hut" },
+    });
+    const s = useBoardStore.getState();
+    expect(selectSceneThemeId(s)).toBe("cozy-cabin");
+    expect(selectDisplayedThemeId(s)).toBe("cozy-cabin");
+  });
+
+  it("shows the developer the previewed theme in the scene only", () => {
+    useBoardStore.setState({ board, isDev: true });
+    useBoardStore.getState().setDevPreview({ themeId: "beach-hut" });
+    const s = useBoardStore.getState();
+    expect(selectSceneThemeId(s)).toBe("beach-hut");
+    // The composer and editor follow the real theme, so a note written
+    // mid-preview is saved with the real theme's papers.
+    expect(selectDisplayedThemeId(s)).toBe("cozy-cabin");
+  });
+
+  it("sits on top of the second-theme switch and falls back to it", () => {
+    useBoardStore.setState({ board, isDev: true, themeView: "secondary" });
+    expect(selectSceneThemeId(useBoardStore.getState())).toBe("haunted-hollow");
+    useBoardStore.getState().setDevPreview({ themeId: "beach-hut" });
+    expect(selectSceneThemeId(useBoardStore.getState())).toBe("beach-hut");
+    useBoardStore.getState().setDevPreview({ themeId: null });
+    expect(selectSceneThemeId(useBoardStore.getState())).toBe("haunted-hollow");
+  });
+
+  it("merges changes and remembers them on this device, not the board", () => {
+    useBoardStore.setState({ board, isDev: true });
+    const { setDevPreview } = useBoardStore.getState();
+    setDevPreview({ themeId: "stars-hollow" });
+    setDevPreview({ phase: "night" });
+    expect(useBoardStore.getState().devPreview).toEqual({
+      themeId: "stars-hollow",
+      phase: "night",
+      sampleNotes: false,
+    });
+    expect(JSON.parse(window.localStorage.getItem(DEV_PREVIEW_KEY)!)).toMatchObject({
+      themeId: "stars-hollow",
+      phase: "night",
+    });
+    expect(useBoardStore.getState().board).toBe(board);
+  });
+});
+
+describe("the board is view-only during a dev preview (BB-36)", () => {
+  it("locks while the developer previews anything", () => {
+    useBoardStore.setState({ isDev: true });
+    expect(selectLocked(useBoardStore.getState())).toBe(false);
+    for (const patch of [
+      { themeId: "beach-hut" },
+      { phase: "night" as const },
+      { sampleNotes: true },
+    ]) {
+      useBoardStore.setState({ devPreview: { ...NO_PREVIEW, ...patch } });
+      expect(selectLocked(useBoardStore.getState())).toBe(true);
+    }
+  });
+
+  it("never locks for anyone else", () => {
+    useBoardStore.setState({
+      isDev: false,
+      devPreview: { ...NO_PREVIEW, themeId: "beach-hut" },
+    });
+    expect(selectLocked(useBoardStore.getState())).toBe(false);
+  });
+
+  it("is still locked on a memory, preview or not", () => {
+    useBoardStore.setState({ readOnly: true });
+    expect(selectLocked(useBoardStore.getState())).toBe(true);
+  });
+
+  it("drops out of editing when a preview starts", () => {
+    useBoardStore.setState({
+      isDev: true,
+      mode: "edit",
+      selectedId: "a",
+      editingId: "a",
+      composer: "note",
+      addMenuOpen: true,
+    });
+    useBoardStore.getState().setDevPreview({ themeId: "beach-hut" });
+    const s = useBoardStore.getState();
+    expect(s.mode).toBe("view");
+    expect(s.selectedId).toBeNull();
+    expect(s.editingId).toBeNull();
+    expect(s.composer).toBeNull();
+    expect(s.addMenuOpen).toBe(false);
+  });
+
+  it("leaves editing alone when the preview is turned off", () => {
+    useBoardStore.setState({ isDev: true, mode: "edit" });
+    useBoardStore.getState().setDevPreview(NO_PREVIEW);
+    expect(useBoardStore.getState().mode).toBe("edit");
   });
 });

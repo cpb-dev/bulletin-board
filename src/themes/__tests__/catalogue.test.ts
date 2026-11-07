@@ -117,6 +117,20 @@ describe("theme groups", () => {
     const shown = sections.flatMap((s) => s.themes.map((t) => t.id));
     expect(shown.sort()).toEqual(THEMES.map((t) => t.id).sort());
   });
+
+  it("leaves out themes under construction (BB-36)", () => {
+    const shown = groupedThemes(new Set(["beach-hut"])).flatMap((s) =>
+      s.themes.map((t) => t.id)
+    );
+    expect(shown).not.toContain("beach-hut");
+    expect(shown).toContain("haunted-hollow");
+    expect(shown).toHaveLength(THEMES.length - 1);
+  });
+
+  it("drops a group with every theme hidden", () => {
+    const groups = groupedThemes(new Set(["stars-hollow"]));
+    expect(groups.map((s) => s.group.id)).toEqual(["basic", "special", "seasonal"]);
+  });
 });
 
 describe("getTheme", () => {

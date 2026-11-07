@@ -56,6 +56,8 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
 | `src/lib/note-shape.ts`, `src/components/three/note-shape-geometry.ts` | every note's shape (BB-24); a null `shape` must keep resolving to the legacy look (`paper = "heart"` is a heart, else square) — live rows and archived boards depend on it |
 | `src/components/ui/NoteStylePicker.tsx` | the colour and shape picker in the composer and editor, on every board |
+| `src/lib/dev-preview.ts`, `src/components/dev/` | dev mode (BB-36); runs inside every board, but only changes anything when the server says the viewer is in `DEV_EMAILS` |
+| `src/lib/theme-status.ts` | which themes the picker offers (BB-36); filters the picker only, never rendering |
 
 **Shared by a group of themes:**
 
@@ -194,6 +196,31 @@ production build**, not merely unreachable.
   `scripts/shoot-scene.mjs` screenshots it and
   `scripts/dev/scene-stats.mjs` prints its draw calls. Same rules: dev-only
   by construction.
+
+### Dev mode is the one exception (BB-36)
+
+Dev mode *is* in the production build, on purpose: it exists so the
+developer can look at a theme, including one under construction, on a
+real board, on a phone, on a deployed site. It stays safe by different
+rules instead (see `docs/DEV-MODE.md`):
+
+- **Gated on the server.** `isDevRequest()` checks the session's email
+  against the server-only `DEV_EMAILS`. Everyone else gets
+  `isDev: false`, and every dev code path is a no-op for them:
+  `selectSceneThemeId` equals `selectDisplayedThemeId`, `previewPhase`
+  is the old phase rule, and `selectLocked` is `readOnly`.
+- **A preview never writes, and nothing else can while one is on.** A
+  preview lives in the store and this device's localStorage only, and
+  `selectLocked` makes the board view-only for its duration. Anything new
+  that writes to a board must check `selectLocked`, not `readOnly`.
+- **Under construction lives in the database** (`theme_status`, migration
+  0010), not in a palette. It only filters what `groupedThemes()` offers.
+  It never touches `getTheme`, rendering or a palette digest. A theme with
+  no row is under construction, so a new theme needs no migration to stay
+  hidden.
+
+Don't grow dev mode into something that writes to a board. If a dev tool
+needs to save board data, it belongs under `/dev` instead.
 
 ## As the app grows
 
