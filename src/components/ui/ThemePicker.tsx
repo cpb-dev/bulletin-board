@@ -8,6 +8,7 @@ import { secondaryActionFor, secondaryThemeOf } from "@/lib/theme-view";
 import { getTheme, groupedThemes } from "@/themes";
 import type { Board } from "@/lib/types";
 import { Sheet } from "./Sheet";
+import { DevThemeSection } from "../dev/DevThemeSection";
 
 /** How long a theme must be held to bring up its second-theme options. */
 export const LONG_PRESS_MS = 500;
@@ -25,6 +26,7 @@ export function ThemePicker() {
   const supabase = useMemo(() => createClient(), []);
   const open = useBoardStore((s) => s.themePickerOpen);
   const board = useBoardStore((s) => s.board);
+  const isDev = useBoardStore((s) => s.isDev);
   const [error, setError] = useState<string | null>(null);
   // The theme whose hold menu is showing.
   const [holding, setHolding] = useState<string | null>(null);
@@ -190,6 +192,8 @@ export function ThemePicker() {
             </div>
           </section>
         ))}
+        {/* Dev mode (BB-36): the developer only, and preview only. */}
+        {isDev && <DevThemeSection />}
       </div>
       {holding && (
         <HoldMenu

@@ -111,11 +111,27 @@ describe("theme groups", () => {
     expect(groupOf("stars-hollow")).toBe("tv");
   });
 
-  it("shows every theme exactly once, in group order", () => {
+  it("shows every released theme exactly once, in group order", () => {
     const sections = groupedThemes();
     expect(sections.map((s) => s.group.id)).toEqual(["basic", "special", "seasonal", "tv"]);
     const shown = sections.flatMap((s) => s.themes.map((t) => t.id));
-    expect(shown.sort()).toEqual(THEMES.map((t) => t.id).sort());
+    const released = THEMES.filter((t) => t.status !== "draft");
+    expect(shown.sort()).toEqual(released.map((t) => t.id).sort());
+  });
+
+  it("keeps draft themes out of the picker (BB-36)", () => {
+    const draft = { ...THEMES[0], id: "in-progress", status: "draft" as const };
+    const shown = groupedThemes([...THEMES, draft]).flatMap((s) =>
+      s.themes.map((t) => t.id)
+    );
+    expect(shown).not.toContain("in-progress");
+    expect(shown).toContain(THEMES[0].id);
+  });
+
+  it("drops a group whose only themes are drafts", () => {
+    const onlyDraft = { ...getTheme("stars-hollow"), status: "draft" as const };
+    const groups = groupedThemes([...THEMES.filter((t) => t.group !== "tv"), onlyDraft]);
+    expect(groups.map((s) => s.group.id)).not.toContain("tv");
   });
 });
 

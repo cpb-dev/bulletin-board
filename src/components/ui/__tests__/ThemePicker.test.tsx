@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { LONG_PRESS_MS, ThemePicker } from "../ThemePicker";
 import { useBoardStore } from "@/lib/store";
 import { THEMES } from "@/themes";
+import { NO_PREVIEW } from "@/lib/dev-preview";
 import type { Board } from "@/lib/types";
 
 // Only the network edge is mocked — the store and the catalogue are real.
@@ -33,7 +34,12 @@ beforeEach(() => {
   updateBoardTheme.mockResolvedValue(undefined);
   updateBoardSecondaryTheme.mockReset();
   updateBoardSecondaryTheme.mockResolvedValue(undefined);
-  useBoardStore.setState({ themePickerOpen: true, board });
+  useBoardStore.setState({
+    themePickerOpen: true,
+    board,
+    isDev: false,
+    devPreview: NO_PREVIEW,
+  });
 });
 
 describe("ThemePicker", () => {
@@ -64,9 +70,9 @@ describe("ThemePicker", () => {
     expect(inGroup("TV").join(" ")).toContain("Stars Hollow");
   });
 
-  it("offers every theme in the catalogue — none are hidden", () => {
+  it("offers every released theme in the catalogue", () => {
     render(<ThemePicker />);
-    for (const theme of THEMES) {
+    for (const theme of THEMES.filter((t) => t.status !== "draft")) {
       expect(
         screen.getByRole("button", { name: new RegExp(theme.name, "i") }),
         `${theme.id} should be pickable`
@@ -219,5 +225,70 @@ describe("ThemePicker", () => {
       expect(await screen.findByRole("alert")).toBeInTheDocument();
       expect(useBoardStore.getState().board?.secondary_theme ?? null).toBeNull();
     });
+  });
+});
+
+describe("ThemePicker dev section (BB-36)", () => {
+  it("is not there for someone who isn't the developer", () => {
+    render(<ThemePicker />);
+    expect(screen.queryByRole("region", { name: "Dev" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/preview only/i)).not.toBeInTheDocument();
+  });
+
+  it("lists every theme, drafts included, for the developer", () => {
+    useBoardStore.setState({ isDev: true });
+    render(<ThemePicker />);
+    const dev = screen.getByRole("region", { name: "Dev" });
+    for (const theme of THEMES) {
+      expect(
+        within(dev).getByRole("button", { name: new RegExp(`Preview ${theme.name}`, "i") })
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("previews a theme without saving anything", async () => {
+    useBoardStore.setState({ isDev: true });
+    render(<ThemePicker />);
+    const dev = screen.getByRole("region", { name: "Dev" });
+    const beachHut = within(dev).getByRole("button", { name: /preview beach hut/i });
+
+    await userEvent.click(beachHut);
+
+    expect(useBoardStore.getState().devPreview.themeId).toBe("beach-hut");
+    expect(beachHut).toHaveAttribute("aria-pressed", "true");
+    // The board itself is untouched, and nothing went over the network.
+    expect(useBoardStore.getState().board).toBe(board);
+    expect(updateBoardTheme).not.toHaveBeenCalled();
+    expect(updateBoardSecondaryTheme).not.toHaveBeenCalled();
+
+    // Tapping it again goes back to the board's real theme.
+    await userEvent.click(beachHut);
+    expect(useBoardStore.getState().devPreview.themeId).toBeNull();
+  });
+
+  it("forces a time of day and toggles sample notes", async () => {
+    useBoardStore.setState({ isDev: true });
+    render(<ThemePicker />);
+    const dev = screen.getByRole("region", { name: "Dev" });
+
+    const time = within(dev).getByRole("group", { name: "Time of day" });
+    await userEvent.click(within(time).getByRole("button", { name: /night/i }));
+    expect(useBoardStore.getState().devPreview.phase).toBe("night");
+    await userEvent.click(within(time).getByRole("button", { name: /clock/i }));
+    expect(useBoardStore.getState().devPreview.phase).toBeNull();
+
+    await userEvent.click(within(dev).getByRole("button", { name: /sample notes/i }));
+    expect(useBoardStore.getState().devPreview.sampleNotes).toBe(true);
+  });
+
+  it("stops previewing in one tap", async () => {
+    useBoardStore.setState({
+      isDev: true,
+      devPreview: { themeId: "stars-hollow", phase: "night", sampleNotes: true },
+    });
+    render(<ThemePicker />);
+    await userEvent.click(screen.getByRole("button", { name: /stop previewing/i }));
+    expect(useBoardStore.getState().devPreview).toEqual(NO_PREVIEW);
+    expect(screen.queryByRole("button", { name: /stop previewing/i })).not.toBeInTheDocument();
   });
 });

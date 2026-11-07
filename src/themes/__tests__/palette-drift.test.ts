@@ -7,7 +7,8 @@ import type { BoardTheme } from "../types";
  * theme has to keep looking the way it looked when it was saved.
  *
  * Each digest covers every colour, paper, pin and room setting a theme
- * renders with — everything except which picker group it's filed under.
+ * renders with — everything except which picker group it's filed under
+ * and whether it's still a draft (BB-36), neither of which changes a look.
  * These were pinned when the catalogue was split into per-theme folders,
  * and checked identical against the catalogue as it stood before.
  *
@@ -38,7 +39,7 @@ function stable(value: unknown): string {
       "{" +
       Object.keys(o)
         .sort()
-        .filter((k) => k !== "group")
+        .filter((k) => k !== "group" && k !== "status")
         .map((k) => JSON.stringify(k) + ":" + stable(o[k]))
         .join(",") +
       "}"

@@ -69,14 +69,22 @@ export function getTheme(id: string | null | undefined): BoardTheme {
   return THEMES.find((t) => t.id === id) ?? THEMES[0];
 }
 
+/** Whether a theme is still being built (dev mode only, BB-36). */
+export function isDraft(theme: BoardTheme): boolean {
+  return theme.status === "draft";
+}
+
 /**
  * The catalogue split into the picker's sections, in group order and
- * theme order. Groups with no themes in them are left out.
+ * theme order. Draft themes are left out — they're only reachable through
+ * dev mode — and so are groups with no themes in them.
  */
-export function groupedThemes(): { group: ThemeGroup; themes: BoardTheme[] }[] {
+export function groupedThemes(
+  themes: BoardTheme[] = THEMES
+): { group: ThemeGroup; themes: BoardTheme[] }[] {
   return THEME_GROUPS.map((group) => ({
     group,
-    themes: THEMES.filter((t) => t.group === group.id),
+    themes: themes.filter((t) => t.group === group.id && !isDraft(t)),
   })).filter((section) => section.themes.length > 0);
 }
 

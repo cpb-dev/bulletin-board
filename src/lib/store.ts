@@ -5,6 +5,12 @@ import {
   writeThemeView,
   type ThemeView,
 } from "./theme-view";
+import {
+  NO_PREVIEW,
+  previewThemeId,
+  writeDevPreview,
+  type DevPreview,
+} from "./dev-preview";
 import type { Board, BoardItem, Profile } from "./types";
 import type { Fixture } from "./worldcup";
 
@@ -47,6 +53,13 @@ interface BoardState {
   themePickerOpen: boolean;
   /** Which of the board's themes this person is looking at (BB-3). */
   themeView: ThemeView;
+  /**
+   * Dev mode (BB-36). `isDev` comes from the server (`/api/dev`), and is
+   * false for everyone not in `DEV_EMAILS`. The preview is local to this
+   * device and never written to the board.
+   */
+  isDev: boolean;
+  devPreview: DevPreview;
 
   setBoard: (board: Board | null) => void;
   setItems: (items: BoardItem[]) => void;
@@ -77,6 +90,9 @@ interface BoardState {
   setThemeView: (view: ThemeView) => void;
   /** Flip between main and secondary, remembered on this device. */
   toggleThemeView: () => void;
+  setIsDev: (isDev: boolean) => void;
+  /** Change the dev preview, remembered on this device. */
+  setDevPreview: (preview: Partial<DevPreview>) => void;
 
   upsertItem: (item: BoardItem) => void;
   removeItem: (id: string) => void;
@@ -119,6 +135,8 @@ export const useBoardStore = create<BoardState>((set) => ({
   addMenuOpen: false,
   themePickerOpen: false,
   themeView: "primary",
+  isDev: false,
+  devPreview: NO_PREVIEW,
 
   setBoard: (board) => set({ board }),
   setItems: (items) => set({ items }),
@@ -218,6 +236,13 @@ export const useBoardStore = create<BoardState>((set) => ({
       if (s.board) writeThemeView(s.board.id, themeView);
       return { themeView };
     }),
+  setIsDev: (isDev) => set({ isDev }),
+  setDevPreview: (patch) =>
+    set((s) => {
+      const devPreview = { ...s.devPreview, ...patch };
+      writeDevPreview(devPreview);
+      return { devPreview };
+    }),
 
   upsertItem: (item) =>
     set((s) => {
@@ -251,15 +276,27 @@ export const useBoardStore = create<BoardState>((set) => ({
 }));
 
 /**
- * The theme id actually on screen: the board's main theme, or its
- * secondary when this person has switched to it. Use with
- * `useBoardStore(selectDisplayedThemeId)` wherever the theme's look
- * matters (scene, papers).
+ * The board's theme as this person has it: the main theme, or its
+ * secondary when they've switched to it (BB-3). This is the theme that
+ * anything which *saves* should follow — the composer's and editor's
+ * papers — so a dev preview can never leak into a saved note.
  */
 export function selectDisplayedThemeId(
   s: Pick<BoardState, "board" | "themeView">
 ): string | undefined {
   return displayedThemeId(s.board, s.themeView);
+}
+
+/**
+ * The theme the 3D scene renders: `selectDisplayedThemeId`, unless the
+ * developer is previewing another theme on this device (BB-36). For
+ * everyone not in dev mode the two are always the same. Only the scene
+ * uses this; nothing that writes to the board should.
+ */
+export function selectSceneThemeId(
+  s: Pick<BoardState, "board" | "themeView" | "isDev" | "devPreview">
+): string | undefined {
+  return previewThemeId(selectDisplayedThemeId(s), s.devPreview, s.isDev);
 }
 
 /**

@@ -56,6 +56,7 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
 | `src/lib/note-shape.ts`, `src/components/three/note-shape-geometry.ts` | every note's shape (BB-24); a null `shape` must keep resolving to the legacy look (`paper = "heart"` is a heart, else square) — live rows and archived boards depend on it |
 | `src/components/ui/NoteStylePicker.tsx` | the colour and shape picker in the composer and editor, on every board |
+| `src/lib/dev-preview.ts`, `src/components/dev/` | dev mode (BB-36); runs inside every board, but only changes anything when the server says the viewer is in `DEV_EMAILS` |
 
 **Shared by a group of themes:**
 
@@ -194,6 +195,29 @@ production build**, not merely unreachable.
   `scripts/shoot-scene.mjs` screenshots it and
   `scripts/dev/scene-stats.mjs` prints its draw calls. Same rules: dev-only
   by construction.
+
+### Dev mode is the one exception (BB-36)
+
+Dev mode *is* in the production build, on purpose: it exists so the
+developer can look at a theme — including a `status: "draft"` one — on a
+real board, on a phone, on a deployed site. It stays safe by different
+rules instead:
+
+- **Gated on the server.** `/api/dev` checks the session's email against
+  the server-only `DEV_EMAILS`. Everyone else gets `isDev: false`, and
+  every dev code path is a no-op for them (`selectSceneThemeId` equals
+  `selectDisplayedThemeId`, `previewPhase` equals the old phase rule).
+- **Never writes.** A preview lives in the store and this device's
+  localStorage only. Nothing in `src/components/dev/` imports `@/lib/api`.
+  Anything that *saves* (the composer's and editor's papers, the pan limit
+  that decides where a note can be dropped) follows the board's real
+  theme, not the previewed one.
+- **Draft themes stay out of the picker.** `groupedThemes()` drops them;
+  only dev mode lists them. A draft is in `THEMES`, so the catalogue,
+  palette-drift and fallback tests still cover it.
+
+Don't grow dev mode into something that writes to a board. If a dev tool
+needs to save, it belongs under `/dev` instead.
 
 ## As the app grows
 
