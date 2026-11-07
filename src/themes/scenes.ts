@@ -19,6 +19,7 @@ import { worldCup } from "./world-cup";
 import { rosePicnic } from "./rose-picnic";
 import { hauntedHollow } from "./haunted-hollow";
 import { beachHut } from "./beach-hut";
+import { christmasCabin } from "./christmas-cabin";
 import { starsHollow } from "./stars-hollow";
 import type { ThemeModule } from "./types";
 
@@ -36,6 +37,7 @@ export const THEME_MODULES: ThemeModule[] = [
   // seasonal
   hauntedHollow,
   beachHut,
+  christmasCabin,
   // tv
   starsHollow,
 ];
