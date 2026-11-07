@@ -13,10 +13,10 @@ import { SnowWindow } from "./props/SnowWindow";
 /**
  * Christmas Cabin (BB-35): a cosy cabin room on a snowy evening.
  *
- * From the room camera: the fireplace on the back wall to the left of
- * the board and the alphabet light wall to the right. Turn your head
- * right for the tree and presents, left for the sofa under a snowy
- * window. Where everything stands lives in `lib/layout.ts`, with tests.
+ * From the room camera: a wide window onto the snow with the sofa under
+ * it, left of the board, and the fireplace on its right. Turn your head
+ * right for the alphabet light wall and the tree. Where everything
+ * stands lives in `lib/layout.ts`, with tests.
  *
  * This is the base: every prop is a block-out, and each one is detailed
  * in its own PR (see the Christmas Cabin sub-tickets).

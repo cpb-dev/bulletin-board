@@ -6,23 +6,23 @@ import { ROOM, SNOW_WINDOW } from "../lib/layout";
 import { makeSnowViewTexture } from "./textures";
 
 /**
- * A window in the left wall, over the sofa, looking out on a snowy
- * evening (BB-35).
+ * A wide window in the back wall, left of the board and over the sofa,
+ * looking out on a snowy evening (BB-35).
  *
  * BLOCK-OUT: a frame and a painted view. Frosted panes, a snowy sill and
  * falling snow come in "Christmas Cabin: sofa, window and snow", with the
  * snowfall logic in `lib/`.
  */
 export function SnowWindow({ gradient }: { gradient: THREE.Texture }) {
-  const { z, y, width, height } = SNOW_WINDOW;
+  const { x, y, width, height } = SNOW_WINDOW;
   const view = useMemo(makeSnowViewTexture, []);
   useEffect(() => () => view.dispose(), [view]);
   const frame = "#5e3b24";
   const bar = 0.07;
 
   return (
-    // On the left wall, facing into the room (+x).
-    <group position={[-ROOM.halfWidth + 0.01, y, z]} rotation={[0, Math.PI / 2, 0]}>
+    // In the back wall, facing into the room.
+    <group position={[x, y, ROOM.backZ + 0.01]}>
       <mesh>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial map={view} toneMapped={false} />
@@ -40,11 +40,13 @@ export function SnowWindow({ gradient }: { gradient: THREE.Texture }) {
           <meshToonMaterial color={frame} gradientMap={gradient} />
         </mesh>
       ))}
-      {/* glazing bars */}
-      <mesh position={[0, 0, 0.03]}>
-        <boxGeometry args={[bar, height, 0.04]} />
-        <meshToonMaterial color={frame} gradientMap={gradient} />
-      </mesh>
+      {/* glazing bars: three lights across, one rail */}
+      {[-width / 6, width / 6].map((bx) => (
+        <mesh key={bx} position={[bx, 0, 0.03]}>
+          <boxGeometry args={[bar, height, 0.04]} />
+          <meshToonMaterial color={frame} gradientMap={gradient} />
+        </mesh>
+      ))}
       <mesh position={[0, 0, 0.03]}>
         <boxGeometry args={[width, bar, 0.04]} />
         <meshToonMaterial color={frame} gradientMap={gradient} />

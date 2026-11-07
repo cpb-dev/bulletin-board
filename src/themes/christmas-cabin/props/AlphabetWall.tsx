@@ -9,7 +9,8 @@ import { letterPositions, makeAlphabetTexture } from "./textures";
 const BULBS = ["#ff4a3a", "#3fd16a", "#3f8cff", "#ffd23f", "#ff6fcf"];
 
 /**
- * The alphabet light wall on the back wall, right of the board (BB-35):
+ * The alphabet light wall on the right side wall, back towards the
+ * corner — turn your head right to see it (BB-35):
  * painted letters A–Z with a coloured bulb over each, strung on a wire.
  *
  * BLOCK-OUT: the bulbs are lit but still. Flicker, spelling out words
@@ -17,7 +18,7 @@ const BULBS = ["#ff4a3a", "#3fd16a", "#3f8cff", "#ffd23f", "#ff6fcf"];
  * with the timing in `lib/`.
  */
 export function AlphabetWall() {
-  const { x, y, width, height } = ALPHABET_WALL;
+  const { z, y, width, height } = ALPHABET_WALL;
   const texture = useMemo(makeAlphabetTexture, []);
   useEffect(() => () => texture.dispose(), [texture]);
   const bulbs = useMemo(letterPositions, []);
@@ -29,7 +30,8 @@ export function AlphabetWall() {
   }, [bulbs]);
 
   return (
-    <group position={[x, y, ROOM.backZ + 0.01]}>
+    // On the right wall, facing into the room (-x).
+    <group position={[ROOM.halfWidth - 0.01, y, z]} rotation={[0, -Math.PI / 2, 0]}>
       <mesh>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial map={texture} toneMapped={false} />

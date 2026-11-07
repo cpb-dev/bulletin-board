@@ -4,8 +4,8 @@ import type * as THREE from "three";
 import { SOFA } from "../lib/layout";
 
 /**
- * A sofa against the left wall, facing into the room, with a knitted
- * blanket over one arm (BB-35).
+ * A sofa against the back wall under the window, left of the board,
+ * facing into the room, with a knitted blanket over one end (BB-35).
  *
  * BLOCK-OUT: boxes. Cushions, shaping and the blanket's knit come in
  * "Christmas Cabin: sofa, window and snow".
@@ -15,8 +15,8 @@ export function Sofa({ gradient }: { gradient: THREE.Texture }) {
   const fabric = "#7a3a3a";
   const fabricDark = "#5e2b2b";
   return (
-    // Local +z faces into the room (towards +x in the world).
-    <group position={[x, 0, z]} rotation={[0, Math.PI / 2, 0]}>
+    // Local +z faces into the room.
+    <group position={[x, 0, z]}>
       <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
         <boxGeometry args={[length, 0.4, depth]} />
         <meshToonMaterial color={fabricDark} gradientMap={gradient} />

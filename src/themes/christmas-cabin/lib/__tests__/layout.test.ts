@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import { BOARD } from "@/lib/board-geometry";
 import {
   ALPHABET_WALL,
+  alphabetWallEnds,
   blocksBoard,
+  blocksSight,
+  FIREPLACE,
   floorFootprints,
   insideRoom,
   ROOM,
-  sightLineX,
   SNOW_WINDOW,
   SOFA,
-  TREE,
 } from "../layout";
 
 describe("Christmas Cabin layout", () => {
@@ -32,27 +33,47 @@ describe("Christmas Cabin layout", () => {
     expect(blocksBoard({ x: -3, z: -1.9, halfX: 1, halfZ: 0.3 })).toBe(true);
   });
 
-  it("hangs the alphabet wall clear of the board and inside the room", () => {
-    const left = ALPHABET_WALL.x - ALPHABET_WALL.width / 2;
-    const right = ALPHABET_WALL.x + ALPHABET_WALL.width / 2;
-    expect(left).toBeGreaterThan(BOARD.width / 2);
-    expect(right).toBeLessThan(ROOM.halfWidth);
+  it("hangs the alphabet wall on the right wall, inside the room", () => {
+    const [back, front] = alphabetWallEnds();
+    expect(back.z).toBeGreaterThan(ROOM.backZ);
+    expect(front.z).toBeLessThan(ROOM.frontZ);
     expect(ALPHABET_WALL.y + ALPHABET_WALL.height / 2).toBeLessThan(ROOM.height);
   });
 
-  it("leaves the whole alphabet wall in view past the tree", () => {
-    const right = ALPHABET_WALL.x + ALPHABET_WALL.width / 2;
-    // The sight line to the wall's far edge passes left of the tree.
-    expect(sightLineX(right, TREE.z)).toBeLessThan(TREE.x - TREE.radius);
+  it("leaves the whole alphabet wall in view past the tree and fireplace", () => {
+    const { tree, fireplace } = floorFootprints();
+    for (const end of alphabetWallEnds()) {
+      expect(blocksSight(end, tree), `tree hides the wall at z=${end.z}`).toBe(false);
+      expect(blocksSight(end, fireplace), `fireplace hides the wall at z=${end.z}`).toBe(
+        false
+      );
+    }
+  });
+
+  it("would catch something standing in the way", () => {
+    const [back] = alphabetWallEnds();
+    const mid = { x: (back.x + 0.4) / 2, z: (back.z + 4.4) / 2 };
+    expect(blocksSight(back, { ...mid, halfX: 0.2, halfZ: 0.2 })).toBe(true);
+  });
+
+  it("keeps the back wall in order: window and sofa, board, fireplace", () => {
+    const boardEdge = BOARD.width / 2 + 0.1;
+    expect(SNOW_WINDOW.x + SNOW_WINDOW.width / 2).toBeLessThan(-boardEdge);
+    expect(SOFA.x + SOFA.length / 2).toBeLessThan(-boardEdge);
+    expect(FIREPLACE.x - FIREPLACE.width / 2).toBeGreaterThan(boardEdge);
+    expect(SNOW_WINDOW.x - SNOW_WINDOW.width / 2).toBeGreaterThan(-ROOM.halfWidth);
+    expect(FIREPLACE.x + FIREPLACE.width / 2).toBeLessThan(ROOM.halfWidth);
   });
 
   it("spells out the whole alphabet, once", () => {
     expect(ALPHABET_WALL.rows.join("")).toBe("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
   });
 
-  it("puts the window over the sofa and inside the wall", () => {
-    expect(Math.abs(SNOW_WINDOW.z - SOFA.z)).toBeLessThan(SOFA.length / 2);
+  it("puts the window over the sofa, clear of its back, and inside the wall", () => {
+    expect(SNOW_WINDOW.x).toBe(SOFA.x);
+    expect(SNOW_WINDOW.width).toBeGreaterThan(SOFA.length);
     expect(SNOW_WINDOW.y + SNOW_WINDOW.height / 2).toBeLessThan(ROOM.height);
-    expect(SNOW_WINDOW.y - SNOW_WINDOW.height / 2).toBeGreaterThan(0.9);
+    // The sofa back is about 1.2 high; the sill sits above it.
+    expect(SNOW_WINDOW.y - SNOW_WINDOW.height / 2).toBeGreaterThan(1.3);
   });
 });

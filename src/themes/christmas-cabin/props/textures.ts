@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { mulberry32 } from "@/components/three/textures";
-import { ALPHABET_WALL } from "../lib/layout";
+import { ALPHABET_WALL, SNOW_WINDOW } from "../lib/layout";
 
 /**
  * The Christmas Cabin's canvas textures (BB-35). Block-out quality: they
@@ -67,31 +67,34 @@ export function letterPositions(): { letter: string; x: number; y: number }[] {
 
 /** A snowy evening through the window: dusk sky, snowy ground, flakes. */
 export function makeSnowViewTexture(): THREE.CanvasTexture {
-  const s = 256;
+  // Drawn at the window's own proportions, so nothing is stretched.
+  const w = 512;
+  const s = Math.round((w * SNOW_WINDOW.height) / SNOW_WINDOW.width);
   const c = document.createElement("canvas");
-  c.width = c.height = s;
+  c.width = w;
+  c.height = s;
   const ctx = c.getContext("2d")!;
   const sky = ctx.createLinearGradient(0, 0, 0, s * 0.7);
   sky.addColorStop(0, "#1b2347");
   sky.addColorStop(1, "#5a6a9a");
   ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, s, s);
+  ctx.fillRect(0, 0, w, s);
   // snowy hills
   ctx.fillStyle = "#dfe7f2";
   ctx.beginPath();
-  ctx.ellipse(s * 0.25, s * 0.82, s * 0.5, s * 0.2, 0, Math.PI, 0);
+  ctx.ellipse(w * 0.22, s * 0.82, w * 0.4, s * 0.22, 0, Math.PI, 0);
   ctx.fill();
   ctx.fillStyle = "#c8d3e6";
   ctx.beginPath();
-  ctx.ellipse(s * 0.85, s * 0.86, s * 0.45, s * 0.18, 0, Math.PI, 0);
+  ctx.ellipse(w * 0.78, s * 0.86, w * 0.4, s * 0.2, 0, Math.PI, 0);
   ctx.fill();
-  ctx.fillRect(0, s * 0.85, s, s * 0.15);
+  ctx.fillRect(0, s * 0.85, w, s * 0.15);
   // flakes
   const rand = mulberry32(12);
   ctx.fillStyle = "rgba(255,255,255,0.9)";
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 140; i++) {
     ctx.beginPath();
-    ctx.arc(rand() * s, rand() * s * 0.8, 1 + rand() * 1.6, 0, Math.PI * 2);
+    ctx.arc(rand() * w, rand() * s * 0.8, 1 + rand() * 1.6, 0, Math.PI * 2);
     ctx.fill();
   }
   const t = new THREE.CanvasTexture(c);

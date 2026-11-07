@@ -3,7 +3,13 @@
  *
  * Pure data and maths, so the arrangement is tested without a renderer:
  * nothing stands between the room camera and the board, nothing pokes
- * through a wall, and the tree doesn't hide the alphabet wall.
+ * through a wall, and neither the tree nor the fireplace hides the
+ * alphabet wall.
+ *
+ * The room camera's default view only reaches about 4.5 units either
+ * side of the board along the back wall; the side walls come into view
+ * when you turn your head. So the back wall holds what should be seen
+ * at once: the window and sofa left of the board, the fireplace right.
  *
  * Coordinates are world units. The board hangs on the back wall at
  * x = 0, z = BOARD.wallZ; the room camera stands at ROOM_CAMERA.
@@ -37,26 +43,35 @@ export interface Footprint {
   halfZ: number;
 }
 
-/** Back wall, left of the board. */
-export const FIREPLACE = { x: -3.7, width: 2.2, depth: 0.7 } as const;
+/** Back wall, right of the board. */
+export const FIREPLACE = { x: 3.7, width: 2.2, depth: 0.7 } as const;
 
-/** Back wall, right of the board: painted letters under a light string. */
+/**
+ * On the right side wall, back towards the corner: painted letters under
+ * a light string. Seen by turning your head right. `z` is the centre of
+ * the panel along the wall, `width` its length along the wall.
+ */
 export const ALPHABET_WALL = {
-  x: 3.85,
+  z: -1.1,
   y: 1.95,
-  width: 2.5,
-  height: 1.5,
+  width: 1.8,
+  height: 1.3,
   rows: ["ABCDEFGH", "IJKLMNOPQ", "RSTUVWXYZ"],
 } as const;
 
 /** Front-right of the room, forward enough to leave the light wall in view. */
-export const TREE = { x: 4.1, z: 1.4, radius: 0.9, height: 2.6 } as const;
+export const TREE = { x: 4.25, z: 2.5, radius: 0.9, height: 2.6 } as const;
 
-/** Against the left wall, facing into the room. */
-export const SOFA = { x: -4.55, z: 1.2, length: 2.0, depth: 0.9 } as const;
+/** Back wall, left of the board: a wide window with the sofa under it. */
+export const SNOW_WINDOW = { x: -3.75, y: 2.15, width: 2.4, height: 1.3 } as const;
 
-/** In the left wall, above the sofa. */
-export const SNOW_WINDOW = { z: 1.2, y: 2.15, width: 1.5, height: 1.2 } as const;
+/** Against the back wall under the window, facing into the room. */
+export const SOFA = {
+  x: SNOW_WINDOW.x,
+  z: BOARD.wallZ - 0.16 + 0.9 / 2 + 0.03,
+  length: 2.0,
+  depth: 0.9,
+} as const;
 
 /** The floor props, for the clearance checks. */
 export function floorFootprints(): Record<string, Footprint> {
@@ -68,8 +83,7 @@ export function floorFootprints(): Record<string, Footprint> {
       halfX: FIREPLACE.width / 2,
       halfZ: FIREPLACE.depth / 2,
     },
-    // Turned side-on against the left wall: long along z.
-    sofa: { x: SOFA.x, z: SOFA.z, halfX: SOFA.depth / 2, halfZ: SOFA.length / 2 },
+    sofa: { x: SOFA.x, z: SOFA.z, halfX: SOFA.length / 2, halfZ: SOFA.depth / 2 },
   };
 }
 
@@ -92,14 +106,29 @@ export function blocksBoard(f: Footprint): boolean {
   return f.x + f.halfX > minX && f.x - f.halfX < maxX;
 }
 
+/** The two ends of the alphabet wall, on the floor plane. */
+export function alphabetWallEnds(): { x: number; z: number }[] {
+  const x = ROOM.halfWidth;
+  return [
+    { x, z: ALPHABET_WALL.z - ALPHABET_WALL.width / 2 },
+    { x, z: ALPHABET_WALL.z + ALPHABET_WALL.width / 2 },
+  ];
+}
+
 /**
- * Where the sight line from the room camera to a point on the back wall
- * crosses depth `z`, as an x. Used to check the tree stands clear of the
- * line to the alphabet wall.
+ * Whether a footprint blocks the sight line from the room camera to a
+ * point, on the floor plane. The footprint is treated as its bounding
+ * rectangle; the line is sampled finely along its length.
  */
-export function sightLineX(wallX: number, z: number): number {
-  const t = (ROOM_CAMERA.z - z) / (ROOM_CAMERA.z - ROOM.backZ);
-  return ROOM_CAMERA.x + (wallX - ROOM_CAMERA.x) * t;
+export function blocksSight(to: { x: number; z: number }, f: Footprint): boolean {
+  const steps = 200;
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const x = ROOM_CAMERA.x + (to.x - ROOM_CAMERA.x) * t;
+    const z = ROOM_CAMERA.z + (to.z - ROOM_CAMERA.z) * t;
+    if (Math.abs(x - f.x) < f.halfX && Math.abs(z - f.z) < f.halfZ) return true;
+  }
+  return false;
 }
 
 /** Whether a footprint sits wholly inside the room's walls. */
