@@ -32,24 +32,28 @@ export const ChristmasCabinScene: ThemeScene = ({ theme }) => {
   return (
     <group>
       <color attach="background" args={[theme.light.sky]} />
-      <fog attach="fog" args={[theme.light.sky, 10, 20]} />
+      {/* Warm fog: anything far off fades into firelit shadow, not blue. */}
+      <fog attach="fog" args={["#2a1a12", 9, 20]} />
 
       {/*
-        Layered warm light, about 2700K throughout: a low warm ambient,
-        a warm bounce between ceiling and floor, a soft key for shadows,
-        and the downlights washing the back wall (raking across the
-        slats). The fire adds its own glow.
+        Cosy light: dim, warm and uneven, close to candlelight (~2200K).
+        A low amber ambient and a warm bounce off the floor, a soft key
+        for shadows, downlights pooling on the back wall, the fire, and
+        fairy lights round the top of the room. Pools of warmth, not an
+        even wash: that's what reads as cosy rather than clean.
       */}
-      <ambientLight intensity={theme.light.ambientIntensity * 0.5} color={theme.light.key} />
-      {/* The "ground" colour is the warm floor's bounce: it's what lights
-          the ceiling, as it would in a real room. */}
-      <hemisphereLight args={["#ffe6c8", "#c08a5c", 0.8]} />
+      <ambientLight intensity={0.16} color="#ffb877" />
+      <hemisphereLight args={["#ffcf9a", "#a0633a", 0.5]} />
       <directionalLight
         position={[1.5, 4.0, 3.0]}
-        intensity={theme.light.keyIntensity * 0.7}
-        color={theme.light.key}
+        intensity={theme.light.keyIntensity * 0.45}
+        color="#ffc38a"
         castShadow
         shadow-mapSize={[1024, 1024]}
+        // Big flat surfaces (the chimney breast, the walls) stipple with
+        // shadow acne without a bias.
+        shadow-bias={-0.0012}
+        shadow-normalBias={0.05}
         shadow-camera-left={-6}
         shadow-camera-right={6}
         shadow-camera-top={5}
@@ -79,7 +83,7 @@ function WallWashers() {
   const lights = useMemo(
     () =>
       DOWNLIGHTS.filter(([, z]) => z < 0).map(([x, z]) => {
-        const l = new THREE.SpotLight("#ffcf98", 14, 7, 0.62, 0.85, 2);
+        const l = new THREE.SpotLight("#ffb066", 10, 7, 0.6, 0.9, 2);
         l.position.set(x, ROOM.height - 0.05, z);
         l.target.position.set(x, 0.6, ROOM.backZ);
         return l;

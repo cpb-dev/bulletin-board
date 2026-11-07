@@ -18,7 +18,7 @@ export function Floor() {
       makePlankTextures(
         1024,
         { rows: 20, minLength: 0.3, maxLength: 0.62, minStagger: 0.12, seed: 7 },
-        { base: "#a98260", toneSpread: 0.9, grainStrength: 1, knots: 0.18 },
+        { base: "#8e5e3a", toneSpread: 1, grainStrength: 1.1, knots: 0.22 },
         TILE
       ),
     []

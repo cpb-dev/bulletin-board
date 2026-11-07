@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { mulberry32 } from "@/components/three/textures";
 import { grain, plankLayout, type PlankOptions } from "../../lib/planks";
-import { flecks, latticeLines, RUG } from "../../lib/rug";
+import { RUG } from "../../lib/rug";
+import { CHART, fairIsleChart, type Stitch } from "../../lib/fairisle";
 
 /**
- * Canvas textures for the Christmas Cabin's room (BB-35): oak floor and
- * ceiling boards, limewashed walls, walnut beams, oak slats and the
- * Berber rug. Everything is drawn here — no image files.
+ * Canvas textures for the Christmas Cabin's room (BB-35): oak floor,
+ * knotty-pine walls and ceiling, walnut beams, stained slats and the
+ * Fair Isle knit rug. Everything is drawn here — no image files.
  *
  * Colours are drawn as real colours (the materials are left white), and
  * each wooden surface also gets a matching bump map so gaps and grain
@@ -137,47 +138,6 @@ export function makePlankTextures(
   return { map: finish(color.c), bump: finish(bump.c, { srgb: false }) };
 }
 
-/**
- * Limewash: a soft, cloudy mineral finish. Overlapping feathered blobs
- * in close tones, drawn wrapped round the tile so it repeats without a
- * seam, then a fine grain and a few long, faint brush sweeps.
- */
-export function makeLimewashTexture(base: string): THREE.CanvasTexture {
-  const s = 512;
-  const { c, ctx } = canvas(s, s);
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, s, s);
-  const rand = mulberry32(41);
-  const tones = ["#f3eadc", "#ddcab3", "#e9dac6", "#d6c1a8", "#f7f0e4"];
-  for (let i = 0; i < 90; i++) {
-    const x = rand() * s;
-    const y = rand() * s;
-    const r = 30 + rand() * 120;
-    const tone = tones[i % tones.length];
-    const a = 0.05 + rand() * 0.09;
-    // Draw at every wrapped position so the blob carries across edges.
-    for (const ox of [-s, 0, s])
-      for (const oy of [-s, 0, s]) {
-        const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
-        const [cr, cg, cb] = hex(tone);
-        g.addColorStop(0, `rgba(${cr},${cg},${cb},${a})`);
-        g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-        ctx.fillStyle = g;
-        ctx.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
-      }
-  }
-  // Fine mineral grain.
-  const img = ctx.getImageData(0, 0, s, s);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const n = (rand() - 0.5) * 9;
-    img.data[i] += n;
-    img.data[i + 1] += n;
-    img.data[i + 2] += n;
-  }
-  ctx.putImageData(img, 0, 0);
-  return finish(c);
-}
-
 /** Straight grain down a narrow canvas, for beams and slats. */
 export function makeGrainStrip(base: string, seed: number, contrast: number): THREE.CanvasTexture {
   const w = 64;
@@ -198,102 +158,87 @@ export function makeGrainStrip(base: string, seed: number, contrast: number): TH
   return finish(c);
 }
 
-const RUG_CREAM = "#f8f1e6";
-const RUG_INK = "#5a463a";
-const FLECK = { rust: "#c46d4c", green: "#7f9070" };
+/** The knit's three yarns: cranberry, cream and pine. */
+const YARN: Record<Stitch, string> = { r: "#b3333a", c: "#f6ead2", g: "#4f8f5a" };
 
 /**
- * The rug's face: cream wool with a fibrous texture, the hand-knotted
- * charcoal lattice and a few coloured flecks. Drawn at the rug's own
- * proportions so nothing is stretched.
+ * The Fair Isle rug's face and bump: every stitch of the chart drawn as a
+ * knitted "V" — two plump, slanted loops of yarn with a shadow between
+ * them — in its yarn's colour, with a little fibre fuzz. A cream edge
+ * runs down both long sides, as on a finished blanket.
  */
-export function makeRugTexture(): THREE.CanvasTexture {
-  const w = 1024;
-  const h = Math.round((w * RUG.depth) / RUG.width);
-  const { c, ctx } = canvas(w, h);
-  ctx.fillStyle = RUG_CREAM;
+export function makeKnitTextures(): { map: THREE.CanvasTexture; bump: THREE.CanvasTexture } {
+  const chart = fairIsleChart();
+  const edge = 2;
+  const cols = CHART.cols + edge * 2;
+  const rows = CHART.rows;
+  const sw = 10; // pixels per stitch across
+  const sh = Math.round((sw * (RUG.depth / rows)) / (RUG.width / cols)); // and down
+  const w = cols * sw;
+  const h = rows * sh;
+  const color = canvas(w, h);
+  const bump = canvas(w, h);
+  const ctx = color.ctx;
+  const bctx = bump.ctx;
+  ctx.fillStyle = "#3a1414";
   ctx.fillRect(0, 0, w, h);
+  bctx.fillStyle = "#000";
+  bctx.fillRect(0, 0, w, h);
 
-  const rand = mulberry32(5);
-  // Wool: thousands of short, soft strokes in near-cream tones.
-  for (let i = 0; i < 26000; i++) {
+  const rand = mulberry32(9);
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      const stitch: Stitch = c < edge || c >= cols - edge ? "c" : chart[r][c - edge];
+      const [yr, yg, yb] = hex(YARN[stitch]);
+      const cx = c * sw + sw / 2;
+      const cy = r * sh + sh / 2;
+      const k = 0.9 + rand() * 0.18; // each stitch a little different
+      // Two loops of the V, leaning in.
+      for (const side of [-1, 1]) {
+        const g = ctx.createRadialGradient(cx + side * sw * 0.22, cy, 0, cx + side * sw * 0.22, cy, sh * 0.62);
+        g.addColorStop(0, `rgb(${Math.min(255, yr * k * 1.12)},${Math.min(255, yg * k * 1.12)},${Math.min(255, yb * k * 1.12)})`);
+        g.addColorStop(0.7, `rgb(${yr * k * 0.92},${yg * k * 0.92},${yb * k * 0.92})`);
+        g.addColorStop(1, `rgba(${yr * 0.5},${yg * 0.5},${yb * 0.5},0)`);
+        ctx.save();
+        ctx.translate(cx + side * sw * 0.22, cy);
+        ctx.rotate(side * 0.55);
+        ctx.scale(0.5, 1);
+        ctx.translate(-(cx + side * sw * 0.22), -cy);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx + side * sw * 0.22, cy, sh * 0.62, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        const bg = bctx.createRadialGradient(cx + side * sw * 0.22, cy, 0, cx + side * sw * 0.22, cy, sh * 0.6);
+        bg.addColorStop(0, "#fff");
+        bg.addColorStop(1, "rgba(0,0,0,0)");
+        bctx.save();
+        bctx.translate(cx + side * sw * 0.22, cy);
+        bctx.rotate(side * 0.55);
+        bctx.scale(0.5, 1);
+        bctx.translate(-(cx + side * sw * 0.22), -cy);
+        bctx.fillStyle = bg;
+        bctx.beginPath();
+        bctx.arc(cx + side * sw * 0.22, cy, sh * 0.6, 0, Math.PI * 2);
+        bctx.fill();
+        bctx.restore();
+      }
+    }
+  // Fibre fuzz over everything: wool is never crisp.
+  for (let i = 0; i < 30000; i++) {
     const x = rand() * w;
     const y = rand() * h;
-    const a = rand() * Math.PI;
-    const l = 2 + rand() * 4;
-    const t = 222 + rand() * 33;
-    ctx.strokeStyle = `rgba(${t},${t - 6},${t - 16},0.35)`;
-    ctx.lineWidth = 1;
+    const a = rand() * Math.PI * 2;
+    const l = 1.5 + rand() * 3;
+    ctx.strokeStyle = `rgba(255,240,220,${0.04 + rand() * 0.05})`;
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
     ctx.stroke();
   }
-
-  // The lattice: each line drawn as several rough passes, so its edges
-  // fray like knotted pile rather than ink.
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (const line of latticeLines()) {
-    for (let pass = 0; pass < 5; pass++) {
-      ctx.strokeStyle = pass === 0 ? RUG_INK : `rgba(74,58,50,${0.22 - pass * 0.04})`;
-      ctx.lineWidth = pass === 0 ? w * 0.0042 : w * (0.0042 + pass * 0.002);
-      ctx.beginPath();
-      line.forEach((p, i) => {
-        const jx = (rand() - 0.5) * 2;
-        const jy = (rand() - 0.5) * 2;
-        const x = p.u * w + jx;
-        const y = p.v * h + jy;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-  }
-
-  // Accent diamonds: a small solid diamond woven in short rows, so its
-  // edges step like knotted pile.
-  const d = w * 0.022;
-  for (const f of flecks()) {
-    ctx.fillStyle = FLECK[f.color];
-    const cx = f.u * w;
-    const cy = f.v * h;
-    for (let row = -d; row <= d; row += 3) {
-      const half = d - Math.abs(row);
-      ctx.globalAlpha = 0.8 + rand() * 0.2;
-      ctx.fillRect(cx - half + (rand() - 0.5) * 2, cy + row, half * 2, 3);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  return finish(c, { repeat: false });
-}
-
-/**
- * Pile for the rug's shells: a field of soft tufts of random height.
- * Each shell above the rug keeps only the tufts taller than its own
- * height (via alphaTest), so the pile thins towards its tips like real
- * wool. Grey values, not colour.
- */
-export function makePileTexture(): THREE.CanvasTexture {
-  const s = 256;
-  const { c, ctx } = canvas(s, s);
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, s, s);
-  const rand = mulberry32(17);
-  for (let i = 0; i < 3600; i++) {
-    const x = rand() * s;
-    const y = rand() * s;
-    const r = 1.3 + rand() * 2.2;
-    const v = Math.floor(90 + rand() * 165);
-    for (const ox of [-s, 0, s])
-      for (const oy of [-s, 0, s]) {
-        const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
-        g.addColorStop(0, `rgb(${v},${v},${v})`);
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g;
-        ctx.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
-      }
-  }
-  return finish(c, { srgb: false });
+  return {
+    map: finish(color.c, { repeat: false }),
+    bump: finish(bump.c, { srgb: false, repeat: false }),
+  };
 }

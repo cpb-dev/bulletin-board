@@ -28,9 +28,9 @@ const PINNED: Record<string, string> = {
   // added with the theme, not changed from anything
   "stars-hollow": "73e3bdcb",
   // BB-35, still under construction: room colours changed deliberately
-  // when the room was detailed (limewash, oak, Berber rug). No board can
-  // have saved anything on it yet.
-  "christmas-cabin": "9efaf0c4",
+  // when the room was detailed and then made cosier (knotty pine, deep
+  // oak, Fair Isle rug). No board can have saved anything on it yet.
+  "christmas-cabin": "e4065027",
 };
 
 /** JSON with keys in a fixed order, so reordering a palette isn't "drift". */

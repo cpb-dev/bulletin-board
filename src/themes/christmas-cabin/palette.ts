@@ -16,13 +16,14 @@ export const palette: BoardTheme = {
   emoji: "🎄",
   group: "seasonal",
   room: {
-    // Warm ivory limewash, walnut trim, oak floor, cream Berber rug with
-    // its charcoal lattice. Only this theme's own scene reads these.
-    wall: "#e8dccb",
+    // Honey knotty pine, walnut trim, deep warm oak floor, and the
+    // cranberry Fair Isle rug with its cream snowflakes. Only this
+    // theme's own scene reads these.
+    wall: "#c98d55",
     wallTrim: "#3d271a",
-    floor: "#b07a4a",
-    rug: "#efe6d4",
-    accent: "#3a2f2a",
+    floor: "#8e5e3a",
+    rug: "#b3333a",
+    accent: "#f6ead2",
   },
   board: {
     surface: "#c89d68",

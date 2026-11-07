@@ -61,7 +61,7 @@ export function Fireplace({ gradient }: { gradient: THREE.Texture }) {
           <meshBasicMaterial color={i === 1 ? "#ffd23f" : "#ff7a1a"} />
         </mesh>
       ))}
-      <pointLight position={[0, 0.7, 0.5]} intensity={2.2} distance={5} color="#ff8a3a" />
+      <pointLight position={[0, 0.7, 0.6]} intensity={4} distance={7} color="#ff8a3a" />
       {/* stockings, one each */}
       {[
         { sx: -0.45, color: "#c22f2f" },

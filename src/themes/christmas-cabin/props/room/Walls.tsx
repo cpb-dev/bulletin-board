@@ -4,54 +4,69 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mulberry32 } from "@/components/three/textures";
 import { ROOM } from "../../lib/layout";
-import { makeGrainStrip, makeLimewashTexture } from "./textures";
+import { makeGrainStrip, makePlankTextures } from "./textures";
 
-/** Limewash tile size, in metres. */
-const WASH_TILE = 3;
+/** Wall board tile size, in metres. */
+const BOARD_TILE = 2.6;
 /** Slat wainscot: height, slat width, depth and spacing (centre to centre). */
 const SLATS = { height: 1.0, width: 0.045, depth: 0.022, pitch: 0.075 } as const;
 const WALNUT = "#3d271a";
 
 /**
- * The walls (BB-35): warm ivory limewash above, vertical oak slats below
- * with dark shadow gaps and a walnut cap rail. The slats are real
- * geometry — one instanced mesh — so their shadow lines are real.
+ * The walls (BB-35): warm honey knotty-pine boards running floor to
+ * ceiling — rich wood is what makes a cabin feel cosy — over darker
+ * stained slats at wainscot height with shadow gaps and a walnut cap
+ * rail. The slats are real geometry, one instanced mesh.
  */
 export function Walls() {
-  const wash = useMemo(() => makeLimewashTexture("#efdfca"), []);
-  const slatGrain = useMemo(() => makeGrainStrip("#c08a58", 23, 0.08), []);
+  const { map: pine, bump: pineBump } = useMemo(
+    () =>
+      makePlankTextures(
+        512,
+        { rows: 16, minLength: 0.55, maxLength: 1, minStagger: 0.2, seed: 53 },
+        { base: "#c98d55", toneSpread: 1, grainStrength: 1.2, knots: 0.55 },
+        BOARD_TILE
+      ),
+    []
+  );
+  const slatGrain = useMemo(() => makeGrainStrip("#7a4a2a", 23, 0.1), []);
   useEffect(
     () => () => {
-      wash.dispose();
+      pine.dispose();
+      pineBump.dispose();
       slatGrain.dispose();
     },
-    [wash, slatGrain]
+    [pine, pineBump, slatGrain]
   );
 
   const { halfWidth, backZ, frontZ, height } = ROOM;
   const depth = frontZ - backZ;
   const midZ = (frontZ + backZ) / 2;
 
-  // Each wall needs its own repeat, so each gets its own clone.
-  const backWash = useMemo(() => {
-    const t = wash.clone();
-    t.repeat.set((halfWidth * 2) / WASH_TILE, height / WASH_TILE);
-    t.needsUpdate = true;
-    return t;
-  }, [wash, halfWidth, height]);
-  const sideWash = useMemo(() => {
-    const t = wash.clone();
-    t.repeat.set(depth / WASH_TILE, height / WASH_TILE);
-    t.needsUpdate = true;
-    return t;
-  }, [wash, depth, height]);
+  // Each wall needs its own repeat, so each gets its own clones.
+  const repeated = (t: THREE.Texture, w: number) => {
+    const c = t.clone();
+    c.repeat.set(w / BOARD_TILE, height / BOARD_TILE);
+    c.needsUpdate = true;
+    return c;
+  };
+  const backTex = useMemo(
+    () => ({ map: repeated(pine, halfWidth * 2), bump: repeated(pineBump, halfWidth * 2) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pine, pineBump, halfWidth]
+  );
+  const sideTex = useMemo(
+    () => ({ map: repeated(pine, depth), bump: repeated(pineBump, depth) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pine, pineBump, depth]
+  );
 
   return (
     <group>
       {/* back wall */}
       <mesh position={[0, height / 2, backZ]} receiveShadow>
         <planeGeometry args={[halfWidth * 2, height]} />
-        <meshStandardMaterial map={backWash} roughness={0.95} />
+        <meshStandardMaterial map={backTex.map} bumpMap={backTex.bump} bumpScale={1.2} roughness={0.7} />
       </mesh>
       {/* side walls */}
       {[-1, 1].map((side) => (
@@ -62,7 +77,7 @@ export function Walls() {
           receiveShadow
         >
           <planeGeometry args={[depth, height]} />
-          <meshStandardMaterial map={sideWash} roughness={0.95} />
+          <meshStandardMaterial map={sideTex.map} bumpMap={sideTex.bump} bumpScale={1.2} roughness={0.7} />
         </mesh>
       ))}
 

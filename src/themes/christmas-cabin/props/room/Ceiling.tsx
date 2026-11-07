@@ -21,7 +21,7 @@ export function Ceiling() {
       makePlankTextures(
         512,
         { rows: 22, minLength: 0.4, maxLength: 0.8, minStagger: 0.15, seed: 19 },
-        { base: "#dcb88c", toneSpread: 0.5, grainStrength: 0.7, knots: 0.05 },
+        { base: "#c48a52", toneSpread: 0.8, grainStrength: 1, knots: 0.3 },
         TILE
       ),
     []
@@ -60,7 +60,7 @@ export function Ceiling() {
           roughness={0.7}
           emissiveMap={map}
           emissive="#ffffff"
-          emissiveIntensity={0.32}
+          emissiveIntensity={0.16}
         />
       </mesh>
       <Beams grain={beamGrain} />
