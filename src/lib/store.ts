@@ -325,7 +325,7 @@ export function selectSceneThemeId(
  */
 export function selectSceneItems(
   s: Pick<BoardState, "items" | "isDev" | "devPreview">
-): BoardItem[] {
+): readonly BoardItem[] {
   return previewItems(s.items, s.devPreview, s.isDev);
 }
 

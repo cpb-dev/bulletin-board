@@ -88,8 +88,12 @@ export function previewThemeId(
  * drawn again the moment the preview ends. For everyone not in dev mode
  * this is always every item.
  */
-export function previewItems<T>(items: T[], preview: DevPreview, isDev: boolean): T[] {
-  return isDev && isPreviewing(preview) ? (NONE as T[]) : items;
+export function previewItems<T>(
+  items: readonly T[],
+  preview: DevPreview,
+  isDev: boolean
+): readonly T[] {
+  return isDev && isPreviewing(preview) ? NONE : items;
 }
 
 /**
