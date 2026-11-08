@@ -201,6 +201,13 @@ describe("previewItems", () => {
     expect(previewItems(items, preview({ themeId: "christmas-cabin" }), false)).toBe(items);
   });
 
+  it("hands back the very same empty list every time", () => {
+    // A store selector built on this is compared by reference: a fresh
+    // [] each call re-renders forever.
+    const p = preview({ themeId: "christmas-cabin" });
+    expect(previewItems(items, p, true)).toBe(previewItems(["other"], p, true));
+  });
+
   it("hides without touching: the list it was given is unchanged", () => {
     const before = [...items];
     previewItems(items, preview({ themeId: "christmas-cabin" }), true);

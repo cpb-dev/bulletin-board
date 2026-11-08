@@ -89,8 +89,15 @@ export function previewThemeId(
  * this is always every item.
  */
 export function previewItems<T>(items: T[], preview: DevPreview, isDev: boolean): T[] {
-  return isDev && isPreviewing(preview) ? [] : items;
+  return isDev && isPreviewing(preview) ? (NONE as T[]) : items;
 }
+
+/**
+ * The one empty list `previewItems` hands back. It must be the same
+ * object every time: store selectors are compared by reference, and a
+ * fresh `[]` on every call makes React re-render forever.
+ */
+const NONE: readonly never[] = Object.freeze([]);
 
 /**
  * The day/night phase to render. Without a dev override this is the
