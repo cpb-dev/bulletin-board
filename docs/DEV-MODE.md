@@ -35,10 +35,15 @@ keeps seeing the board as it is, and archived boards aren't touched.
   `/dev/scene?notes=1`. This is the way to check how notes look in a
   theme. Taps go straight through them.
 
+**A preview shows the theme as a fresh board.** While anything is
+previewed, your board's own notes and photos aren't drawn, so they don't
+sit over the preview or the sample notes. They're only hidden: nothing is
+deleted or changed, they stay in the database, they keep updating live if
+the other person pins something, and they're back the moment you exit.
+
 **The board is view-only while anything is previewed.** You can't add,
-edit, move or resize notes until you exit. You can still look around,
-walk up, and hold a note to read it. 🎨 stays on the toolbar so you can
-switch preview or stop. A banner says what's being previewed.
+edit, move or resize notes until you exit. 🎨 stays on the toolbar so you
+can switch preview or stop. A banner says what's being previewed.
 
 ## Themes under construction
 

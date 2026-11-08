@@ -5,6 +5,7 @@ import {
   isPreviewing,
   NO_PREVIEW,
   parseDevEmails,
+  previewItems,
   previewPhase,
   previewThemeId,
   readDevPreview,
@@ -180,5 +181,29 @@ describe("sampleNotes", () => {
     }
     // Pre-BB-24 rows have no shape column at all.
     expect(notes.filter((n) => !("shape" in n))).toHaveLength(1 + theme.papers.length);
+  });
+});
+
+describe("previewItems", () => {
+  const items = ["note-1", "photo-2", "note-3"];
+
+  it("draws every item when nothing is previewed", () => {
+    expect(previewItems(items, NO_PREVIEW, true)).toBe(items);
+  });
+
+  it("shows a preview as a fresh board: none of the board's own items", () => {
+    expect(previewItems(items, preview({ themeId: "christmas-cabin" }), true)).toEqual([]);
+    expect(previewItems(items, preview({ sampleNotes: true }), true)).toEqual([]);
+    expect(previewItems(items, preview({ phase: "night" }), true)).toEqual([]);
+  });
+
+  it("never hides anything for someone who isn't the developer", () => {
+    expect(previewItems(items, preview({ themeId: "christmas-cabin" }), false)).toBe(items);
+  });
+
+  it("hides without touching: the list it was given is unchanged", () => {
+    const before = [...items];
+    previewItems(items, preview({ themeId: "christmas-cabin" }), true);
+    expect(items).toEqual(before);
   });
 });

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   selectDisplayedThemeId,
   selectLocked,
+  selectSceneItems,
   selectSceneThemeId,
   useBoardStore,
 } from "../store";
@@ -359,5 +360,41 @@ describe("the board is view-only during a dev preview (BB-36)", () => {
     useBoardStore.setState({ isDev: true, mode: "edit" });
     useBoardStore.getState().setDevPreview(NO_PREVIEW);
     expect(useBoardStore.getState().mode).toBe("edit");
+  });
+});
+
+describe("a dev preview hides the board's notes from the scene (BB-36)", () => {
+  const items = [makeItem({ id: "a" }), makeItem({ id: "b" })];
+
+  it("draws none of the board's items while previewing, but keeps them all", () => {
+    useBoardStore.setState({ items, isDev: true });
+    useBoardStore.getState().setDevPreview({ themeId: "christmas-cabin" });
+    const s = useBoardStore.getState();
+    expect(selectSceneItems(s)).toEqual([]);
+    // The board's items are untouched: nothing removed, nothing changed.
+    expect(s.items).toBe(items);
+  });
+
+  it("keeps up with realtime while hidden, and shows everything after", () => {
+    useBoardStore.setState({ items, isDev: true });
+    useBoardStore.getState().setDevPreview({ sampleNotes: true });
+    // The other person pins something mid-preview.
+    useBoardStore.getState().upsertItem(makeItem({ id: "c" }));
+    expect(selectSceneItems(useBoardStore.getState())).toEqual([]);
+    useBoardStore.getState().setDevPreview(NO_PREVIEW);
+    expect(selectSceneItems(useBoardStore.getState()).map((i) => i.id)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+
+  it("always draws everything for someone who isn't the developer", () => {
+    useBoardStore.setState({
+      items,
+      isDev: false,
+      devPreview: { ...NO_PREVIEW, themeId: "christmas-cabin" },
+    });
+    expect(selectSceneItems(useBoardStore.getState())).toBe(items);
   });
 });

@@ -80,6 +80,19 @@ export function previewThemeId(
 }
 
 /**
+ * The board's items to draw in the scene. A dev preview is a look at a
+ * theme as a fresh board, so while one is on, the board's own notes and
+ * photos aren't drawn — otherwise they sit over the preview and over the
+ * sample notes. They're only hidden, never touched: the items stay in
+ * the store (and the database), realtime keeps them current, and they're
+ * drawn again the moment the preview ends. For everyone not in dev mode
+ * this is always every item.
+ */
+export function previewItems<T>(items: T[], preview: DevPreview, isDev: boolean): T[] {
+  return isDev && isPreviewing(preview) ? [] : items;
+}
+
+/**
  * The day/night phase to render. Without a dev override this is the
  * normal rule: a theme's cycle decides, and a memory keeps its daylight.
  * With one, the override is pinned on the theme's own cycle — so a

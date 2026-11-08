@@ -29,7 +29,7 @@ export function DevBanner() {
         <span>
           🛠️ previewing {parts.join(" · ")}
           <span className="block text-xs opacity-70">
-            only on this device · the board is locked until you exit
+            only on this device · your notes are hidden, not touched, until you exit
           </span>
         </span>
         <button
