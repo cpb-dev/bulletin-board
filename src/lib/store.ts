@@ -8,6 +8,7 @@ import {
 import {
   isPreviewing,
   NO_PREVIEW,
+  previewItems,
   previewThemeId,
   writeDevPreview,
   type DevPreview,
@@ -314,6 +315,18 @@ export function selectSceneThemeId(
   s: Pick<BoardState, "board" | "themeView" | "isDev" | "devPreview">
 ): string | undefined {
   return previewThemeId(selectDisplayedThemeId(s), s.devPreview, s.isDev);
+}
+
+/**
+ * The board's items to draw in the 3D scene: all of them, except during
+ * a dev preview (BB-36), which shows the theme as a fresh board. Only
+ * the scene uses this; `items` itself is never filtered, so nothing that
+ * reads or saves the board is affected.
+ */
+export function selectSceneItems(
+  s: Pick<BoardState, "items" | "isDev" | "devPreview">
+): readonly BoardItem[] {
+  return previewItems(s.items, s.devPreview, s.isDev);
 }
 
 /**

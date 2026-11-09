@@ -14,6 +14,7 @@ import {
 import { listThemeStatuses } from "@/lib/theme-status-api";
 import {
   selectLocked,
+  selectSceneItems,
   selectSceneThemeId,
   useBoardStore,
 } from "@/lib/store";
@@ -63,6 +64,9 @@ export function BoardExperience({
   const [fixturesOpen, setFixturesOpen] = useState(false);
   const board = useBoardStore((s) => s.board);
   const items = useBoardStore((s) => s.items);
+  // What the scene draws: during a dev preview, the board's own notes are
+  // hidden (not removed) so the theme is seen as a fresh board (BB-36).
+  const sceneItems = useBoardStore(selectSceneItems);
   const view = useBoardStore((s) => s.view);
   const mode = useBoardStore((s) => s.mode);
   // Archived boards (opened directly) are always read-only.
@@ -290,7 +294,7 @@ export function BoardExperience({
       >
         <Scene theme={theme} phase={phase} />
         <Board theme={theme} decor={BoardDecor} phase={phase}>
-          {items.map((item) =>
+          {sceneItems.map((item) =>
             item.kind === "photo" ? (
               <PhotoMesh key={item.id} item={item} theme={theme} />
             ) : (
