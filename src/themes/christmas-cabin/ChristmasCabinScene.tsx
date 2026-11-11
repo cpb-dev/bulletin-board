@@ -64,7 +64,7 @@ export const ChristmasCabinScene: ThemeScene = ({ theme }) => {
       <WallWashers />
 
       <CabinRoom />
-      <Fireplace gradient={gradient} />
+      <Fireplace />
       <AlphabetWall />
       <ChristmasTree gradient={gradient} />
       <Presents gradient={gradient} />
