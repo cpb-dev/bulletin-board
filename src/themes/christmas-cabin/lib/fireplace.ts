@@ -29,6 +29,17 @@ export const FACE_Z = FIREPLACE.depth / 2;
 export const FIRE = { y: 0.24, z: -0.05, flameTop: 0.95 } as const;
 /** Where smoke disappears up the flue: just inside the top of the opening. */
 export const THROAT = { y: OPENING.top - 0.04, z: FIREBOX_BACK_Z + 0.12 } as const;
+/**
+ * The masonry above the opening, behind the lintel, is solid from here
+ * forward: only the throat behind it is open. Without it, the rounded
+ * lintel stones leave slits you could see Santa's legs through.
+ */
+export const FLUE_FRONT_Z = -0.03;
+/** Where Santa's legs come down: the middle of the throat. */
+export const SANTA_Z = THROAT.z - 0.04;
+/** How far a boot's toe reaches forward of the leg, and a leg's radius. */
+export const BOOT_REACH = 0.16;
+export const LEG_RADIUS = 0.072;
 
 // ---- the fire's flicker -----------------------------------------------------
 

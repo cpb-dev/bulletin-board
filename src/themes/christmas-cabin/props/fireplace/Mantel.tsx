@@ -12,7 +12,7 @@ import { makeCuffTexture, makeStockingKnit } from "./textures";
 /** The two stockings: one each, over the stone either side of the fire. */
 const STOCKINGS = [
   { initial: "K", body: "#b3333a", stripe: "#f2e6cf", thread: "#2f5a3a", x: -(OPENING.width / 2 + 0.24), toeLeft: true },
-  { initial: "C", body: "#2f5a3a", stripe: "#f2e6cf", thread: "#b3333a", x: OPENING.width / 2 + 0.24, toeLeft: false },
+  { initial: "C", body: "#3a66b8", stripe: "#f2e6cf", thread: "#3a66b8", x: OPENING.width / 2 + 0.24, toeLeft: false },
 ];
 
 /** The mantel's front edge, which everything hangs from. */

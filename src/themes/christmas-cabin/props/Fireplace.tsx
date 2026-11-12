@@ -4,7 +4,16 @@ import { useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import type * as THREE from "three";
 import { FIREPLACE, ROOM } from "../lib/layout";
-import { NO_TAPS, registerTap, SANTA_TOTAL, santaPose, SOLE_HIDDEN, SOLE_LOWEST, THROAT, type TapState } from "../lib/fireplace";
+import {
+  NO_TAPS,
+  registerTap,
+  SANTA_TOTAL,
+  SANTA_Z,
+  santaPose,
+  SOLE_HIDDEN,
+  SOLE_LOWEST,
+  type TapState,
+} from "../lib/fireplace";
 import { Stonework } from "./fireplace/Stonework";
 import { Firebox } from "./fireplace/Firebox";
 import { Mantel } from "./fireplace/Mantel";
@@ -84,7 +93,7 @@ export function Fireplace() {
       <Firebox dim={dim} />
       <Mantel />
       {/* Santa's legs: the group sits at the soles; the hips are LEG above. */}
-      <group ref={santa} position={[0, SOLE_PARKED, THROAT.z - 0.04]}>
+      <group ref={santa} position={[0, SOLE_PARKED, SANTA_Z]}>
         <SantaLeg ref={left} x={-0.085} />
         <SantaLeg ref={right} x={0.085} />
       </group>

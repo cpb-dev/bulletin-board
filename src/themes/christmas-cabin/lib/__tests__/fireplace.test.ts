@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   BOOT,
+  BOOT_REACH,
   DOUBLE_TAP,
+  FIREBOX_BACK_Z,
+  FLUE_FRONT_Z,
+  LEG_RADIUS,
+  SANTA_Z,
   FIRE,
   flicker,
   LINTEL,
@@ -31,6 +36,13 @@ describe("the fireplace's shape", () => {
   it("fits its opening, lintel and mantel inside the fireplace", () => {
     expect(OPENING.width).toBeLessThan(FIREPLACE.width - 0.6);
     expect(OPENING.top).toBeLessThan(LINTEL.top);
+  });
+
+  it("leaves the throat wide enough for Santa, behind solid masonry", () => {
+    // Coming down straight, his toes stay behind the solid block over the
+    // opening, and his heels clear the firebox's back wall.
+    expect(SANTA_Z + BOOT_REACH).toBeLessThan(FLUE_FRONT_Z);
+    expect(SANTA_Z - LEG_RADIUS).toBeGreaterThan(FIREBOX_BACK_Z);
   });
 
   it("keeps the flames inside the opening", () => {

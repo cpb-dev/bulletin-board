@@ -9,6 +9,7 @@ import {
   BREAST,
   FACE_Z,
   FIREBOX_BACK_Z,
+  FLUE_FRONT_Z,
   HEARTH,
   LINTEL,
   OPENING,
@@ -188,6 +189,15 @@ export function Stonework() {
       ))}
       <mesh position={[0, BREAST.bottom + breastH / 2, -0.1]}>
         <boxGeometry args={[BREAST.width - 0.02, breastH, D - 0.22]} />
+        <meshStandardMaterial color={MORTAR} roughness={1} />
+      </mesh>
+
+      {/* Solid masonry over the opening, behind the lintel: the rounded
+          lintel stones leave slits, and without this you could see
+          through them into the flue — and Santa's legs coming down. Only
+          the throat behind it is open. */}
+      <mesh position={[0, (OPENING.top + BREAST.bottom) / 2, (FLUE_FRONT_Z + FACE_Z - 0.08) / 2]}>
+        <boxGeometry args={[OPENING.width + 0.04, BREAST.bottom - OPENING.top, FACE_Z - 0.08 - FLUE_FRONT_Z]} />
         <meshStandardMaterial color={MORTAR} roughness={1} />
       </mesh>
 
