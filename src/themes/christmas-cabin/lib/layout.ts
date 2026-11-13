@@ -71,7 +71,7 @@ export const SNOW_WINDOW = { x: -3.55, y: 2.15, width: 2.1, height: 1.3 } as con
 export const TREE = { x: -4.2, z: -0.35, radius: 0.95, height: 3.0 } as const;
 
 /** Where the branches start: below this is bare trunk over the presents. */
-export const TREE_SKIRT_Y = 0.35;
+export const TREE_SKIRT_Y = 0.45;
 
 /**
  * How far the branches reach from the trunk at height `y`: widest at the
@@ -133,20 +133,22 @@ export interface Present {
 
 /**
  * Presents under the tree and spilling out towards the window: different
- * sizes and papers, a couple stacked. Tune them freely here: the tests
- * keep them apart, inside the room, out of the board's way and resting
- * on whatever they're stacked on.
+ * sizes and papers, a couple stacked. The low ones tuck in under the
+ * branches; the tall and stacked ones stand just clear of them. Tune them
+ * freely here: the tests keep them apart, out from under any branch that
+ * would cut through them, inside the room, out of the board's way, and
+ * resting on whatever they're stacked on.
  */
 export const PRESENTS: Present[] = [
-  { x: -3.5, z: -0.55, w: 0.48, h: 0.36, d: 0.44, rot: 0.2, wrap: "plaid", ribbon: "#e2b23c" },
+  { x: -2.95, z: -0.9, w: 0.48, h: 0.36, d: 0.44, rot: 0.2, wrap: "plaid", ribbon: "#e2b23c" },
   { x: 0.03, z: -0.02, w: 0.26, h: 0.18, d: 0.24, rot: -0.35, wrap: "gold", ribbon: "#b3202a", on: 0 },
-  { x: -3.78, z: 0.25, w: 0.36, h: 0.3, d: 0.34, rot: -0.15, wrap: "dots", ribbon: "#c22f2f" },
-  { x: -4.4, z: 0.45, w: 0.3, h: 0.22, d: 0.3, rot: 0.5, wrap: "kraft", ribbon: "#efe6d2" },
-  { x: -3.1, z: -1.25, w: 0.26, h: 0.5, d: 0.26, rot: 0.1, wrap: "snowflakes", ribbon: "#c22f2f" },
-  { x: -3.55, z: -1.62, w: 0.5, h: 0.24, d: 0.36, rot: -0.2, wrap: "candy", ribbon: "#2f6b3f" },
+  { x: -3.1, z: 0.75, w: 0.36, h: 0.3, d: 0.34, rot: -0.15, wrap: "dots", ribbon: "#c22f2f" },
+  { x: -4.6, z: 0.05, w: 0.3, h: 0.2, d: 0.3, rot: 0.5, wrap: "kraft", ribbon: "#efe6d2" },
+  { x: -3.1, z: -1.45, w: 0.26, h: 0.5, d: 0.26, rot: 0.1, wrap: "snowflakes", ribbon: "#c22f2f" },
+  { x: -3.62, z: -1.85, w: 0.5, h: 0.24, d: 0.36, rot: -0.2, wrap: "candy", ribbon: "#2f6b3f" },
   { x: -0.04, z: 0.02, w: 0.2, h: 0.16, d: 0.2, rot: 0.4, wrap: "stars", ribbon: "#d8d8dc", on: 5 },
-  { x: -2.85, z: -1.85, w: 0.3, h: 0.2, d: 0.28, rot: 0.3, wrap: "berry", ribbon: "#e2b23c" },
-  { x: -3.05, z: -0.25, w: 0.22, h: 0.18, d: 0.2, rot: -0.4, wrap: "tartan", ribbon: "#efe6d2" },
+  { x: -2.75, z: -1.95, w: 0.3, h: 0.2, d: 0.28, rot: 0.3, wrap: "berry", ribbon: "#e2b23c" },
+  { x: -3.75, z: -0.05, w: 0.22, h: 0.16, d: 0.2, rot: -0.4, wrap: "tartan", ribbon: "#efe6d2" },
 ];
 
 /** Where a present stands in the room: its centre on the floor, and its base height. */

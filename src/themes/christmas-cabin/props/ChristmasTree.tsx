@@ -4,10 +4,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { ROOM_CAMERA, TREE, TREE_SKIRT_Y } from "../lib/layout";
-import { baubles, branches, lightString, twinkle } from "../lib/tree";
-import { makeSoftDotTexture } from "./fireplace/textures";
-import { makeNeedleSprayTexture } from "./tree/textures";
+import { ROOM_CAMERA, TREE, TREE_SKIRT_Y, treeRadiusAt } from "../lib/layout";
+import { baubles, branches, lightString, LIGHTS, twinkle } from "../lib/tree";
+import { makeGlowTexture, makeNeedleSprayTexture } from "./tree/textures";
+
+/** How far in front of the needles a light's glow sits. */
+const HALO_CLEAR = 0.04;
 
 /** The lights' warm white, and the odd amber bulb among them. */
 const WARM = new THREE.Color("#ffd48a");
@@ -24,7 +26,7 @@ const AMBER = new THREE.Color("#ffab4a");
 export function ChristmasTree() {
   const { x, z } = TREE;
   const needles = useMemo(makeNeedleSprayTexture, []);
-  const glowDot = useMemo(makeSoftDotTexture, []);
+  const glowDot = useMemo(makeGlowTexture, []);
   useEffect(
     () => () => {
       needles.dispose();
@@ -164,22 +166,43 @@ function Baubles() {
 }
 
 /**
- * The lights: small bright bulbs, each with a soft additive halo, and a
- * warm glow cast on the presents. Every frame each bulb (and its halo)
- * takes its brightness from `twinkle` — slow, smooth and never in step.
+ * The lights: bright bulbs with a hot, near-white core; round each, a
+ * tight inner glow and a wide soft halo that spills onto the needles
+ * around it, the neighbouring halos melting into one warm haze. Every
+ * frame each bulb and both its glows take their brightness from
+ * `twinkle` — slow, smooth and never in step. Two warm lights — one in
+ * front of the tree at mid-height, one low by the presents — carry the
+ * glow onto the branches and the wrapping, breathing with the twinkle.
  */
 function Lights({ glow }: { glow: THREE.Texture }) {
   const lights = useMemo(lightString, []);
   const bulbs = useRef<THREE.InstancedMesh>(null);
   const tints = useMemo(() => lights.map((_, i) => (i % 5 === 2 ? AMBER : WARM)), [lights]);
+  // Each glow sits a little in front of its bulb, towards the room
+  // camera, just clear of the needles: at the bulb itself the needles in
+  // front would hide it; pushed straight outwards, the glows at the
+  // tree's edges would hang in the air beside it; and with depth testing
+  // off, bulbs round the back would glow through. Moved this way, the
+  // back ones move into the tree's dark core and stay hidden.
   const halo = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(lights.flatMap((l) => [l.x, l.y, l.z])), 3));
+    const eye = new THREE.Vector3(ROOM_CAMERA.x - TREE.x, ROOM_CAMERA.y, ROOM_CAMERA.z - TREE.z);
+    const p = new THREE.Vector3();
+    const d = new THREE.Vector3();
+    const pos = lights.flatMap((l) => {
+      p.set(l.x, l.y, l.z);
+      d.copy(eye).sub(p).normalize();
+      const clear = treeRadiusAt(l.y) * (1 - LIGHTS.inset) + HALO_CLEAR;
+      p.addScaledVector(d, clear);
+      return [p.x, p.y, p.z];
+    });
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
     g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(lights.length * 3), 3));
     return g;
   }, [lights]);
   useEffect(() => () => halo.dispose(), [halo]);
-  const light = useRef<THREE.PointLight>(null);
+  const front = useRef<THREE.PointLight>(null);
+  const low = useRef<THREE.PointLight>(null);
 
   useLayoutEffect(() => {
     const m = bulbs.current;
@@ -203,36 +226,55 @@ function Lights({ glow }: { glow: THREE.Texture }) {
     for (let i = 0; i < lights.length; i++) {
       const v = twinkle(i, t);
       sum += v;
-      c.copy(tints[i]).multiplyScalar(0.25 + v * 1.1);
+      // Past 1 the colour clips towards white: a hot filament core.
+      c.copy(tints[i]).multiplyScalar(0.35 + v * 1.9);
       m?.setColorAt(i, c);
-      col.setXYZ(i, tints[i].r * v * 0.7, tints[i].g * v * 0.7, tints[i].b * v * 0.7);
+      col.setXYZ(i, tints[i].r * v, tints[i].g * v, tints[i].b * v);
     }
     if (m?.instanceColor) m.instanceColor.needsUpdate = true;
     col.needsUpdate = true;
-    if (light.current) light.current.intensity = 1.8 * (sum / lights.length);
+    const avg = sum / lights.length;
+    if (front.current) front.current.intensity = 1.4 * avg;
+    if (low.current) low.current.intensity = 1.6 * avg;
   });
 
   return (
     <group>
       <instancedMesh ref={bulbs} args={[undefined, undefined, lights.length]}>
-        <sphereGeometry args={[0.016, 8, 6]} />
+        <sphereGeometry args={[0.02, 10, 8]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
+      {/* tight inner glow */}
       <points geometry={halo}>
         <pointsMaterial
-          size={0.11}
+          size={0.13}
           map={glow}
           vertexColors
           transparent
+          opacity={1}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
           toneMapped={false}
         />
       </points>
-      {/* The lights' warm glow on the presents and the floor: out in
-          front of the tree and low, so it doesn't light the branches up
-          from inside. */}
-      <pointLight ref={light} position={[1.3, 0.4, 0.9]} distance={2.4} decay={2} color="#ffc277" />
+      {/* wide soft halo, spilling onto the needles */}
+      <points geometry={halo}>
+        <pointsMaterial
+          size={0.4}
+          map={glow}
+          vertexColors
+          transparent
+          opacity={0.5}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </points>
+      {/* Warm light out in front of the tree, never inside it (that lit
+          the branches up green from within): one at mid-height facing the
+          room, one low by the presents. */}
+      <pointLight ref={front} position={[0.85, 1.5, 0.88]} distance={2.2} decay={2} color="#ffb259" />
+      <pointLight ref={low} position={[1.3, 0.4, 0.9]} distance={2.4} decay={2} color="#ffc277" />
     </group>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TREE, TREE_SKIRT_Y, treeRadiusAt } from "../layout";
+import { PRESENTS, presentPlace, TREE, TREE_SKIRT_Y, treeRadiusAt } from "../layout";
 import { baubles, branches, branchTip, lightString, LIGHTS, twinkle } from "../tree";
 
 describe("the tree's outline", () => {
@@ -124,5 +124,41 @@ describe("baubles", () => {
     const low = all.filter((b) => b.y < 1.2).map((b) => b.size);
     const high = all.filter((b) => b.y > 2.2).map((b) => b.size);
     expect(Math.min(...low)).toBeGreaterThan(Math.max(...high) * 0.95);
+  });
+});
+
+describe("the branches and the presents", () => {
+  it("never pass through a present: every present sits under the branches", () => {
+    // Each branch carries two sprays tilted up into a V about its centre
+    // line (see ChristmasTree), so a spray's needles spread sideways and
+    // rise as they go. Sample the spray across its width at every step
+    // along the branch, at each point's real height.
+    const TILT = 0.55;
+    for (const b of branches()) {
+      for (let k = 0; k <= 24; k++) {
+        const s = (k / 24) * b.length;
+        const reach = s * Math.cos(b.droop);
+        const cx = Math.cos(b.yaw) * reach;
+        const cz = Math.sin(b.yaw) * reach;
+        const cy = b.y - s * Math.sin(b.droop);
+        for (let j = -4; j <= 4; j++) {
+          const l = (j / 4) * (b.width / 2);
+          // Sideways is across the branch, round the trunk.
+          const x = TREE.x + cx - Math.sin(b.yaw) * l * Math.cos(TILT);
+          const z = TREE.z + cz + Math.cos(b.yaw) * l * Math.cos(TILT);
+          const y = cy + Math.abs(l) * Math.sin(TILT);
+          PRESENTS.forEach((p, i) => {
+            const at = presentPlace(i);
+            // The present as a circle round its corners: cautious.
+            if (Math.hypot(x - at.x, z - at.z) > Math.hypot(p.w, p.d) / 2) return;
+            expect(y, `a branch at y=${b.y.toFixed(2)} cuts present ${i}`).toBeGreaterThan(at.base + p.h + 0.02);
+          });
+        }
+      }
+    }
+  });
+
+  it("keep their lowest tips off the floor", () => {
+    for (const b of branches()) expect(branchTip(b).y).toBeGreaterThan(0.12);
   });
 });

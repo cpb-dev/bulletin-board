@@ -14,6 +14,7 @@ import {
   ROOM_CAMERA,
   SNOW_WINDOW,
   TREE,
+  TREE_SKIRT_Y,
   treeHidesWindow,
   treeRadiusAt,
 } from "../layout";
@@ -105,7 +106,7 @@ describe("Christmas Cabin layout", () => {
     // at the sill it's a little over half its base width.
     const sill = SNOW_WINDOW.y - SNOW_WINDOW.height / 2;
     expect(treeRadiusAt(sill)).toBeLessThan(TREE.radius * 0.7);
-    expect(treeRadiusAt(0.4)).toBeGreaterThan(TREE.radius * 0.95);
+    expect(treeRadiusAt(TREE_SKIRT_Y + 0.05)).toBeGreaterThan(TREE.radius * 0.95);
   });
 
   it("keeps presents on the floor from overlapping each other", () => {

@@ -227,3 +227,26 @@ export function makePaper(wrap: Wrap): Paper {
   const shiny = wrap === "gold";
   return { map: tex(c, true), metalness: shiny ? 0.6 : 0, roughness: shiny ? 0.35 : 0.75 };
 }
+
+/**
+ * A light's glow: a hot centre falling off smoothly to nothing, with no
+ * hard edge anywhere, so overlapping glows from neighbouring bulbs melt
+ * into one warm haze. Used additively, in white; the bulb's colour tints.
+ */
+export function makeGlowTexture(): THREE.CanvasTexture {
+  const s = 128;
+  const { c, ctx } = canvas(s);
+  const img = ctx.createImageData(s, s);
+  for (let y = 0; y < s; y++)
+    for (let x = 0; x < s; x++) {
+      const d = Math.hypot(x - s / 2 + 0.5, y - s / 2 + 0.5) / (s / 2);
+      // A bright core with a long, soft tail, reaching zero at the edge.
+      const v = d >= 1 ? 0 : Math.exp(-d * d * 7) * 0.85 + Math.exp(-d * 3.2) * 0.25 * (1 - d);
+      const i = (y * s + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(Math.min(1, v) * 255);
+    }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}

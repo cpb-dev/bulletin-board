@@ -44,7 +44,9 @@ export function branches(seed = 3): Branch[] {
     const k = reach / TREE.radius; // 1 at the bottom, ~0 at the tip
     const count = Math.max(7, Math.round(8 + 12 * k));
     for (let i = 0; i < count; i++) {
-      const droop = 0.12 + 0.38 * k + (r() - 0.5) * 0.1;
+      // Lower branches spread out flatter, as on a real fir, and leave
+      // room for the presents under them.
+      const droop = 0.08 + 0.2 * k + (r() - 0.5) * 0.04;
       // Long enough that the tip, drooped, reaches the outline at its height.
       const length = (reach * (0.92 + r() * 0.12)) / Math.cos(droop);
       out.push({
