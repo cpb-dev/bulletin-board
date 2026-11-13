@@ -1,58 +1,312 @@
 "use client";
 
-import type * as THREE from "three";
-import { ROOM_CAMERA, TREE, treeTiers } from "../lib/layout";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { ROOM_CAMERA, TREE, TREE_SKIRT_Y, treeRadiusAt } from "../lib/layout";
+import { baubles, branches, lightString, LIGHTS, twinkle } from "../lib/tree";
+import { makeGlowTexture, makeNeedleSprayTexture } from "./tree/textures";
 
-const BAUBLES = ["#e0443a", "#e8b63a", "#3f8cff", "#f4f1e8", "#e0443a", "#e8b63a"];
+/** How far in front of the needles a light's glow sits. */
+const HALO_CLEAR = 0.04;
+
+/** The lights' warm white, and the odd amber bulb among them. */
+const WARM = new THREE.Color("#ffd48a");
+const AMBER = new THREE.Color("#ffab4a");
 
 /**
- * The Christmas tree in the back-left corner, just left of the window
- * (BB-35). Its cones come from `treeTiers`, the same numbers the layout
- * tests use to check it doesn't hide the window.
- *
- * BLOCK-OUT: stacked cones, a star and baubles. A layered fir and
- * twinkling lights come in "Christmas Cabin: tree and presents".
+ * The Christmas tree (BB-35): a tall, full fir in the front-left of the
+ * room. Hundreds of needled branches in whorls round a dark inner body,
+ * drooping more towards the bottom; warm lights wound round it that
+ * swell and fade slowly, each on its own rhythm; glossy baubles hung
+ * among the needles; and a gold star that glows on top. It stands on a
+ * felt skirt with the presents round its foot.
  */
-export function ChristmasTree({ gradient }: { gradient: THREE.Texture }) {
-  const { x, z, height } = TREE;
-  const tiers = treeTiers();
-  // Baubles hang on the side that faces the room camera.
-  const toCamera = Math.atan2(ROOM_CAMERA.z - z, ROOM_CAMERA.x - x);
+export function ChristmasTree() {
+  const { x, z } = TREE;
+  const needles = useMemo(makeNeedleSprayTexture, []);
+  const glowDot = useMemo(makeGlowTexture, []);
+  useEffect(
+    () => () => {
+      needles.dispose();
+      glowDot.dispose();
+    },
+    [needles, glowDot]
+  );
 
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, tiers[0].y / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.1, tiers[0].y + 0.05, 10]} />
-        <meshToonMaterial color="#5a3a22" gradientMap={gradient} />
-      </mesh>
-      {tiers.map((t) => (
-        <mesh key={t.y} position={[0, t.y + t.h / 2, 0]} castShadow>
-          <coneGeometry args={[t.r, t.h, 14]} />
-          <meshToonMaterial color="#2c6b3c" gradientMap={gradient} />
-        </mesh>
-      ))}
-      {/* star */}
-      <mesh position={[0, height + 0.08, 0]}>
-        <octahedronGeometry args={[0.11, 0]} />
-        <meshBasicMaterial color="#ffd23f" toneMapped={false} />
-      </mesh>
-      {/* baubles: two per tier, on the lower rim, towards the room */}
-      {tiers.flatMap((t, ti) =>
-        [-0.5, 0.45].map((da, k) => {
-          const a = toCamera + da + ti * 0.25;
-          const lift = 0.12;
-          const r = t.r * (1 - lift / t.h) + 0.04;
-          return (
-            <mesh key={`${ti}-${k}`} position={[Math.cos(a) * r, t.y + lift, Math.sin(a) * r]}>
-              <sphereGeometry args={[0.065, 10, 8]} />
-              <meshToonMaterial
-                color={BAUBLES[(ti * 2 + k) % BAUBLES.length]}
-                gradientMap={gradient}
-              />
-            </mesh>
-          );
-        })
-      )}
+      <Trunk />
+      <Skirt />
+      <Body />
+      <Branches map={needles} />
+      <Baubles />
+      <Lights glow={glowDot} />
+      <Star />
     </group>
   );
 }
+
+function Trunk() {
+  return (
+    <mesh position={[0, (TREE_SKIRT_Y + 0.4) / 2, 0]} castShadow>
+      <cylinderGeometry args={[0.06, 0.09, TREE_SKIRT_Y + 0.4, 10]} />
+      <meshStandardMaterial color="#4a3324" roughness={1} />
+    </mesh>
+  );
+}
+
+/** A red felt tree skirt with a cream border, under the presents. */
+function Skirt() {
+  return (
+    <group position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh receiveShadow>
+        <circleGeometry args={[0.82, 40]} />
+        <meshStandardMaterial color="#8e1f26" roughness={1} />
+      </mesh>
+      <mesh position={[0, 0, 0.001]} receiveShadow>
+        <ringGeometry args={[0.74, 0.82, 40]} />
+        <meshStandardMaterial color="#efe6d2" roughness={1} />
+      </mesh>
+    </group>
+  );
+}
+
+/** The dark heart of the tree, so you never see through it. */
+function Body() {
+  const h = TREE.height - TREE_SKIRT_Y;
+  return (
+    <mesh position={[0, TREE_SKIRT_Y + h / 2 - 0.05, 0]} castShadow receiveShadow>
+      <coneGeometry args={[TREE.radius * 0.8, h, 20]} />
+      <meshStandardMaterial color="#1b3a24" roughness={1} />
+    </mesh>
+  );
+}
+
+/**
+ * Every branch, as one instanced mesh: two sprays of needles per branch,
+ * tilted up into a shallow V along it, so each branch reads as a bushy
+ * shelf of needles from any angle — not a flat frond, and not an
+ * upright fin, which shows as a vertical streak.
+ */
+function Branches({ map }: { map: THREE.Texture }) {
+  const all = useMemo(() => branches(), []);
+  const geometry = useMemo(() => {
+    // A spray running from its base at the origin out along +x.
+    const spray = new THREE.PlaneGeometry(1, 1);
+    spray.translate(0, 0.5, 0);
+    spray.rotateZ(-Math.PI / 2);
+    // Lay it flat, then tilt each copy up about the branch's own axis.
+    spray.rotateX(Math.PI / 2);
+    const a = spray.clone().rotateX(0.55);
+    const b = spray.clone().rotateX(-0.55);
+    spray.dispose();
+    return mergeGeometries([a, b]);
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const yaw = new THREE.Quaternion();
+    const droop = new THREE.Quaternion();
+    const pos = new THREE.Vector3();
+    const scale = new THREE.Vector3();
+    const mat = new THREE.Matrix4();
+    const c = new THREE.Color();
+    const Y = new THREE.Vector3(0, 1, 0);
+    const Zax = new THREE.Vector3(0, 0, 1);
+    all.forEach((b, i) => {
+      yaw.setFromAxisAngle(Y, -b.yaw);
+      droop.setFromAxisAngle(Zax, -b.droop);
+      pos.set(0, b.y, 0);
+      scale.set(b.length, b.width, b.width);
+      mat.compose(pos, yaw.clone().multiply(droop), scale);
+      m.setMatrixAt(i, mat);
+      const l = 0.82 + b.tone * 0.14;
+      m.setColorAt(i, c.setRGB(l * 0.95, l, l * 0.92));
+    });
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, [all]);
+
+  return (
+    <instancedMesh ref={mesh} args={[geometry, undefined, all.length]} receiveShadow>
+      <meshStandardMaterial map={map} alphaTest={0.45} side={THREE.DoubleSide} roughness={0.9} />
+    </instancedMesh>
+  );
+}
+
+function Baubles() {
+  const all = useMemo(() => baubles(), []);
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const o = new THREE.Object3D();
+    const c = new THREE.Color();
+    all.forEach((b, i) => {
+      o.position.set(b.x, b.y - b.size * 0.4, b.z);
+      o.scale.setScalar(b.size);
+      o.updateMatrix();
+      m.setMatrixAt(i, o.matrix);
+      m.setColorAt(i, c.set(b.color));
+    });
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, [all]);
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, all.length]} castShadow>
+      <sphereGeometry args={[1, 16, 12]} />
+      <meshStandardMaterial metalness={0.55} roughness={0.22} />
+    </instancedMesh>
+  );
+}
+
+/**
+ * The lights: bright bulbs with a hot, near-white core; round each, a
+ * tight inner glow and a wide soft halo that spills onto the needles
+ * around it, the neighbouring halos melting into one warm haze. Every
+ * frame each bulb and both its glows take their brightness from
+ * `twinkle` — slow, smooth and never in step. Two warm lights — one in
+ * front of the tree at mid-height, one low by the presents — carry the
+ * glow onto the branches and the wrapping, breathing with the twinkle.
+ */
+function Lights({ glow }: { glow: THREE.Texture }) {
+  const lights = useMemo(lightString, []);
+  const bulbs = useRef<THREE.InstancedMesh>(null);
+  const tints = useMemo(() => lights.map((_, i) => (i % 5 === 2 ? AMBER : WARM)), [lights]);
+  // Each glow sits a little in front of its bulb, towards the room
+  // camera, just clear of the needles: at the bulb itself the needles in
+  // front would hide it; pushed straight outwards, the glows at the
+  // tree's edges would hang in the air beside it; and with depth testing
+  // off, bulbs round the back would glow through. Moved this way, the
+  // back ones move into the tree's dark core and stay hidden.
+  const halo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const eye = new THREE.Vector3(ROOM_CAMERA.x - TREE.x, ROOM_CAMERA.y, ROOM_CAMERA.z - TREE.z);
+    const p = new THREE.Vector3();
+    const d = new THREE.Vector3();
+    const pos = lights.flatMap((l) => {
+      p.set(l.x, l.y, l.z);
+      d.copy(eye).sub(p).normalize();
+      const clear = treeRadiusAt(l.y) * (1 - LIGHTS.inset) + HALO_CLEAR;
+      p.addScaledVector(d, clear);
+      return [p.x, p.y, p.z];
+    });
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+    g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(lights.length * 3), 3));
+    return g;
+  }, [lights]);
+  useEffect(() => () => halo.dispose(), [halo]);
+  const front = useRef<THREE.PointLight>(null);
+  const low = useRef<THREE.PointLight>(null);
+
+  useLayoutEffect(() => {
+    const m = bulbs.current;
+    if (!m) return;
+    const o = new THREE.Object3D();
+    lights.forEach((l, i) => {
+      o.position.set(l.x, l.y, l.z);
+      o.updateMatrix();
+      m.setMatrixAt(i, o.matrix);
+      m.setColorAt(i, tints[i]);
+    });
+    m.instanceMatrix.needsUpdate = true;
+  }, [lights, tints]);
+
+  const c = useMemo(() => new THREE.Color(), []);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const m = bulbs.current;
+    const col = halo.attributes.color as THREE.BufferAttribute;
+    let sum = 0;
+    for (let i = 0; i < lights.length; i++) {
+      const v = twinkle(i, t);
+      sum += v;
+      // Past 1 the colour clips towards white: a hot filament core.
+      c.copy(tints[i]).multiplyScalar(0.35 + v * 1.9);
+      m?.setColorAt(i, c);
+      col.setXYZ(i, tints[i].r * v, tints[i].g * v, tints[i].b * v);
+    }
+    if (m?.instanceColor) m.instanceColor.needsUpdate = true;
+    col.needsUpdate = true;
+    const avg = sum / lights.length;
+    if (front.current) front.current.intensity = 1.4 * avg;
+    if (low.current) low.current.intensity = 1.6 * avg;
+  });
+
+  return (
+    <group>
+      <instancedMesh ref={bulbs} args={[undefined, undefined, lights.length]}>
+        <sphereGeometry args={[0.02, 10, 8]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+      {/* tight inner glow */}
+      <points geometry={halo}>
+        <pointsMaterial
+          size={0.13}
+          map={glow}
+          vertexColors
+          transparent
+          opacity={1}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </points>
+      {/* wide soft halo, spilling onto the needles */}
+      <points geometry={halo}>
+        <pointsMaterial
+          size={0.4}
+          map={glow}
+          vertexColors
+          transparent
+          opacity={0.5}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </points>
+      {/* Warm light out in front of the tree, never inside it (that lit
+          the branches up green from within): one at mid-height facing the
+          room, one low by the presents. */}
+      <pointLight ref={front} position={[0.85, 1.5, 0.88]} distance={2.2} decay={2} color="#ffb259" />
+      <pointLight ref={low} position={[1.3, 0.4, 0.9]} distance={2.4} decay={2} color="#ffc277" />
+    </group>
+  );
+}
+
+/** A gold star on top, turned to the room, glowing softly. */
+function Star() {
+  const geometry = useMemo(() => {
+    const s = new THREE.Shape();
+    for (let k = 0; k < 10; k++) {
+      const r = k % 2 ? 0.065 : 0.155;
+      const a = Math.PI / 2 + (k * Math.PI) / 5;
+      if (k === 0) s.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else s.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    s.closePath();
+    const g = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.01, bevelSegments: 2 });
+    g.center();
+    return g;
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  const mat = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (mat.current) mat.current.emissiveIntensity = 0.55 + 0.25 * Math.sin(clock.elapsedTime * 0.9);
+  });
+  const face = Math.atan2(ROOM_CAMERA.x - TREE.x, ROOM_CAMERA.z - TREE.z);
+  return (
+    <group position={[0, TREE.height + 0.08, 0]} rotation={[0, face, 0]}>
+      <mesh geometry={geometry} castShadow>
+        <meshStandardMaterial ref={mat} color="#e9c25a" emissive="#ffc84a" metalness={0.7} roughness={0.3} />
+      </mesh>
+      <pointLight position={[0, 0, 0.2]} intensity={0.5} distance={1.2} color="#ffd27a" />
+    </group>
+  );
+}
+
