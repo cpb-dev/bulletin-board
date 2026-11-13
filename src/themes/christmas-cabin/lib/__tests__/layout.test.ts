@@ -9,13 +9,13 @@ import {
   floorFootprints,
   insideRoom,
   PRESENTS,
+  presentPlace,
   ROOM,
   ROOM_CAMERA,
   SNOW_WINDOW,
   TREE,
   treeHidesWindow,
   treeRadiusAt,
-  treeTiers,
 } from "../layout";
 
 describe("Christmas Cabin layout", () => {
@@ -89,35 +89,65 @@ describe("Christmas Cabin layout", () => {
     expect(treeHidesWindow()).toBe(false);
   });
 
+  it("is a big tree: taller than the window's top, near the ceiling", () => {
+    expect(TREE.height).toBeGreaterThan(SNOW_WINDOW.y + SNOW_WINDOW.height / 2);
+    expect(TREE.height + 0.3).toBeLessThan(ROOM.height - 0.3);
+  });
+
+  it("stands by the left wall, forward of the window", () => {
+    expect(TREE.x - TREE.radius).toBeGreaterThan(-ROOM.halfWidth);
+    expect(TREE.x - TREE.radius).toBeLessThan(-ROOM.halfWidth + 0.2);
+    expect(TREE.z - TREE.radius).toBeGreaterThan(ROOM.backZ + 0.8);
+  });
+
   it("would notice a tree that hid the window", () => {
-    // The same check, with the tree as wide at the sill as at its base.
+    // The check is about the tree's width where the sight line passes:
+    // at the sill it's a little over half its base width.
     const sill = SNOW_WINDOW.y - SNOW_WINDOW.height / 2;
-    expect(treeRadiusAt(sill)).toBeLessThan(TREE.radius / 2);
-    expect(treeRadiusAt(0.6)).toBeGreaterThan(TREE.radius * 0.8);
+    expect(treeRadiusAt(sill)).toBeLessThan(TREE.radius * 0.7);
+    expect(treeRadiusAt(0.4)).toBeGreaterThan(TREE.radius * 0.95);
   });
 
-  it("stacks the tree's cones so there are no gaps up the trunk", () => {
-    const tiers = treeTiers();
-    for (let i = 1; i < tiers.length; i++) {
-      const below = tiers[i - 1];
-      expect(tiers[i].y).toBeLessThan(below.y + below.h);
-      expect(tiers[i].r).toBeLessThan(below.r);
-    }
-    const top = tiers[tiers.length - 1];
-    expect(top.y + top.h).toBeCloseTo(TREE.height, 1);
-  });
-
-  it("keeps presents from overlapping each other", () => {
-    for (let i = 0; i < PRESENTS.length; i++) {
-      for (let j = i + 1; j < PRESENTS.length; j++) {
-        const a = PRESENTS[i];
-        const b = PRESENTS[j];
-        const gap = Math.hypot(a.x - b.x, a.z - b.z);
+  it("keeps presents on the floor from overlapping each other", () => {
+    const floor = PRESENTS.map((p, i) => ({ p, at: presentPlace(i) })).filter(({ p }) => p.on === undefined);
+    for (let i = 0; i < floor.length; i++) {
+      for (let j = i + 1; j < floor.length; j++) {
+        const a = floor[i];
+        const b = floor[j];
+        const gap = Math.hypot(a.at.x - b.at.x, a.at.z - b.at.z);
         // Conservative: half the diagonal of each, which is no overlap
         // however they're turned.
-        const reach = (Math.hypot(a.w, a.d) + Math.hypot(b.w, b.d)) / 2;
+        const reach = (Math.hypot(a.p.w, a.p.d) + Math.hypot(b.p.w, b.p.d)) / 2;
         expect(gap, `presents ${i} and ${j} overlap`).toBeGreaterThan(reach * 0.85);
       }
     }
+  });
+
+  it("rests stacked presents on top of the one below, smaller and inside it", () => {
+    PRESENTS.forEach((p, i) => {
+      if (p.on === undefined) return;
+      const below = PRESENTS[p.on];
+      expect(below.on, "only one level of stacking").toBeUndefined();
+      expect(presentPlace(i).base).toBeCloseTo(below.h, 9);
+      expect(p.w).toBeLessThan(below.w);
+      expect(p.d).toBeLessThan(below.d);
+      // Its centre, however it's turned, stays on the box below.
+      expect(Math.hypot(p.x, p.z) + Math.hypot(p.w, p.d) / 2).toBeLessThan(
+        Math.hypot(below.w, below.d) / 2 + 0.02
+      );
+    });
+  });
+
+  it("keeps presents clear of the trunk", () => {
+    PRESENTS.forEach((_, i) => {
+      const at = presentPlace(i);
+      expect(Math.hypot(at.x - TREE.x, at.z - TREE.z)).toBeGreaterThan(0.3);
+    });
+  });
+
+  it("has presents of really different sizes and papers", () => {
+    const vols = PRESENTS.map((p) => p.w * p.h * p.d);
+    expect(Math.max(...vols) / Math.min(...vols)).toBeGreaterThan(8);
+    expect(new Set(PRESENTS.map((p) => p.wrap)).size).toBeGreaterThan(6);
   });
 });

@@ -64,57 +64,61 @@ export const ALPHABET_WALL = {
 export const SNOW_WINDOW = { x: -3.55, y: 2.15, width: 2.1, height: 1.3 } as const;
 
 /**
- * In the back-left corner, just left of the window and stepped out from
- * the wall: as far into view as it can stand without hiding the glass.
+ * A tall fir in the front-left of the room, stepped forward along the
+ * left wall so the whole window stays in view behind it. From the room
+ * camera it stands at the left edge, just left of the window.
  */
-export const TREE = { x: -4.45, z: -1.35, radius: 0.7, height: 2.4 } as const;
+export const TREE = { x: -4.2, z: -0.35, radius: 0.95, height: 3.0 } as const;
 
-/** One cone of the tree: its base height, base radius and height. */
-export interface TreeTier {
-  y: number;
-  r: number;
-  h: number;
-}
+/** Where the branches start: below this is bare trunk over the presents. */
+export const TREE_SKIRT_Y = 0.35;
 
-/** The tree's three stacked cones, sized from TREE. */
-export function treeTiers(): TreeTier[] {
-  const { radius: R, height: H } = TREE;
-  return [
-    { y: 0.21 * H, r: R, h: 0.42 * H },
-    { y: 0.48 * H, r: 0.75 * R, h: 0.365 * H },
-    { y: 0.71 * H, r: 0.5 * R, h: 0.31 * H },
-  ];
-}
-
-/** How far the tree's branches reach from its trunk at height `y`. */
+/**
+ * How far the branches reach from the trunk at height `y`: widest at the
+ * bottom whorl, narrowing to the tip in a slightly convex fir outline.
+ * Zero below the branches and above the tip.
+ */
 export function treeRadiusAt(y: number): number {
-  let r = 0;
-  for (const t of treeTiers()) {
-    if (y >= t.y && y <= t.y + t.h) r = Math.max(r, t.r * (1 - (y - t.y) / t.h));
-  }
-  return r;
+  if (y < TREE_SKIRT_Y || y > TREE.height) return 0;
+  const k = (TREE.height - y) / (TREE.height - TREE_SKIRT_Y);
+  return TREE.radius * k ** 0.9;
 }
 
 /**
  * Whether the tree hides any of the window from the room camera. The
  * sight line runs from the camera's eye to the window's near-left corner
  * (its bottom-left, the corner closest to the tree), and is checked
- * against how wide the tree is at that height, which is far narrower
- * than its base.
+ * against how wide the tree is at the height the line passes it.
  */
 export function treeHidesWindow(): boolean {
   const to = { x: SNOW_WINDOW.x - SNOW_WINDOW.width / 2, z: ROOM.backZ };
-  const y = SNOW_WINDOW.y - SNOW_WINDOW.height / 2;
-  const r = treeRadiusAt(y);
-  // Distance from the trunk to the camera-to-corner line, on the floor plane.
+  const sill = SNOW_WINDOW.y - SNOW_WINDOW.height / 2;
   const dx = to.x - ROOM_CAMERA.x;
   const dz = to.z - ROOM_CAMERA.z;
   const len = Math.hypot(dx, dz);
+  // Where along the line the tree is, and how high the line is there.
+  const along = ((TREE.x - ROOM_CAMERA.x) * dx + (TREE.z - ROOM_CAMERA.z) * dz) / (len * len);
+  const y = ROOM_CAMERA.y + (sill - ROOM_CAMERA.y) * along;
   const cross = Math.abs(dx * (TREE.z - ROOM_CAMERA.z) - dz * (TREE.x - ROOM_CAMERA.x));
-  return cross / len < r;
+  return cross / len < treeRadiusAt(y);
 }
 
-/** A wrapped present on the floor. `rot` turns it about its own centre. */
+/** The wrapping papers a present can have (drawn in props/tree/). */
+export type Wrap =
+  | "plaid"
+  | "gold"
+  | "dots"
+  | "kraft"
+  | "snowflakes"
+  | "candy"
+  | "stars"
+  | "tartan"
+  | "berry";
+
+/**
+ * A wrapped present. `x`, `z` and `rot` place it on the floor, or, with
+ * `on`, on top of another present (by index), off-centre by `x`, `z`.
+ */
 export interface Present {
   x: number;
   z: number;
@@ -122,37 +126,51 @@ export interface Present {
   h: number;
   d: number;
   rot: number;
-  color: string;
+  wrap: Wrap;
   ribbon: string;
+  on?: number;
 }
 
 /**
- * Presents under the tree, trailing along the floor towards and under
- * the window. Placeholder sizes and colours, to be tuned when the tree
- * and presents are detailed.
+ * Presents under the tree and spilling out towards the window: different
+ * sizes and papers, a couple stacked. Tune them freely here: the tests
+ * keep them apart, inside the room, out of the board's way and resting
+ * on whatever they're stacked on.
  */
 export const PRESENTS: Present[] = [
-  // under the tree
-  { x: -4.85, z: -1.0, w: 0.4, h: 0.34, d: 0.36, rot: 0.3, color: "#c22f2f", ribbon: "#e8b63a" },
-  { x: -4.3, z: -0.75, w: 0.32, h: 0.26, d: 0.3, rot: -0.2, color: "#2f6b3f", ribbon: "#f4f1e8" },
-  { x: -3.95, z: -1.1, w: 0.3, h: 0.42, d: 0.3, rot: 0.15, color: "#3f6fb0", ribbon: "#e0443a" },
-  // trailing towards the window
-  { x: -3.55, z: -1.75, w: 0.36, h: 0.22, d: 0.3, rot: -0.35, color: "#e8b63a", ribbon: "#c22f2f" },
-  { x: -3.15, z: -1.95, w: 0.26, h: 0.3, d: 0.26, rot: 0.25, color: "#f4f1e8", ribbon: "#2f6b3f" },
-  { x: -2.85, z: -1.7, w: 0.22, h: 0.18, d: 0.22, rot: -0.1, color: "#c22f2f", ribbon: "#f4f1e8" },
+  { x: -3.5, z: -0.55, w: 0.48, h: 0.36, d: 0.44, rot: 0.2, wrap: "plaid", ribbon: "#e2b23c" },
+  { x: 0.03, z: -0.02, w: 0.26, h: 0.18, d: 0.24, rot: -0.35, wrap: "gold", ribbon: "#b3202a", on: 0 },
+  { x: -3.78, z: 0.25, w: 0.36, h: 0.3, d: 0.34, rot: -0.15, wrap: "dots", ribbon: "#c22f2f" },
+  { x: -4.4, z: 0.45, w: 0.3, h: 0.22, d: 0.3, rot: 0.5, wrap: "kraft", ribbon: "#efe6d2" },
+  { x: -3.1, z: -1.25, w: 0.26, h: 0.5, d: 0.26, rot: 0.1, wrap: "snowflakes", ribbon: "#c22f2f" },
+  { x: -3.55, z: -1.62, w: 0.5, h: 0.24, d: 0.36, rot: -0.2, wrap: "candy", ribbon: "#2f6b3f" },
+  { x: -0.04, z: 0.02, w: 0.2, h: 0.16, d: 0.2, rot: 0.4, wrap: "stars", ribbon: "#d8d8dc", on: 5 },
+  { x: -2.85, z: -1.85, w: 0.3, h: 0.2, d: 0.28, rot: 0.3, wrap: "berry", ribbon: "#e2b23c" },
+  { x: -3.05, z: -0.25, w: 0.22, h: 0.18, d: 0.2, rot: -0.4, wrap: "tartan", ribbon: "#efe6d2" },
 ];
 
+/** Where a present stands in the room: its centre on the floor, and its base height. */
+export function presentPlace(i: number): { x: number; z: number; base: number; rot: number } {
+  const p = PRESENTS[i];
+  if (p.on === undefined) return { x: p.x, z: p.z, base: 0, rot: p.rot };
+  const under = presentPlace(p.on);
+  const below = PRESENTS[p.on];
+  return { x: under.x + p.x, z: under.z + p.z, base: under.base + below.h, rot: under.rot + p.rot };
+}
+
 /** A present's footprint: its turned box, bounded by a square. */
-export function presentFootprint(p: Present): Footprint {
+export function presentFootprint(i: number): Footprint {
+  const p = PRESENTS[i];
+  const at = presentPlace(i);
   const half = Math.hypot(p.w, p.d) / 2;
-  return { x: p.x, z: p.z, halfX: half, halfZ: half };
+  return { x: at.x, z: at.z, halfX: half, halfZ: half };
 }
 
 /** The floor props, for the clearance checks. */
 export function floorFootprints(): Record<string, Footprint> {
   return {
     tree: { x: TREE.x, z: TREE.z, halfX: TREE.radius, halfZ: TREE.radius },
-    ...Object.fromEntries(PRESENTS.map((p, i) => [`present ${i}`, presentFootprint(p)])),
+    ...Object.fromEntries(PRESENTS.map((_, i) => [`present ${i}`, presentFootprint(i)])),
     fireplace: {
       x: FIREPLACE.x,
       z: ROOM.backZ + FIREPLACE.depth / 2,
