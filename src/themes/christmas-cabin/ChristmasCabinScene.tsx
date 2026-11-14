@@ -17,9 +17,10 @@ import { ROOM } from "./lib/layout";
 /**
  * Christmas Cabin (BB-35): a cosy cabin room on a snowy evening.
  *
- * From the room camera: the tree in the corner beside a wide window onto
- * the snow, tinsel under its sill and presents trailing from the tree
- * to the window, all left of the board; the fireplace on its right.
+ * From the room camera: a wide window onto the snow with tinsel under its
+ * sill, left of the board, and a tall tree standing forward by the left
+ * wall with presents spilling from under it towards the window; the
+ * fireplace on the board's right.
  * Turn your head right for the alphabet light wall. Where everything
  * stands lives in `lib/layout.ts`, with tests.
  *
@@ -66,8 +67,8 @@ export const ChristmasCabinScene: ThemeScene = ({ theme }) => {
       <CabinRoom />
       <Fireplace />
       <AlphabetWall />
-      <ChristmasTree gradient={gradient} />
-      <Presents gradient={gradient} />
+      <ChristmasTree />
+      <Presents />
       <SnowWindow gradient={gradient} />
       <Tinsel />
     </group>
