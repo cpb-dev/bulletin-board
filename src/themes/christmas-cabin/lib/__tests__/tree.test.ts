@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { PRESENTS, presentPlace, TREE, TREE_SKIRT_Y, treeRadiusAt } from "../layout";
-import { baubles, branches, branchTip, lightString, LIGHTS, twinkle } from "../tree";
+import {
+  baubles,
+  branches,
+  branchTip,
+  HERO_BAUBLE,
+  heroBaublePosition,
+  lightString,
+  LIGHTS,
+  twinkle,
+} from "../tree";
+import { TREE_FACING } from "../layout";
 
 describe("the tree's outline", () => {
   it("is widest at the bottom whorl and narrows to the tip", () => {
@@ -120,6 +130,12 @@ describe("baubles", () => {
       }
   });
 
+  it("are plentiful, and the wide lower half carries more of them", () => {
+    expect(all.length).toBeGreaterThanOrEqual(60);
+    const mid = (TREE_SKIRT_Y + TREE.height) / 2;
+    expect(all.filter((b) => b.y < mid).length).toBeGreaterThan(all.filter((b) => b.y >= mid).length * 1.5);
+  });
+
   it("get smaller towards the top", () => {
     const low = all.filter((b) => b.y < 1.2).map((b) => b.size);
     const high = all.filter((b) => b.y > 2.2).map((b) => b.size);
@@ -160,5 +176,38 @@ describe("the branches and the presents", () => {
 
   it("keep their lowest tips off the floor", () => {
     for (const b of branches()) expect(branchTip(b).y).toBeGreaterThan(0.12);
+  });
+});
+
+describe("the C+K bauble", () => {
+  const hero = heroBaublePosition();
+
+  it("hangs in the middle of the tree, about eye height", () => {
+    expect(hero.y).toBeGreaterThan(TREE.height * 0.35);
+    expect(hero.y).toBeLessThan(TREE.height * 0.6);
+  });
+
+  it("is on the side facing the room", () => {
+    const facing = Math.atan2(hero.z, hero.x);
+    expect(Math.cos(facing - TREE_FACING)).toBeGreaterThan(0.9);
+  });
+
+  it("stands out of the needles, but hangs from them, not in the air", () => {
+    const rad = Math.hypot(hero.x, hero.z);
+    const outline = treeRadiusAt(hero.y);
+    // Its front is proud of the outline; its back is in among the needles.
+    expect(rad + HERO_BAUBLE.size).toBeGreaterThan(outline + HERO_BAUBLE.size * 0.3);
+    expect(rad - HERO_BAUBLE.size).toBeLessThan(outline);
+  });
+
+  it("is the biggest bauble on the tree", () => {
+    for (const b of baubles()) expect(b.size).toBeLessThan(HERO_BAUBLE.size * 0.75);
+  });
+
+  it("has room round it: no other bauble crowds it", () => {
+    for (const b of baubles()) {
+      const d = Math.hypot(b.x - hero.x, b.y - hero.y, b.z - hero.z);
+      expect(d).toBeGreaterThan(HERO_BAUBLE.size + b.size + 0.05);
+    }
   });
 });

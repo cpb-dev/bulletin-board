@@ -250,3 +250,61 @@ export function makeGlowTexture(): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   return t;
 }
+
+/**
+ * The C+K bauble's face: "C+K" in gold script inside a fine gold ring,
+ * with a few tiny gold stars, on clear (transparent) ground so the
+ * bauble's own glass shows round it. Mapped onto a cap of the sphere, so
+ * it's drawn a touch wider than tall to sit right on the curve.
+ */
+export function makeHeroFaceTexture(): THREE.CanvasTexture {
+  const w = 512;
+  const h = 512;
+  const { c, ctx } = canvas(w, h);
+  ctx.clearRect(0, 0, w, h);
+  const gold = ctx.createLinearGradient(0, h * 0.25, 0, h * 0.75);
+  gold.addColorStop(0, "#fff0b8");
+  gold.addColorStop(0.45, "#e8c160");
+  gold.addColorStop(1, "#b8862c");
+
+  // A fine double ring.
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2, w * 0.4, h * 0.4, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2, w * 0.36, h * 0.36, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // The letters, with a soft dark edge so they read against bright glass.
+  ctx.font = `italic bold ${Math.round(h * 0.31)}px Georgia, "Times New Roman", serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "rgba(60,10,10,0.55)";
+  ctx.strokeText("C+K", w / 2, h / 2 + 6);
+  ctx.fillStyle = gold;
+  ctx.fillText("C+K", w / 2, h / 2 + 6);
+
+  // Tiny stars round the ring.
+  ctx.fillStyle = "#f4d98a";
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + Math.PI / 8;
+    const x = w / 2 + Math.cos(a) * w * 0.455;
+    const y = h / 2 + Math.sin(a) * h * 0.455;
+    ctx.beginPath();
+    for (let p = 0; p < 10; p++) {
+      const rad = p % 2 ? 5 : 13;
+      const q = -Math.PI / 2 + (p * Math.PI) / 5;
+      ctx.lineTo(x + Math.cos(q) * rad, y + Math.sin(q) * rad);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}

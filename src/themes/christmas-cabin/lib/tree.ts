@@ -8,7 +8,7 @@
  */
 
 import { mulberry32 } from "@/components/three/textures";
-import { TREE, TREE_SKIRT_Y, treeRadiusAt } from "./layout";
+import { TREE, TREE_FACING, TREE_SKIRT_Y, treeRadiusAt } from "./layout";
 
 // ---- branches ---------------------------------------------------------------
 
@@ -145,18 +145,47 @@ export interface Bauble {
 const BAUBLE_COLOURS = ["#b3202a", "#d9a63a", "#efe2c8", "#2f5a3a", "#8a1c24", "#c9b07a"];
 
 /**
+ * The special bauble: a big glass one hung in the middle of the tree on
+ * the side facing the room, with "C+K" on it. `angle` is round the
+ * trunk (as `aroundTree`), a little towards the window from straight at
+ * the room camera so it's in the room view as well as up close.
+ */
+export const HERO_BAUBLE = {
+  y: 1.42,
+  size: 0.13,
+  angle: TREE_FACING - 0.3,
+  /** How far it stands out of the needles: a fraction of its size. */
+  proud: 0.45,
+} as const;
+
+/** Where the special bauble hangs, in the tree's own space. */
+export function heroBaublePosition(): { x: number; y: number; z: number } {
+  const rad = treeRadiusAt(HERO_BAUBLE.y) + HERO_BAUBLE.size * (HERO_BAUBLE.proud - 1);
+  return {
+    x: Math.cos(HERO_BAUBLE.angle) * rad,
+    y: HERO_BAUBLE.y,
+    z: Math.sin(HERO_BAUBLE.angle) * rad,
+  };
+}
+
+/**
  * Baubles hung on the branch tips, spread over the tree by a golden
  * spiral (no clumps, no bare patches), a touch inside the outline so
- * they hang among the needles. Smaller towards the top.
+ * they hang among the needles. Spread by the tree's surface, so the wide
+ * lower tiers carry more than the narrow top; smaller towards the top.
+ * None hangs where it would crowd the special bauble.
  */
-export function baubles(count = 34, seed = 9): Bauble[] {
+export function baubles(count = 72, seed = 9): Bauble[] {
   const r = mulberry32(seed);
   const golden = Math.PI * (3 - Math.sqrt(5));
   const bottom = TREE_SKIRT_Y + 0.15;
   const top = TREE.height - 0.35;
+  const hero = heroBaublePosition();
   return Array.from({ length: count }, (_, i) => {
     const u = (i + 0.5) / count;
-    const y = bottom + (top - bottom) * Math.sqrt(u) ** 1.2;
+    // A cone's surface below height y grows with the square of the
+    // distance from its tip, so this puts equal area between baubles.
+    const y = top - (top - bottom) * Math.sqrt(1 - u);
     const a = i * golden;
     const rad = treeRadiusAt(y) * 0.92;
     const k = treeRadiusAt(y) / TREE.radius;
@@ -164,8 +193,10 @@ export function baubles(count = 34, seed = 9): Bauble[] {
       x: Math.cos(a) * rad,
       y,
       z: Math.sin(a) * rad,
-      size: 0.035 + 0.035 * k + r() * 0.01,
+      size: 0.032 + 0.032 * k + r() * 0.01,
       color: BAUBLE_COLOURS[Math.floor(r() * BAUBLE_COLOURS.length)],
     };
-  });
+  }).filter(
+    (b) => Math.hypot(b.x - hero.x, b.y - hero.y, b.z - hero.z) > HERO_BAUBLE.size + b.size + 0.08
+  );
 }

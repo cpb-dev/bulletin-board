@@ -7,6 +7,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { ROOM_CAMERA, TREE, TREE_SKIRT_Y, treeRadiusAt } from "../lib/layout";
 import { baubles, branches, lightString, LIGHTS, twinkle } from "../lib/tree";
 import { makeGlowTexture, makeNeedleSprayTexture } from "./tree/textures";
+import { HeroBauble } from "./tree/HeroBauble";
 
 /** How far in front of the needles a light's glow sits. */
 const HALO_CLEAR = 0.04;
@@ -20,7 +21,8 @@ const AMBER = new THREE.Color("#ffab4a");
  * room. Hundreds of needled branches in whorls round a dark inner body,
  * drooping more towards the bottom; warm lights wound round it that
  * swell and fade slowly, each on its own rhythm; glossy baubles hung
- * among the needles; and a gold star that glows on top. It stands on a
+ * among the needles, with a big red one in the middle that says C+K;
+ * and a gold star that glows on top. It stands on a
  * felt skirt with the presents round its foot.
  */
 export function ChristmasTree() {
@@ -42,6 +44,7 @@ export function ChristmasTree() {
       <Body />
       <Branches map={needles} />
       <Baubles />
+      <HeroBauble />
       <Lights glow={glowDot} />
       <Star />
     </group>
