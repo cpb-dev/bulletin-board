@@ -132,23 +132,60 @@ export interface Present {
 }
 
 /**
- * Presents under the tree and spilling out towards the window: different
- * sizes and papers, a couple stacked. The low ones tuck in under the
- * branches; the tall and stacked ones stand just clear of them. Tune them
- * freely here: the tests keep them apart, out from under any branch that
- * would cut through them, inside the room, out of the board's way, and
- * resting on whatever they're stacked on.
+ * A spot on a ring round the tree's trunk: `angle` round from the room's
+ * +x (towards the window side), `radius` out from the trunk. The present
+ * is turned to lie along the ring, so a row of them follows the curve of
+ * the tree; `turn` adds a little twist so they don't look set by a jig.
  */
+export function aroundTree(angle: number, radius: number, turn = 0): { x: number; z: number; rot: number } {
+  return {
+    x: TREE.x + Math.cos(angle) * radius,
+    z: TREE.z + Math.sin(angle) * radius,
+    // Three's Y rotation takes a box's local x to (cos r, -sin r); the
+    // ring's tangent here is (-sin a, cos a), so r = -a - pi/2.
+    rot: -angle - Math.PI / 2 + turn,
+  };
+}
+
+/**
+ * Which way the room camera is from the tree, as an `aroundTree` angle:
+ * the middle of the arc of presents that's in view.
+ */
+export const TREE_FACING = Math.atan2(ROOM_CAMERA.z - TREE.z, ROOM_CAMERA.x - TREE.x);
+
+/**
+ * The presents. Most go round the tree on two rings on the side facing
+ * the room: low, flat ones tucked in under the branches, and taller ones
+ * in an outer ring just clear of them, each turned along the curve. A
+ * few more spill off towards the window, and a couple are stacked.
+ *
+ * Tune them freely here: the tests keep them apart, out from under any
+ * branch that would cut through them, inside the room, out of the
+ * board's way, and resting on whatever they're stacked on.
+ */
+const F = TREE_FACING;
 export const PRESENTS: Present[] = [
-  { x: -2.95, z: -0.9, w: 0.48, h: 0.36, d: 0.44, rot: 0.2, wrap: "plaid", ribbon: "#e2b23c" },
-  { x: 0.03, z: -0.02, w: 0.26, h: 0.18, d: 0.24, rot: -0.35, wrap: "gold", ribbon: "#b3202a", on: 0 },
-  { x: -3.1, z: 0.75, w: 0.36, h: 0.3, d: 0.34, rot: -0.15, wrap: "dots", ribbon: "#c22f2f" },
-  { x: -4.6, z: 0.05, w: 0.3, h: 0.2, d: 0.3, rot: 0.5, wrap: "kraft", ribbon: "#efe6d2" },
+  // Off towards the window (unchanged).
   { x: -3.1, z: -1.45, w: 0.26, h: 0.5, d: 0.26, rot: 0.1, wrap: "snowflakes", ribbon: "#c22f2f" },
   { x: -3.62, z: -1.85, w: 0.5, h: 0.24, d: 0.36, rot: -0.2, wrap: "candy", ribbon: "#2f6b3f" },
-  { x: -0.04, z: 0.02, w: 0.2, h: 0.16, d: 0.2, rot: 0.4, wrap: "stars", ribbon: "#d8d8dc", on: 5 },
+  { x: -0.04, z: 0.02, w: 0.2, h: 0.16, d: 0.2, rot: 0.4, wrap: "stars", ribbon: "#d8d8dc", on: 1 },
   { x: -2.75, z: -1.95, w: 0.3, h: 0.2, d: 0.28, rot: 0.3, wrap: "berry", ribbon: "#e2b23c" },
-  { x: -3.75, z: -0.05, w: 0.22, h: 0.16, d: 0.2, rot: -0.4, wrap: "tartan", ribbon: "#efe6d2" },
+
+  // Outer ring, just clear of the lowest branches.
+  { ...aroundTree(F - 1.05, 1.32, 0.1), w: 0.4, h: 0.3, d: 0.32, wrap: "dots", ribbon: "#c22f2f" },
+  { ...aroundTree(F - 0.6, 1.38, -0.12), w: 0.48, h: 0.36, d: 0.4, wrap: "plaid", ribbon: "#e2b23c" },
+  { x: 0.02, z: -0.02, w: 0.26, h: 0.18, d: 0.24, rot: -0.3, wrap: "gold", ribbon: "#b3202a", on: 5 },
+  { ...aroundTree(F - 0.18, 1.24, 0.08), w: 0.3, h: 0.42, d: 0.28, wrap: "tartan", ribbon: "#efe6d2" },
+  { ...aroundTree(F + 0.2, 1.2, -0.06), w: 0.44, h: 0.26, d: 0.34, wrap: "snowflakes", ribbon: "#2f6b3f" },
+  { ...aroundTree(F + 0.6, 1.24, 0.14), w: 0.34, h: 0.34, d: 0.3, wrap: "kraft", ribbon: "#b3202a" },
+  { ...aroundTree(F + 1.0, 1.2, -0.1), w: 0.4, h: 0.24, d: 0.32, wrap: "berry", ribbon: "#efe6d2" },
+
+  // Inner ring: low ones tucked in under the branches.
+  { ...aroundTree(F - 0.9, 0.74, 0.2), w: 0.26, h: 0.14, d: 0.22, wrap: "candy", ribbon: "#b3202a" },
+  { ...aroundTree(F - 0.44, 0.76, -0.15), w: 0.3, h: 0.16, d: 0.24, wrap: "stars", ribbon: "#e2b23c" },
+  { ...aroundTree(F + 0.02, 0.74, 0.1), w: 0.24, h: 0.13, d: 0.22, wrap: "gold", ribbon: "#2f6b3f" },
+  { ...aroundTree(F + 0.46, 0.76, -0.2), w: 0.3, h: 0.15, d: 0.24, wrap: "plaid", ribbon: "#efe6d2" },
+  { ...aroundTree(F + 0.9, 0.74, 0.12), w: 0.26, h: 0.14, d: 0.22, wrap: "dots", ribbon: "#e2b23c" },
 ];
 
 /** Where a present stands in the room: its centre on the floor, and its base height. */

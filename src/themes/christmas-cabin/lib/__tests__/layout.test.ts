@@ -8,8 +8,10 @@ import {
   FIREPLACE,
   floorFootprints,
   insideRoom,
+  aroundTree,
   PRESENTS,
   presentPlace,
+  TREE_FACING,
   ROOM,
   ROOM_CAMERA,
   SNOW_WINDOW,
@@ -137,6 +139,28 @@ describe("Christmas Cabin layout", () => {
         Math.hypot(below.w, below.d) / 2 + 0.02
       );
     });
+  });
+
+  it("gathers plenty of presents round the tree, on the side the camera sees", () => {
+    const round = PRESENTS.map((_, i) => presentPlace(i)).filter((at) => {
+      const dx = at.x - TREE.x;
+      const dz = at.z - TREE.z;
+      // Within a step of the canopy, and facing the room (within 90 deg).
+      const facing = Math.cos(Math.atan2(dz, dx) - TREE_FACING) > 0;
+      return Math.hypot(dx, dz) < TREE.radius + 0.6 && facing;
+    });
+    expect(round.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("turns presents on a ring to lie along the curve of the tree", () => {
+    for (const a of [0, 0.7, TREE_FACING, 2.4]) {
+      const at = aroundTree(a, 1);
+      // A box's local x under Three's Y rotation, against the ring's tangent.
+      const along = { x: Math.cos(at.rot), z: -Math.sin(at.rot) };
+      const tangent = { x: -Math.sin(a), z: Math.cos(a) };
+      expect(along.x * tangent.x + along.z * tangent.z).toBeCloseTo(1, 9);
+      expect(Math.hypot(at.x - TREE.x, at.z - TREE.z)).toBeCloseTo(1, 9);
+    }
   });
 
   it("keeps presents clear of the trunk", () => {
