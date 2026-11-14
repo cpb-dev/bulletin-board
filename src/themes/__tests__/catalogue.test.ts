@@ -188,4 +188,8 @@ describe("day/night cycle (BB-21)", () => {
   it("is on Stars Hollow with all three phases", () => {
     expect(getThemeModule("stars-hollow").dayCycle).toEqual({ phases: 3 });
   });
+
+  it("is on Christmas Cabin with all three phases, for the world outside", () => {
+    expect(getThemeModule("christmas-cabin").dayCycle).toEqual({ phases: 3 });
+  });
 });

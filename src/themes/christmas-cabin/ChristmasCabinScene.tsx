@@ -10,6 +10,7 @@ import { AlphabetWall } from "./props/AlphabetWall";
 import { ChristmasTree } from "./props/ChristmasTree";
 import { Presents } from "./props/Presents";
 import { SnowWindow } from "./props/SnowWindow";
+import { Outdoor } from "./props/outdoor/Outdoor";
 import { Tinsel } from "./props/Tinsel";
 import { DOWNLIGHTS } from "./props/room/Ceiling";
 import { ROOM } from "./lib/layout";
@@ -27,7 +28,7 @@ import { ROOM } from "./lib/layout";
  * This is the base: every prop is a block-out, and each one is detailed
  * in its own PR (see the Christmas Cabin sub-tickets).
  */
-export const ChristmasCabinScene: ThemeScene = ({ theme }) => {
+export const ChristmasCabinScene: ThemeScene = ({ theme, phase = "day" }) => {
   const gradient = useMemo(() => makeToonGradient(), []);
 
   return (
@@ -70,6 +71,7 @@ export const ChristmasCabinScene: ThemeScene = ({ theme }) => {
       <ChristmasTree />
       <Presents />
       <SnowWindow gradient={gradient} />
+      <Outdoor phase={phase} />
       <Tinsel />
     </group>
   );
