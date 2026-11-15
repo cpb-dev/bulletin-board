@@ -25,7 +25,8 @@ export function makePaintedLettersTexture(): THREE.CanvasTexture {
   const ctx = c.getContext("2d")!;
   const px = w / width;
   const rand = mulberry32(25);
-  const font = Math.round(0.36 * px);
+  // Letters scale with the row, so a smaller wall keeps its proportions.
+  const font = Math.round((height / ALPHABET_WALL.rows.length) * 0.47 * px);
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -35,6 +36,8 @@ export function makePaintedLettersTexture(): THREE.CanvasTexture {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate((rand() - 0.5) * 0.14);
+    // A touch condensed, so nine to a row still breathe.
+    ctx.scale(0.84, 1);
     const size = font * (0.94 + rand() * 0.1);
     ctx.font = `900 ${Math.round(size)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
     // Brushed on in a few slightly offset coats: soft, uneven edges.

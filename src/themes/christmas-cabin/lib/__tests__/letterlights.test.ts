@@ -43,8 +43,30 @@ describe("alphabet wall layout", () => {
     const top = ALPHABET_WALL.y + ALPHABET_WALL.height / 2;
     expect(bottom).toBeGreaterThan(1.1); // wainscot cap
     expect(top).toBeLessThan(ROOM.height - 0.45); // fairy lights' swag
-    expect(ALPHABET_WALL.width).toBeGreaterThan(3.5);
+    expect(ALPHABET_WALL.width).toBeGreaterThan(2.2);
     expect(ALPHABET_WALL.z - ALPHABET_WALL.width / 2).toBeGreaterThan(ROOM.backZ + 0.3);
+  });
+});
+
+describe("alphabet wall in view", () => {
+  // The room camera with your head turned fully right, as CameraRig does
+  // it at the store's yaw limit of 1.05: the eye leans 0.6/rad, the look
+  // target swings 5.5/rad. Field of view 46° vertical.
+  const yaw = 1.05;
+  const eye = { x: 0.4 + yaw * 0.6, z: 4.4 };
+  const target = { x: yaw * 5.5, z: -2.2 };
+  const heading = Math.atan2(target.x - eye.x, eye.z - target.z);
+  /** The bearing of a point on the right wall, relative to the view centre. */
+  const bearing = (z: number) => Math.atan2(ROOM.halfWidth - eye.x, eye.z - z) - heading;
+  /** Half the horizontal field of view at a given aspect. */
+  const halfFov = (aspect: number) => Math.atan(Math.tan((23 * Math.PI) / 180) * aspect);
+
+  it("fits on a portrait phone with your head turned right", () => {
+    const front = ALPHABET_WALL.z + ALPHABET_WALL.width / 2;
+    const back = ALPHABET_WALL.z - ALPHABET_WALL.width / 2;
+    const phone = halfFov(390 / 844);
+    expect(bearing(front)).toBeLessThan(phone * 0.92);
+    expect(bearing(back)).toBeGreaterThan(-phone);
   });
 });
 

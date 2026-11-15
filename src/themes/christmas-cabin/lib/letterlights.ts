@@ -15,7 +15,7 @@ import { ALPHABET_WALL } from "./layout";
 // ---- where everything goes ------------------------------------------------
 
 /** How the string hangs: hooks per row, how far it sags, bulb drop below it. */
-export const STRING = { hooks: 4, sag: 0.09, bulbDrop: 0.07, bulbLength: 0.11 } as const;
+export const STRING = { hooks: 4, sag: 0.06, bulbDrop: 0.07, bulbLength: 0.11 } as const;
 
 export interface LetterSpot {
   letter: string;
@@ -33,7 +33,7 @@ export interface LetterSpot {
 export function wireY(r: number, x: number): number {
   const { width, height, rows } = ALPHABET_WALL;
   const rowTop = height / 2 - (height / rows.length) * r;
-  const top = rowTop - 0.08;
+  const top = rowTop - 0.05;
   const t = (x + width / 2) / width;
   const spans = STRING.hooks - 1;
   const local = (Math.min(Math.max(t, 0), 1) * spans) % 1;
@@ -49,7 +49,7 @@ export function letterSpots(): LetterSpot[] {
   const rowH = height / rows.length;
   let index = 0;
   return rows.flatMap((row, r) => {
-    const inset = 0.12;
+    const inset = 0.08;
     return [...row].map((letter, i) => {
       const x = -width / 2 + inset + (width - 2 * inset) * ((i + 0.5) / row.length);
       const bulbY = wireY(r, x);
