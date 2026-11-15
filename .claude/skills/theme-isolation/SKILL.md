@@ -75,6 +75,8 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/themes/rose-picnic/` | rose-picnic (rose field scene, heart decor) |
 | `src/themes/haunted-hollow/` | haunted-hollow (scene, every prop, its lib) |
 | `src/themes/stars-hollow/` | stars-hollow (scene, every prop, its kit of textures, layout and batching lib) |
+| `src/themes/christmas-cabin/` | christmas-cabin (its own room, every prop, outdoor scene, layout, events and lights lib) |
+| `src/themes/great-hall/` | great-hall (its own hall, every prop, layout, candles and snow lib) |
 | `src/themes/<id>/palette.ts` | that theme's colours, and only that theme's |
 
 All ten themes are in `THEMES` and all ten appear in the picker, grouped

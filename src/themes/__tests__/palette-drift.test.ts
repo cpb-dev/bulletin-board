@@ -32,6 +32,8 @@ const PINNED: Record<string, string> = {
   // oak, Fair Isle rug). BB-46 then added four printed papers and the
   // tree shape, keeping the original four papers' ids and colours.
   "christmas-cabin": "21337b7f",
+  // BB-38, added with the theme, under construction
+  "great-hall": "aef6bf81",
 };
 
 /** JSON with keys in a fixed order, so reordering a palette isn't "drift". */
