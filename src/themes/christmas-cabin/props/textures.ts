@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { mulberry32 } from "@/components/three/textures";
 import { ALPHABET_WALL } from "../lib/layout";
+import { letterSpots } from "../lib/letterlights";
 
 /**
  * The Christmas Cabin's canvas textures (BB-35). Block-out quality: they
@@ -9,41 +10,69 @@ import { ALPHABET_WALL } from "../lib/layout";
  */
 
 /**
- * Pale wallpaper with the alphabet painted on it in black, three rows,
- * like the letters on a living-room wall. Each letter sits under the
- * bulb that `letterPositions` puts above it.
+ * The alphabet, hand-painted straight onto the pine boards in cream
+ * paint: chunky capitals, a little wonky, with dry-brush wear where the
+ * wood shows through and the odd drip. Transparent everywhere else, so
+ * the wall is the background and the room's light falls on the paint.
  */
-export function makeAlphabetTexture(): THREE.CanvasTexture {
-  const w = 1024;
-  const h = Math.round((w * ALPHABET_WALL.height) / ALPHABET_WALL.width);
+export function makePaintedLettersTexture(): THREE.CanvasTexture {
+  const { width, height } = ALPHABET_WALL;
+  const w = 2048;
+  const h = Math.round((w * height) / width);
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
   const ctx = c.getContext("2d")!;
-
-  // Faded floral wallpaper: a cream ground with soft stripes.
-  ctx.fillStyle = "#e9dcc0";
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(160, 120, 80, 0.12)";
-  for (let x = 0; x < w; x += 48) ctx.fillRect(x, 0, 18, h);
-
+  const px = w / width;
   const rand = mulberry32(25);
-  ctx.fillStyle = "#151210";
+  const font = Math.round(0.36 * px);
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ALPHABET_WALL.rows.forEach((row, r) => {
-    const y = h * (0.28 + r * 0.3);
-    [...row].forEach((letter, i) => {
-      const x = w * ((i + 0.5) / row.length);
-      ctx.save();
-      ctx.translate(x, y);
-      // Painted by hand: a little wonky.
-      ctx.rotate((rand() - 0.5) * 0.18);
-      ctx.font = `bold ${Math.round(h * (0.15 + rand() * 0.03))}px sans-serif`;
-      ctx.fillText(letter, 0, 0);
-      ctx.restore();
-    });
-  });
+  for (const s of letterSpots()) {
+    const x = (s.x + width / 2) * px;
+    const y = (height / 2 - s.y) * px;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((rand() - 0.5) * 0.14);
+    const size = font * (0.94 + rand() * 0.1);
+    ctx.font = `900 ${Math.round(size)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+    // Brushed on in a few slightly offset coats: soft, uneven edges.
+    for (let k = 0; k < 4; k++) {
+      ctx.fillStyle = `rgba(243, 233, 212, ${k === 0 ? 0.95 : 0.35})`;
+      ctx.fillText(s.letter, (rand() - 0.5) * 5, (rand() - 0.5) * 5);
+    }
+    // The odd drip from the bottom of a stroke.
+    if (rand() < 0.35) {
+      const dx = (rand() - 0.5) * size * 0.4;
+      const top = size * 0.3;
+      const len = size * (0.12 + rand() * 0.22);
+      const dw = 3 + rand() * 4;
+      ctx.fillStyle = "rgba(243, 233, 212, 0.9)";
+      ctx.beginPath();
+      ctx.moveTo(dx - dw / 2, top);
+      ctx.lineTo(dx - dw * 0.3, top + len);
+      ctx.arc(dx, top + len, dw * 0.55, Math.PI, 0, true);
+      ctx.lineTo(dx + dw / 2, top);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Dry-brush wear: horizontal streaks and specks rubbed out of the paint,
+  // so the boards show through.
+  ctx.globalCompositeOperation = "destination-out";
+  for (let i = 0; i < 2600; i++) {
+    const sx = rand() * w;
+    const sy = rand() * h;
+    ctx.fillStyle = `rgba(0,0,0,${0.25 + rand() * 0.6})`;
+    ctx.fillRect(sx, sy, 6 + rand() * 40, 1 + rand() * 2.5);
+  }
+  for (let i = 0; i < 9000; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${0.3 + rand() * 0.5})`;
+    ctx.fillRect(rand() * w, rand() * h, 2, 2);
+  }
+  ctx.globalCompositeOperation = "source-over";
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -51,16 +80,18 @@ export function makeAlphabetTexture(): THREE.CanvasTexture {
   return t;
 }
 
-/** Where each letter's bulb hangs, in the wall's local units (centred). */
-export function letterPositions(): { letter: string; x: number; y: number }[] {
-  const { width, height, rows } = ALPHABET_WALL;
-  return rows.flatMap((row, r) => {
-    // A bulb sits just above its letter.
-    const y = height / 2 - height * (0.28 + r * 0.3) + 0.2;
-    return [...row].map((letter, i) => ({
-      letter,
-      x: -width / 2 + width * ((i + 0.5) / row.length),
-      y,
-    }));
-  });
+/** A soft round glow, white at the centre fading to nothing: tinted per bulb. */
+export function makeBulbGlowTexture(): THREE.CanvasTexture {
+  const s = 128;
+  const c = document.createElement("canvas");
+  c.width = c.height = s;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.12, "rgba(255,255,255,0.55)");
+  g.addColorStop(0.4, "rgba(255,255,255,0.14)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  return new THREE.CanvasTexture(c);
 }
