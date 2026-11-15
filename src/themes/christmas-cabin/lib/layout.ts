@@ -48,15 +48,18 @@ export interface Footprint {
 export const FIREPLACE = { x: 3.7, width: 2.2, depth: 0.7 } as const;
 
 /**
- * On the right side wall, back towards the corner: painted letters under
- * a light string. Seen by turning your head right. `z` is the centre of
- * the panel along the wall, `width` its length along the wall.
+ * On the right side wall: letters painted straight onto the boards, each
+ * under a bulb on a sagging string, between the wainscot and the fairy
+ * lights, in the stretch of wall beside the chimney that a portrait phone
+ * still sees with your head turned fully right. `z` is the
+ * centre of the painted area along the wall, `width` its length along the
+ * wall, `y` its centre height.
  */
 export const ALPHABET_WALL = {
-  z: -1.1,
-  y: 1.95,
-  width: 1.8,
-  height: 1.3,
+  z: -0.8,
+  y: 2.48,
+  width: 2.3,
+  height: 1.9,
   rows: ["ABCDEFGH", "IJKLMNOPQ", "RSTUVWXYZ"],
 } as const;
 
