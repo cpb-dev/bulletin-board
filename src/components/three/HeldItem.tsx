@@ -136,6 +136,7 @@ function HeldNote({
         text: item.content,
         bg: paper.bg,
         ink: paper.ink,
+        pattern: paper.pattern,
         footer,
         shape,
         seed,
@@ -143,7 +144,7 @@ function HeldNote({
         height: 768,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [item.content, paper.bg, paper.ink, footer, shape, seed, fontsReady]
+    [item.content, paper.bg, paper.ink, paper.pattern, footer, shape, seed, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 

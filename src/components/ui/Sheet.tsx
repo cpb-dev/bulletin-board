@@ -45,11 +45,14 @@ export function Sheet({
 /** Round paper-colour swatch. */
 export function Swatch({
   color,
+  background,
   selected,
   label,
   onSelect,
 }: {
   color: string;
+  /** A CSS background to show instead of the flat colour (a printed paper). */
+  background?: string;
   selected: boolean;
   label: string;
   onSelect: () => void;
@@ -62,7 +65,7 @@ export function Swatch({
       onClick={onSelect}
       className="h-9 w-9 rounded-full border-4 transition-transform"
       style={{
-        background: color,
+        background: background ?? color,
         borderColor: selected ? "var(--ui-accent)" : "transparent",
         transform: selected ? "scale(1.12)" : undefined,
       }}

@@ -193,12 +193,17 @@ export function sampleNotes(theme: BoardTheme): BoardItem[] {
     updated_at: "2026-09-25T12:00:00Z",
   });
   const papers = theme.papers.map((p) => p.id);
+  // A theme's own extra shapes (BB-46: the Cabin's tree) join the row.
+  const allShapes = [...shapes, ...(theme.extraShapes ?? [])];
+  // Up to six a row keep their original spacing; longer rows close up
+  // so they stay on the board.
+  const step = (n: number) => Math.min(0.32, 1.6 / Math.max(1, n - 1));
   return [
-    ...shapes.map((shape, i) =>
-      note(i, papers[(i + 1) % papers.length], shape, -0.8 + i * 0.32, 0.45)
+    ...allShapes.map((shape, i) =>
+      note(i, papers[(i + 1) % papers.length], shape, -0.8 + i * step(allShapes.length), 0.45)
     ),
     ...papers.map((paper, i) =>
-      note(10 + i, paper, null, -0.8 + i * 0.32, -0.4)
+      note(10 + i, paper, null, -0.8 + i * step(papers.length), -0.4)
     ),
   ];
 }

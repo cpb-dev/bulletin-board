@@ -12,12 +12,20 @@
 import type { ComponentType } from "react";
 import type { Texture } from "three";
 import type { DayCycle, DayPhase } from "@/lib/day-cycle";
+import type { NoteShape } from "@/lib/note-shape";
+import type { PaperPattern } from "@/lib/paper-pattern";
 
 export interface PaperColor {
   id: string;
   name: string;
   bg: string;
   ink: string;
+  /**
+   * A print over the colour (BB-46): candy-cane stripes, tartan, kraft
+   * with twine, snowflakes. Optional and opt-in, so plain papers, and
+   * every note on them, draw exactly as they always have.
+   */
+  pattern?: PaperPattern;
 }
 
 /**
@@ -57,6 +65,12 @@ export interface BoardTheme {
   pins: string[];
   /** Note paper choices offered in the editor. */
   papers: PaperColor[];
+  /**
+   * Note shapes this theme adds to its picker on top of the shared set,
+   * e.g. Christmas Cabin's tree (BB-46). Absent for most themes, whose
+   * picker is unchanged.
+   */
+  extraShapes?: NoteShape[];
   /** Colour of the fairy-light string draped over the board. */
   garland: string;
   decorations: "cabin" | "cottage" | "night" | "meadow" | "summer";

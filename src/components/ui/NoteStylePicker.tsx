@@ -1,13 +1,15 @@
 "use client";
 
 import type { BoardTheme } from "@/themes";
-import { NOTE_SHAPES, shapeIconPath, type NoteShape } from "@/lib/note-shape";
+import { shapeIconPath, shapesFor, type NoteShape } from "@/lib/note-shape";
+import { swatchBackground } from "@/lib/paper-pattern";
 import { Swatch } from "./Sheet";
 
 /**
  * Colour and shape for a note (BB-24). Colours are the preset papers of
- * the theme on screen; shapes are the same set on every board. The shape
- * icons are filled with the chosen colour, so the row doubles as a
+ * the theme on screen (printed papers show their print); shapes are the
+ * same set on every board, plus any the theme adds (Christmas Cabin's
+ * tree). The shape icons are filled with the chosen colour, so the row doubles as a
  * preview of the finished note.
  */
 export function NoteStylePicker({
@@ -36,6 +38,7 @@ export function NoteStylePicker({
           <Swatch
             key={p.id}
             color={p.bg}
+            background={p.pattern ? swatchBackground(p.bg, p.pattern) : undefined}
             label={p.name}
             selected={paper === p.id}
             onSelect={() => onPaper(p.id)}
@@ -48,7 +51,7 @@ export function NoteStylePicker({
         className="flex flex-wrap items-center gap-2"
       >
         <span className="w-12 text-sm opacity-75">shape</span>
-        {NOTE_SHAPES.map((s) => {
+        {shapesFor(theme.extraShapes).map((s) => {
           const selected = shape === s.id;
           return (
             <button

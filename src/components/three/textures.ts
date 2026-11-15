@@ -1,6 +1,8 @@
 "use client";
 
 import * as THREE from "three";
+import { drawPaperPattern } from "./paper-patterns";
+import type { PaperPattern } from "@/lib/paper-pattern";
 import { wrapLines } from "@/lib/board-geometry";
 import {
   noteLayout,
@@ -103,6 +105,11 @@ export interface NoteTextureOptions {
   shape?: NoteShape;
   /** Seeds a shape's irregular edge (the torn page), per note. */
   seed?: number;
+  /**
+   * A printed paper (BB-46), drawn over `bg` inside the paper's outline.
+   * Absent for every plain paper, which then draws exactly as before.
+   */
+  pattern?: PaperPattern;
   width?: number;
   height?: number;
 }
@@ -135,6 +142,13 @@ export function drawNoteTexture(
       // Heart-shaped paper with a soft highlight on the left lobe.
       heartPath(ctx, w, h);
       ctx.fill();
+      if (options.pattern) {
+        ctx.save();
+        heartPath(ctx, w, h);
+        ctx.clip();
+        drawPaperPattern(ctx, options.pattern, w, h);
+        ctx.restore();
+      }
       const shine = ctx.createRadialGradient(
         w * 0.34,
         h * 0.28,
@@ -154,6 +168,13 @@ export function drawNoteTexture(
       // Paper with slightly irregular hand-cut edges.
       roundRect(ctx, 6, 6, w - 12, h - 12, 18);
       ctx.fill();
+      if (options.pattern) {
+        ctx.save();
+        roundRect(ctx, 6, 6, w - 12, h - 12, 18);
+        ctx.clip();
+        drawPaperPattern(ctx, options.pattern, w, h);
+        ctx.restore();
+      }
       // A faint top strip where the paper catches the light.
       ctx.fillStyle = "rgba(255,255,255,0.35)";
       roundRect(ctx, 6, 6, w - 12, 26, 12);
@@ -251,6 +272,7 @@ function drawOutlinedPaper(
   ctx.save();
   trace();
   ctx.clip();
+  if (options.pattern) drawPaperPattern(ctx, options.pattern, w, h);
   const shine = ctx.createRadialGradient(
     w * 0.3,
     h * 0.22,

@@ -55,7 +55,8 @@ grows. Always re-derive before relying on it (see *Deriving the surface*).
 | `src/themes/index.ts`, `scenes.ts`, `types.ts`, `groups.ts` | the catalogue and its types |
 | `src/lib/board-geometry.ts`, `src/lib/store.ts` | coordinates and state |
 | `src/lib/note-shape.ts`, `src/components/three/note-shape-geometry.ts` | every note's shape (BB-24); a null `shape` must keep resolving to the legacy look (`paper = "heart"` is a heart, else square) — live rows and archived boards depend on it |
-| `src/components/ui/NoteStylePicker.tsx` | the colour and shape picker in the composer and editor, on every board |
+| `src/components/ui/NoteStylePicker.tsx` | the colour and shape picker in the composer and editor, on every board; offers a theme's `extraShapes` (BB-46) only on that theme |
+| `src/lib/paper-pattern.ts`, `src/components/three/paper-patterns.ts` | printed papers (BB-46); only drawn for a paper with a `pattern`, so plain papers on every theme draw exactly as before |
 | `src/lib/dev-preview.ts`, `src/components/dev/` | dev mode (BB-36); runs inside every board, but only changes anything when the server says the viewer is in `DEV_EMAILS` |
 | `src/lib/theme-status.ts` | which themes the picker offers (BB-36); filters the picker only, never rendering |
 
