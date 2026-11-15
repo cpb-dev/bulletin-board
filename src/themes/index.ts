@@ -26,6 +26,7 @@ import { palette as rosePicnic } from "./rose-picnic/palette";
 import { palette as hauntedHollow } from "./haunted-hollow/palette";
 import { palette as beachHut } from "./beach-hut/palette";
 import { palette as christmasCabin } from "./christmas-cabin/palette";
+import { palette as greatHall } from "./great-hall/palette";
 import { palette as starsHollow } from "./stars-hollow/palette";
 import { THEME_GROUPS, type ThemeGroup } from "./groups";
 import type { BoardTheme, PaperColor } from "./types";
@@ -55,6 +56,7 @@ export const THEMES: BoardTheme[] = [
   hauntedHollow,
   beachHut,
   christmasCabin,
+  greatHall,
   // tv
   starsHollow,
 ];

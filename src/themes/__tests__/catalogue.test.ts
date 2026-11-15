@@ -59,6 +59,7 @@ describe("theme catalogue", () => {
     const outdoor = [
       "beach-hut",
       "christmas-cabin",
+      "great-hall",
       "haunted-hollow",
       "world-cup",
       "rose-picnic",
@@ -112,6 +113,7 @@ describe("theme groups", () => {
     expect(groupOf("haunted-hollow")).toBe("seasonal");
     expect(groupOf("beach-hut")).toBe("seasonal");
     expect(groupOf("christmas-cabin")).toBe("seasonal");
+    expect(groupOf("great-hall")).toBe("seasonal");
     expect(groupOf("stars-hollow")).toBe("tv");
   });
 
@@ -191,5 +193,9 @@ describe("day/night cycle (BB-21)", () => {
 
   it("is on Christmas Cabin with all three phases, for the world outside", () => {
     expect(getThemeModule("christmas-cabin").dayCycle).toEqual({ phases: 3 });
+  });
+
+  it("is on the Great Hall with all three phases, for its enchanted ceiling", () => {
+    expect(getThemeModule("great-hall").dayCycle).toEqual({ phases: 3 });
   });
 });

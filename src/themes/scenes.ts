@@ -20,6 +20,7 @@ import { rosePicnic } from "./rose-picnic";
 import { hauntedHollow } from "./haunted-hollow";
 import { beachHut } from "./beach-hut";
 import { christmasCabin } from "./christmas-cabin";
+import { greatHall } from "./great-hall";
 import { starsHollow } from "./stars-hollow";
 import type { ThemeModule } from "./types";
 
@@ -38,6 +39,7 @@ export const THEME_MODULES: ThemeModule[] = [
   hauntedHollow,
   beachHut,
   christmasCabin,
+  greatHall,
   // tv
   starsHollow,
 ];
