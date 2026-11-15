@@ -77,7 +77,7 @@ export function Events({ phase, shared }: { phase: DayPhase; shared: OutdoorUnif
 
   return (
     <group>
-      <SnowballFx current={current} shared={shared} />
+      <SnowballFx current={current} shared={shared} phase={phase} />
       <Cardinal ref={cardinal} wings={wings} head={head} shared={shared} />
       <Sleigh ref={santa} phase={phase} />
       <ShootingStarFx current={current} />
@@ -91,72 +91,147 @@ type Current = { kind: string; p: number; seed: number } | null;
 // ---- snowball ---------------------------------------------------------------
 
 /**
- * A clump of snow, splattered: a dense middle, ragged lobes, flecks and
- * drips. Seen from inside it's backlit by the day, so its thick middle
- * is shadowed grey-blue and its thin edges glow pale — that's what lets
- * it read against a white snowy view. The room's own light then warms it.
+ * A snowball's splat on the glass: one packed clump with a ragged,
+ * jagged edge, splatter thrown outward in streaks and flecks, a few
+ * tapering drips, and a fine granular texture. Seen from inside, the day
+ * is behind it, so the thick middle is shaded grey-blue and the thin
+ * edges are pale — which is what lets it read against white snow.
  */
 function makeSplatTexture(): THREE.CanvasTexture {
-  const s = 256;
+  const s = 512;
   const c = document.createElement("canvas");
   c.width = c.height = s;
   const ctx = c.getContext("2d")!;
   const r = mulberry32(99);
-  const blob = (x: number, y: number, rad: number, a: number) => {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    // Thick (shadowed) in the middle, thin (bright) towards the edge.
-    g.addColorStop(0, `rgba(118,128,150,${a})`);
-    g.addColorStop(0.6, `rgba(178,188,206,${a})`);
-    g.addColorStop(0.85, `rgba(240,244,252,${a * 0.9})`);
-    g.addColorStop(1, "rgba(250,252,255,0)");
-    ctx.fillStyle = g;
+  const cx = s / 2;
+  const cy = s * 0.46;
+
+  /** An irregular blob: radius wobbling round the circle, with spikes. */
+  const clump = (x: number, y: number, rad: number, spikes: number, seed: number) => {
+    const rr = mulberry32(seed);
+    const phases = [rr() * 6, rr() * 6, rr() * 6];
     ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fill();
+    const steps = 96;
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      let k = 1 + 0.16 * Math.sin(a * 3 + phases[0]) + 0.1 * Math.sin(a * 5 + phases[1]) + 0.06 * Math.sin(a * 11 + phases[2]);
+      // Sharp splash points.
+      const spike = Math.pow(Math.max(0, Math.sin(a * spikes + phases[0] * 2)), 12);
+      k += spike * (0.35 + rr() * 0.25);
+      const px = x + Math.cos(a) * rad * k;
+      const py = y + Math.sin(a) * rad * k;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
   };
-  blob(s / 2, s / 2, s * 0.3, 1);
-  blob(s / 2 + s * 0.04, s / 2 - s * 0.03, s * 0.22, 1);
-  // Lobes thrown outward, and streaks where it smeared.
-  for (let i = 0; i < 14; i++) {
+
+  const fill = (x: number, y: number, rad: number) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 1.3);
+    g.addColorStop(0, "rgba(176,188,208,1)");
+    g.addColorStop(0.55, "rgba(214,222,236,1)");
+    g.addColorStop(1, "rgba(246,249,255,1)");
+    return g;
+  };
+
+  // Splatter streaks thrown outward from the impact.
+  for (let i = 0; i < 16; i++) {
     const a = r() * Math.PI * 2;
-    const d = s * (0.16 + r() * 0.16);
-    blob(s / 2 + Math.cos(a) * d, s / 2 + Math.sin(a) * d, s * (0.07 + r() * 0.08), 1);
+    const d0 = s * 0.16;
+    const d1 = s * (0.26 + r() * 0.16);
+    const w = 3 + r() * 6;
+    ctx.strokeStyle = "rgba(232,238,248,0.95)";
+    ctx.lineWidth = w;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * d0, cy + Math.sin(a) * d0);
+    ctx.lineTo(cx + Math.cos(a) * d1, cy + Math.sin(a) * d1);
+    ctx.stroke();
+    // A blob at the end of each streak.
+    ctx.fillStyle = "rgba(236,241,250,0.98)";
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * d1, cy + Math.sin(a) * d1, w * 0.9, 0, Math.PI * 2);
+    ctx.fill();
   }
-  for (let i = 0; i < 22; i++) {
-    const a = r() * Math.PI * 2;
-    const d = s * (0.28 + r() * 0.2);
-    blob(s / 2 + Math.cos(a) * d, s / 2 + Math.sin(a) * d, 2 + r() * 5, 0.9);
-  }
-  // A few drips running down.
+  // Tapering drips running down from the clump.
   for (let i = 0; i < 4; i++) {
-    const x = s / 2 + (r() - 0.5) * s * 0.3;
-    ctx.fillStyle = "rgba(205,212,226,0.85)";
-    ctx.fillRect(x - 3, s / 2, 6, s * (0.2 + r() * 0.15));
-    blob(x, s / 2 + s * 0.36, 6, 0.85);
+    const x = cx + (r() - 0.5) * s * 0.26;
+    const top = cy + s * 0.08;
+    const len = s * (0.16 + r() * 0.16);
+    const w = 6 + r() * 6;
+    ctx.fillStyle = "rgba(222,230,244,0.95)";
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, top);
+    ctx.quadraticCurveTo(x - w * 0.3, top + len * 0.7, x, top + len);
+    ctx.quadraticCurveTo(x + w * 0.3, top + len * 0.7, x + w / 2, top);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, top + len, w * 0.45, 0, Math.PI * 2);
+    ctx.fill();
   }
-  return new THREE.CanvasTexture(c);
+  // The clump itself, and a couple of smaller ones knocked off it.
+  clump(cx, cy, s * 0.17, 7, 1);
+  ctx.fillStyle = fill(cx, cy, s * 0.17);
+  ctx.fill();
+  for (let i = 0; i < 3; i++) {
+    const a = r() * Math.PI * 2;
+    const d = s * (0.2 + r() * 0.06);
+    const x = cx + Math.cos(a) * d;
+    const y = cy + Math.sin(a) * d;
+    const rad = s * (0.035 + r() * 0.03);
+    clump(x, y, rad, 5, 10 + i);
+    ctx.fillStyle = fill(x, y, rad);
+    ctx.fill();
+  }
+  // Fine flecks round it all.
+  ctx.fillStyle = "rgba(240,244,252,0.95)";
+  for (let i = 0; i < 70; i++) {
+    const a = r() * Math.PI * 2;
+    const d = s * (0.2 + r() * 0.26);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1 + r() * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Granular snow: tiny light and shadow grains over the painted snow only.
+  ctx.globalCompositeOperation = "source-atop";
+  for (let i = 0; i < 5000; i++) {
+    const v = r() < 0.5 ? 255 : 150;
+    ctx.fillStyle = `rgba(${v},${v + (v < 200 ? 10 : 0)},${v + (v < 200 ? 30 : 0)},0.18)`;
+    ctx.fillRect(r() * s, r() * s, 1.5, 1.5);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
 }
+
+/** The splat takes the daylight behind it, not the fire: a tint per phase. */
+const SPLAT_TINT: Record<DayPhase, string> = {
+  day: "#ffffff",
+  evening: "#f4e2ea",
+  night: "#aab6da",
+};
 
 const BURST = 14;
 
-function SnowballFx({ shared, current }: { shared: OutdoorUniforms; current: React.RefObject<Current> }) {
+function SnowballFx({
+  shared,
+  current,
+  phase,
+}: {
+  shared: OutdoorUniforms;
+  current: React.RefObject<Current>;
+  phase: DayPhase;
+}) {
   // A touch cool, so it shows against the white snow as it flies in.
   const ballMat = useMemo(() => makeOutdoorMaterial(shared, { color: "#9fadc4" }), [shared]);
   const splatTex = useMemo(makeSplatTexture, []);
-  const splatMat = useMemo(() => {
-    splatTex.colorSpace = THREE.SRGBColorSpace;
-    // Lit by the room (it's on the glass, facing in), with a little glow
-    // of its own so the daylight behind it still comes through.
-    return new THREE.MeshStandardMaterial({
-      map: splatTex,
-      emissiveMap: splatTex,
-      emissive: "#ffffff",
-      emissiveIntensity: 0.35,
-      transparent: true,
-      depthWrite: false,
-      roughness: 0.9,
-    });
-  }, [splatTex]);
+  // Not lit by the room: warm firelight on it read as orange smudges.
+  const splatMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ map: splatTex, color: SPLAT_TINT[phase], transparent: true, depthWrite: false, fog: false }),
+    [splatTex, phase]
+  );
   const burst = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(BURST * 3), 3));

@@ -70,7 +70,7 @@ export const ChristmasCabinScene: ThemeScene = ({ theme, phase = "day" }) => {
       <AlphabetWall />
       <ChristmasTree />
       <Presents />
-      <SnowWindow gradient={gradient} />
+      <SnowWindow gradient={gradient} phase={phase} />
       <Outdoor phase={phase} />
       <Tinsel />
     </group>
