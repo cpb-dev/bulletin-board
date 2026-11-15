@@ -70,12 +70,13 @@ export function NoteMesh({
         text: content,
         bg: paper.bg,
         ink: paper.ink,
+        pattern: paper.pattern,
         footer,
         shape,
         seed,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [content, paper.bg, paper.ink, footer, shape, seed, fontsReady]
+    [content, paper.bg, paper.ink, paper.pattern, footer, shape, seed, fontsReady]
   );
   useEffect(() => () => texture.dispose(), [texture]);
 

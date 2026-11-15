@@ -13,7 +13,7 @@
  * keepsake exports therefore look as they did when they were saved.
  */
 
-export type NoteShape = "square" | "heart" | "circle" | "star" | "cloud" | "torn";
+export type NoteShape = "square" | "heart" | "circle" | "star" | "cloud" | "torn" | "tree";
 
 export interface NoteShapeOption {
   id: NoteShape;
@@ -30,8 +30,22 @@ export const NOTE_SHAPES: readonly NoteShapeOption[] = [
   { id: "torn", name: "Torn page" },
 ];
 
+/**
+ * Shapes a theme can add to its own picker (`BoardTheme.extraShapes`), on
+ * top of the shared set. They render on any board, like every other
+ * shape — a tree note stays a tree if its board changes theme — but only
+ * the themes that opt in offer them.
+ */
+export const THEME_SHAPES: readonly NoteShapeOption[] = [{ id: "tree", name: "Christmas tree" }];
+
 export function isNoteShape(value: unknown): value is NoteShape {
-  return NOTE_SHAPES.some((s) => s.id === value);
+  return NOTE_SHAPES.some((s) => s.id === value) || THEME_SHAPES.some((s) => s.id === value);
+}
+
+/** The shapes a theme's picker offers: the shared set, then its extras. */
+export function shapesFor(extra: readonly NoteShape[] | undefined): readonly NoteShapeOption[] {
+  if (!extra?.length) return NOTE_SHAPES;
+  return [...NOTE_SHAPES, ...THEME_SHAPES.filter((s) => extra.includes(s.id))];
 }
 
 /**
@@ -158,6 +172,33 @@ function torn(seed: number): Pt[] {
 }
 
 /**
+ * A Christmas tree cut out of paper: three drooping tiers to a point, on
+ * a short trunk. Symmetric, so it's built down the right side and
+ * mirrored back up the left.
+ */
+function tree(): Pt[] {
+  const right: Pt[] = [
+    [0.5, 0.03],
+    [0.6, 0.17],
+    [0.7, 0.3], // tier 1's tip
+    [0.66, 0.315],
+    [0.62, 0.31], // step in
+    [0.71, 0.44],
+    [0.8, 0.56], // tier 2
+    [0.75, 0.575],
+    [0.7, 0.57],
+    [0.81, 0.71],
+    [0.93, 0.84], // tier 3
+    [0.84, 0.865],
+    [0.72, 0.87],
+    [0.58, 0.86], // under the branches
+    [0.58, 0.97], // trunk
+  ];
+  const left = right.slice(1).reverse().map(([x, y]) => [1 - x, y] as Pt);
+  return [...right, ...left];
+}
+
+/**
  * The outline of an outlined shape, as a closed polygon in the unit square
  * (canvas-style, y down). Returns null for square and heart, which keep
  * their original full-plane rendering.
@@ -172,6 +213,8 @@ export function noteOutline(shape: NoteShape, seed = 0): Pt[] | null {
       return star();
     case "torn":
       return torn(seed);
+    case "tree":
+      return tree();
     default:
       return null;
   }
@@ -214,6 +257,9 @@ export function noteLayout(shape: NoteShape): NoteLayout | null {
       return { left: 0.34, right: 0.66, top: 0.4, bottom: 0.64, footerY: 0.7, footerWidth: 0.3 };
     case "torn":
       return { left: 0.09, right: 0.91, top: 0.16, bottom: 0.83, footerY: 0.9, footerWidth: 0.8 };
+    case "tree":
+      // Down the middle two tiers; the stamp along the bottom tier.
+      return { left: 0.33, right: 0.67, top: 0.42, bottom: 0.76, footerY: 0.81, footerWidth: 0.5 };
     default:
       return null;
   }

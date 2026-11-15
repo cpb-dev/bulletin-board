@@ -43,7 +43,14 @@ export const palette: BoardTheme = {
     { id: "holly", name: "Holly", bg: "#d6ead2", ink: "#1f4d2c" },
     { id: "berry", name: "Berry", bg: "#f6d0cc", ink: "#7a1f1f" },
     { id: "gold", name: "Gold", bg: "#fbe7a8", ink: "#6b4a14" },
+    // Printed papers (BB-46). Ids are permanent once a note uses them.
+    { id: "candy-cane", name: "Candy cane", bg: "#fffaf4", ink: "#8f1d22", pattern: "candy" },
+    { id: "tartan", name: "Tartan", bg: "#a8242c", ink: "#fff4e2", pattern: "tartan" },
+    { id: "kraft", name: "Kraft & twine", bg: "#a8794a", ink: "#2b1a0c", pattern: "kraft" },
+    { id: "snowflake", name: "Snowflake", bg: "#41639a", ink: "#f6f8ff", pattern: "snowflakes" },
   ],
+  // A note cut out in the shape of a Christmas tree.
+  extraShapes: ["tree"],
   garland: "#d93b3b",
   decorations: "cabin",
   ui: {

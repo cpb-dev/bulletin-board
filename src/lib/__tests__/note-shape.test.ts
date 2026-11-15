@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NOTE_SHAPES,
+  THEME_SHAPES,
   isOutlinedShape,
   legacyShape,
   noteLayout,
@@ -12,6 +13,7 @@ import {
   shapeIconPath,
   shapeSeed,
   shapeToStore,
+  shapesFor,
   type NoteShape,
 } from "../note-shape";
 
@@ -69,7 +71,7 @@ describe("legacyShape", () => {
 });
 
 describe("outlines", () => {
-  const outlined = NOTE_SHAPES.map((s) => s.id).filter(isOutlinedShape);
+  const outlined = [...NOTE_SHAPES, ...THEME_SHAPES].map((s) => s.id).filter(isOutlinedShape);
 
   it("leaves square and heart to their original drawing", () => {
     expect(noteOutline("square")).toBeNull();
@@ -119,7 +121,7 @@ describe("outlines", () => {
   });
 
   it("has a pin inside the paper for every pinned shape", () => {
-    for (const { id } of NOTE_SHAPES) {
+    for (const { id } of [...NOTE_SHAPES, ...THEME_SHAPES]) {
       const a = pinAnchor(id as NoteShape);
       if (a === null) continue;
       const pts = noteOutline(id, 1);
@@ -152,5 +154,43 @@ describe("shapeAfterPaperChange", () => {
   it("keeps a picked shape when the colour changes", () => {
     expect(shapeAfterPaperChange("star", true, "heart")).toBe("star");
     expect(shapeAfterPaperChange("heart", true, "petal")).toBe("heart");
+  });
+});
+
+describe("theme shapes (the Christmas tree)", () => {
+  it("leaves the shared picker exactly as it was", () => {
+    expect(NOTE_SHAPES.map((s) => s.id)).toEqual(["square", "heart", "circle", "cloud", "star", "torn"]);
+    expect(shapesFor(undefined)).toBe(NOTE_SHAPES);
+    expect(shapesFor([])).toBe(NOTE_SHAPES);
+  });
+
+  it("adds a theme's extras after the shared set", () => {
+    expect(shapesFor(["tree"]).map((s) => s.id)).toEqual([
+      "square",
+      "heart",
+      "circle",
+      "cloud",
+      "star",
+      "torn",
+      "tree",
+    ]);
+  });
+
+  it("renders a stored tree on any board", () => {
+    expect(resolveNoteShape({ paper: "butter", shape: "tree" })).toBe("tree");
+    expect(shapeToStore("tree", "snow")).toBe("tree");
+  });
+
+  it("is a tree: a point at the top, wide at the bottom, a trunk", () => {
+    const pts = noteOutline("tree")!;
+    expect(pointInOutline(pts, 0.5, 0.06)).toBe(true); // the tip
+    expect(pointInOutline(pts, 0.3, 0.1)).toBe(false); // beside the tip
+    expect(pointInOutline(pts, 0.88, 0.82)).toBe(true); // bottom tier
+    expect(pointInOutline(pts, 0.5, 0.94)).toBe(true); // trunk
+    expect(pointInOutline(pts, 0.3, 0.94)).toBe(false); // beside the trunk
+    // Mirror-symmetric: every point has its reflection in the outline.
+    const key = ([x, y]: readonly [number, number]) => `${x.toFixed(4)},${y.toFixed(4)}`;
+    const all = new Set(pts.map(key));
+    for (const [x, y] of pts) expect(all.has(key([1 - x, y]))).toBe(true);
   });
 });

@@ -29,8 +29,9 @@ const PINNED: Record<string, string> = {
   "stars-hollow": "73e3bdcb",
   // BB-35, still under construction: room colours changed deliberately
   // when the room was detailed and then made cosier (knotty pine, deep
-  // oak, Fair Isle rug). No board can have saved anything on it yet.
-  "christmas-cabin": "e4065027",
+  // oak, Fair Isle rug). BB-46 then added four printed papers and the
+  // tree shape, keeping the original four papers' ids and colours.
+  "christmas-cabin": "21337b7f",
 };
 
 /** JSON with keys in a fixed order, so reordering a palette isn't "drift". */
