@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mulberry32 } from "@/components/three/textures";
-import { ROOM } from "../../lib/layout";
+import { ROOM, SNOW_WINDOW } from "../../lib/layout";
 import { makeGrainStrip, makePlankTextures } from "./textures";
 
 /** Wall board tile size, in metres. */
@@ -50,11 +50,35 @@ export function Walls() {
     c.needsUpdate = true;
     return c;
   };
-  const backTex = useMemo(
-    () => ({ map: repeated(pine, halfWidth * 2), bump: repeated(pineBump, halfWidth * 2) }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pine, pineBump, halfWidth]
-  );
+  // The back wall is a shape with the window cut out of it, and a
+  // shape's UVs are its outline in metres: one tile per BOARD_TILE.
+  const backTex = useMemo(() => {
+    const per = (t: THREE.Texture) => {
+      const c = t.clone();
+      c.repeat.set(1 / BOARD_TILE, 1 / BOARD_TILE);
+      c.needsUpdate = true;
+      return c;
+    };
+    return { map: per(pine), bump: per(pineBump) };
+  }, [pine, pineBump]);
+  const backWall = useMemo(() => {
+    const s = new THREE.Shape();
+    s.moveTo(-halfWidth, 0);
+    s.lineTo(halfWidth, 0);
+    s.lineTo(halfWidth, height);
+    s.lineTo(-halfWidth, height);
+    s.closePath();
+    const { x, y, width: w, height: h } = SNOW_WINDOW;
+    const hole = new THREE.Path();
+    hole.moveTo(x - w / 2, y - h / 2);
+    hole.lineTo(x - w / 2, y + h / 2);
+    hole.lineTo(x + w / 2, y + h / 2);
+    hole.lineTo(x + w / 2, y - h / 2);
+    hole.closePath();
+    s.holes.push(hole);
+    return new THREE.ShapeGeometry(s);
+  }, [halfWidth, height]);
+  useEffect(() => () => backWall.dispose(), [backWall]);
   const sideTex = useMemo(
     () => ({ map: repeated(pine, depth), bump: repeated(pineBump, depth) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,9 +87,8 @@ export function Walls() {
 
   return (
     <group>
-      {/* back wall */}
-      <mesh position={[0, height / 2, backZ]} receiveShadow>
-        <planeGeometry args={[halfWidth * 2, height]} />
+      {/* back wall, with the window's opening cut out */}
+      <mesh geometry={backWall} position={[0, 0, backZ]} receiveShadow>
         <meshStandardMaterial map={backTex.map} bumpMap={backTex.bump} bumpScale={1.2} roughness={0.7} />
       </mesh>
       {/* side walls */}

@@ -12,4 +12,6 @@ export const christmasCabin: ThemeModule = {
   palette,
   Scene: ChristmasCabinScene,
   BoardDecor: BoardGarland,
+  // The world through the window follows the time of day (BB-21).
+  dayCycle: { phases: 3 },
 };
